@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="..\..\ArrowGame.uproject" />
+    <Filter Include="Source">
+      <UniqueIdentifier>{F31BBDD1-B3E8-3BCC-9652-680E16935819}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\ArrowGame.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <None Include="..\..\Source\ArrowGameEditor.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <None Include="..\..\.vsconfig" />
+    <Filter Include="Config">
+      <UniqueIdentifier>{FA535FFB-25E1-3D20-B416-52F9BE21E06E}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Config\DefaultEditor.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEditorPerProjectUserSettings.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEngine.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultGame.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultInput.ini">
+      <Filter>Config</Filter>
+    </None>
+    <Filter Include="Source\ArrowGame">
+      <UniqueIdentifier>{7027D417-A998-34DE-A443-5D65F43BF93E}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\ArrowGame\AICharacter.cpp">
+      <Filter>Source\ArrowGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\ArrowGame\AICharacter.h">
+      <Filter>Source\ArrowGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\ArrowGame\ArrowCharacter.cpp">
+      <Filter>Source\ArrowGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\ArrowGame\ArrowCharacter.h">
+      <Filter>Source\ArrowGame</Filter>
+    </ClInclude>
+    <None Include="..\..\Source\ArrowGame\ArrowGame.Build.cs">
+      <Filter>Source\ArrowGame</Filter>
+    </None>
+    <ClCompile Include="..\..\Source\ArrowGame\ArrowGame.cpp">
+      <Filter>Source\ArrowGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\ArrowGame\ArrowGame.h">
+      <Filter>Source\ArrowGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\ArrowGame\ArrowGameGameMode.cpp">
+      <Filter>Source\ArrowGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\ArrowGame\ArrowGameGameMode.h">
+      <Filter>Source\ArrowGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\ArrowGame\ArrowGamePlayerController.cpp">
+      <Filter>Source\ArrowGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\ArrowGame\ArrowGamePlayerController.h">
+      <Filter>Source\ArrowGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\ArrowGame\ArrowProjectile.cpp">
+      <Filter>Source\ArrowGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\ArrowGame\ArrowProjectile.h">
+      <Filter>Source\ArrowGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\ArrowGame\HealthComponent.cpp">
+      <Filter>Source\ArrowGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\ArrowGame\HealthComponent.h">
+      <Filter>Source\ArrowGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\ArrowGame\UserCharacter.cpp">
+      <Filter>Source\ArrowGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\ArrowGame\UserCharacter.h">
+      <Filter>Source\ArrowGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\ArrowGame\UserCharacterAnimInstance.cpp">
+      <Filter>Source\ArrowGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\ArrowGame\UserCharacterAnimInstance.h">
+      <Filter>Source\ArrowGame</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
