@@ -369,6 +369,8 @@ Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
+Content/
+Config/
 #
 Script/
 Shaders/
