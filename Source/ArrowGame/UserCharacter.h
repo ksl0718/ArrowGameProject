@@ -5,7 +5,9 @@
 #include "CoreMinimal.h"
 #include "ArrowCharacter.h"
 #include "InputActionValue.h"
+#include "Bow.h"
 #include "UserCharacter.generated.h"
+
 
 /**
  * 
@@ -19,8 +21,9 @@ public:
 
     void HandleDeath();
 
-    bool IsAiming() const { return bIsAiming; }
-    bool IsCharging() const { return bIsCharging; }
+	bool IsDead() const { return bIsDead; }
+    UPROPERTY(EditAnywhere, Category = "Movement")
+    bool bCanMove = true;
 
 protected:
     virtual void BeginPlay() override;
@@ -48,40 +51,24 @@ protected:
 
     // 카메라
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+    class USpringArmComponent* CameraBoom;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class UCameraComponent* FollowCamera;
 
-    // 조준 상태
-    bool bIsAiming = false;
+   
 
     // FOV 보간용
-    UPROPERTY(EditAnywhere, Category = "Camera")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
     float NormalFOV = 90.f;
 
-    UPROPERTY(EditAnywhere, Category = "Camera")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
     float AimFOV = 65.f;
 
-    UPROPERTY(EditAnywhere, Category = "Camera")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
     float AimInterpSpeed = 15.f;
 
-    //Charging 관련 변수
-    bool bIsCharging = false;
-    bool bIsTired = false;
-    float ChargeTime = 0.f;
-
-    UPROPERTY(EditAnywhere, Category = "Arrow|Charge")
-    float MaxChargeTime = 1.0f;  // 최대 차징 시간
-
-    UPROPERTY(EditAnywhere, Category = "Arrow|Charge")
-    float TiredThreshold = 3.0f; // 힘든 구간
-
-    UPROPERTY(EditAnywhere, Category = "Arrow|Charge")
-    float AutoReleaseTime = 5.0f; // 강제 발시 구간
-
-    UPROPERTY(EditAnywhere, Category = "Arrow|Charge")
-    float MinArrowSpeed = 2000.f;
-
-    UPROPERTY(EditAnywhere, Category = "Arrow|Charge")
-    float MaxArrowSpeed = 6000.f;
+    
 
     // 이동 / 시야 / 조준 / 발사 함수
     void Move(const FInputActionValue& Value);

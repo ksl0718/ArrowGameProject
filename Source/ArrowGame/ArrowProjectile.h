@@ -4,6 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/ProjectileMovementComponent.h"  
+#include "Components/BoxComponent.h"                     
+#include "Components/StaticMeshComponent.h"              
+#include "NiagaraComponent.h"                            
 #include "ArrowProjectile.generated.h"
 
 UCLASS()
@@ -14,6 +18,11 @@ class ARROWGAME_API AArrowProjectile : public AActor
 public:	
 	// Sets default values for this actor's properties
 	AArrowProjectile();
+
+	UProjectileMovementComponent* GetProjectileMovement() const { return ProjectileMovement; }
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Effects", meta = (AllowPrivateAccess = "true"))
+	class UNiagaraComponent* TrailNiagara;
 
 protected:
 	// Called when the game starts or when spawned
@@ -31,11 +40,14 @@ public:
 
 	void FireInDirection(const FVector& ShootDirection);
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class UBoxComponent* CollisionBox;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UStaticMeshComponent* ArrowMesh;
+	class UStaticMeshComponent* ArrowMesh;
 
 	UFUNCTION(BlueprintCallable)
-	void InitVelocity(float Speed);
+	void InitVelocity(const FVector& Velocity);
 
 private:
 	UPROPERTY(EditAnyWhere)
@@ -44,6 +56,5 @@ private:
 	UPROPERTY(EditAnywhere)
 	float Damage = 50.f;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Effects", meta = (AllowPrivateAccess = "true"))
-	class UNiagaraComponent* TrailNiagara;
+	bool bStuck = false;
 };

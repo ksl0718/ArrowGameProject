@@ -6,6 +6,8 @@
 #include "GameFramework/Character.h"
 #include "ArrowCharacter.generated.h"
 
+class AWeapon;
+
 UCLASS()
 class ARROWGAME_API AArrowCharacter : public ACharacter
 {
@@ -17,10 +19,19 @@ public:
 
     virtual void Die();
 
+    UFUNCTION(BlueprintCallable)
+    virtual void EquipWeapon(AWeapon* NewWeapon);
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+    TSubclassOf<AWeapon> DefaultWeaponClass;
+    void PlayFireMontage();
+
 protected:
 
     virtual void BeginPlay() override;
-    virtual void FireArrow(const FRotator& FireDir, float Speed = 3000.f);
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "stats")
+    bool bIsDead = false;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
     float MaxHealth = 100.f;
@@ -28,15 +39,14 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
     float CurrentHealth;
 
-    UPROPERTY(EditDefaultsOnly, Category = "Combat")
-    TSubclassOf<class AArrowProjectile> ArrowProjectileClass;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
+    AWeapon* EquippedWeapon;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-    USceneComponent* ProjectileSpawnPoint;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
+    class UAnimMontage* FireMontage;
 
+	/*void PlayFireMontage();*/
     void HandleDeath();
 
     virtual void OnDeath();
-
-    bool bIsDead = false;
 };

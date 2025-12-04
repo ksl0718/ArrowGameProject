@@ -16,9 +16,6 @@ class ARROWGAME_API UUserCharacterAnimInstance : public UAnimInstance
 public:
     virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State")
-    bool IsAiming = false;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State")
-    bool IsCharging = false;
+    UFUNCTION(BlueprintCallable)
+    void SetCanMove(bool bNewCanMove);
 };

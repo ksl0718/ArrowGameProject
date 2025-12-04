@@ -8,10 +8,17 @@ void UUserCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
     Super::NativeUpdateAnimation(DeltaSeconds);
 
-    AUserCharacter* Character = Cast<AUserCharacter>(TryGetPawnOwner());
-    if (Character)
+}
+
+void UUserCharacterAnimInstance::SetCanMove(bool bNewCanMove)
+{
+    APawn* Pawn = TryGetPawnOwner();
+    if (Pawn)
     {
-        IsAiming = Character->IsAiming();
-        IsCharging = Character->IsCharging();
+        AUserCharacter* Character = Cast<AUserCharacter>(Pawn);
+        if (Character)
+        {
+            Character->bCanMove = bNewCanMove;
+        }
     }
 }

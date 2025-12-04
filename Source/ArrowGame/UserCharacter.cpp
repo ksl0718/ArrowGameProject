@@ -7,16 +7,17 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "InputActionValue.h"
 #include "ArrowProjectile.h"
+#include "Bow.h"
 
 AUserCharacter::AUserCharacter()
 {
     PrimaryActorTick.bCanEverTick = true;
 
     // 카메라 붐
-    USpringArmComponent* CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+    CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(RootComponent);
     CameraBoom->TargetArmLength = 250.f;
-    CameraBoom->bUsePawnControlRotation = true;
+    CameraBoom->bUsePawnControlRotation = false;
     CameraBoom->SocketOffset = FVector(0.f, 60.f, 60.f);
     CameraBoom->TargetOffset = FVector(0.f, 0.f, 30.f);
 
@@ -63,6 +64,8 @@ void AUserCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 
 void AUserCharacter::Move(const FInputActionValue& Value)
 {
+    if (!bCanMove) return;
+
     const FVector2D MovementVector = Value.Get<FVector2D>();
     if (Controller)
     {
@@ -84,13 +87,34 @@ void AUserCharacter::Look(const FInputActionValue& Value)
     AddControllerPitchInput(LookAxis.Y);
 }
 
+void AUserCharacter::StartAiming()
+{
+    if (!bCanMove) return;
+
+    // --- 조준 시 몸이 카메라 따라 돌도록 설정 ---
+    GetCharacterMovement()->bOrientRotationToMovement = false;
+    bUseControllerRotationYaw = true;
+
+    if (EquippedWeapon)
+    {
+        EquippedWeapon->StartAim();
+    }
+
+}
+
 void AUserCharacter::StartCharging()
 {
-    if (!bIsAiming) return;
 
-    bIsCharging = true;
-    bIsTired = false;
-    ChargeTime = 0.f;
+    if (!EquippedWeapon) return;
+
+    ABow* Bow = Cast<ABow>(EquippedWeapon);
+    if (!Bow || !Bow->IsAiming()) return;
+
+
+    if (EquippedWeapon)
+    {
+        EquippedWeapon->StartDraw();
+    }
 
     // TODO: 활 당기는 애니메이션 or 사운드 재생
     UE_LOG(LogTemp, Log, TEXT("Charging started."));
@@ -98,53 +122,31 @@ void AUserCharacter::StartCharging()
 
 void AUserCharacter::ReleaseArrow()
 {
-    if (!bIsCharging || !bIsAiming) return;
+    if (!EquippedWeapon) return;
 
-    bIsCharging = false;
-    bIsTired = false;
+    ABow* Bow = Cast<ABow>(EquippedWeapon);
+    if (!Bow) return;
 
-    float ChargeRatio = FMath::Clamp(ChargeTime / MaxChargeTime, 0.f, 1.f);
-    //속도 보간
-    float ArrowSpeed = FMath::Lerp(MinArrowSpeed, MaxArrowSpeed, ChargeRatio);
+    if (!Bow->IsCharging())
+        return;
 
-    // 라인트레이스
-    FVector CameraLoc;
-    FRotator CameraRot;
-    GetController()->GetPlayerViewPoint(CameraLoc, CameraRot);
-
-    FVector TraceStart = CameraLoc;
-    FVector TraceEnd = TraceStart + (CameraRot.Vector() * 10000.f);
-
-    FHitResult HitResult;
-    FCollisionQueryParams Params;
-    Params.AddIgnoredActor(this);
-
-    bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, Params);
-    // 맞은 곳이 있으면 거기로, 없으면 카메라 전방
-    FVector TargetPoint = bHit ? HitResult.ImpactPoint : TraceEnd;
-
-    //활 화살 스폰 포인트 -> 타겟 포인트를 바라보는 회전값 계산
-    FVector SpawnLoc = ProjectileSpawnPoint->GetComponentLocation();
-    FRotator SpawnRot = (TargetPoint - SpawnLoc).Rotation();
-
-    //발사
-    FireArrow(SpawnRot, ArrowSpeed);
-
-    UE_LOG(LogTemp, Log, TEXT("Released arrow! Charge: %.2f (Speed %.0f)"), ChargeRatio, ArrowSpeed);
-
-    ChargeTime = 0.f;
+    Bow->EndDraw();
 }
 
-void AUserCharacter::StartAiming()
-{
-    bIsAiming = true;
-    GetCharacterMovement()->MaxWalkSpeed = 200.f;
-}
+
 
 void AUserCharacter::StopAiming()
 {
-    bIsAiming = false;
     GetCharacterMovement()->MaxWalkSpeed = 300.f;
+    /// --- 조준 종료 시 다시 이동 방향 바라보게 ---
+    GetCharacterMovement()->bOrientRotationToMovement = true;
+    bUseControllerRotationYaw = false;
+
+    if (EquippedWeapon)
+    {
+        EquippedWeapon->StopAim();
+    }
+
 }
 
 void AUserCharacter::HandleDeath()
@@ -155,6 +157,8 @@ void AUserCharacter::HandleDeath()
 
 void AUserCharacter::OnDeath()
 {
+	bIsDead = true;
+
     DisableInput(Cast<APlayerController>(GetController()));
     FTimerHandle Timer;
     GetWorldTimerManager().SetTimer(Timer, [this]() { Destroy(); }, 3.0f, false);
@@ -162,34 +166,17 @@ void AUserCharacter::OnDeath()
 void AUserCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+    ABow* Bow = Cast<ABow>(EquippedWeapon);
+    bool bAiming = false;
 
-    // 차징 중이면 ChargeTime 증가
-    if (bIsCharging)
-    {
-        ChargeTime += DeltaTime;
-
-        //힘든 상태 (한 번만 반응하도록 플래그)
-        if (ChargeTime >= TiredThreshold && !bIsTired)
+    if (Bow) {
+        bAiming = Bow->IsAiming();
+        if (Bow->IsAiming() && Bow->PreparedArrow == nullptr)
         {
-            bIsTired = true;
-            UE_LOG(LogTemp, Warning, TEXT("Archer is struggling..."));
-
-            // 여기에 연출 추가 가능:
-            // - 카메라 흔들림
-            // - 숨소리/피로 사운드
-            // - 애니메이션 블렌드 등
-        }
-        //제한 시간 넘으면 자동 발사
-        if (ChargeTime >= AutoReleaseTime)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Charge timeout - auto release!"));
-            ReleaseArrow(); // 강제 발사
-            StopAiming();
-            return; // ReleaseArrow() 내부에서 bIsCharging false로 변경됨
+            Bow->StartAim();  // 화살 리필
         }
     }
-
-    float TargetFOV = bIsAiming ? AimFOV : NormalFOV;
+    float TargetFOV = bAiming ? AimFOV : NormalFOV;
     float NewFOV = FMath::FInterpTo(FollowCamera->FieldOfView, TargetFOV, DeltaTime, AimInterpSpeed);
     FollowCamera->SetFieldOfView(NewFOV);
 }

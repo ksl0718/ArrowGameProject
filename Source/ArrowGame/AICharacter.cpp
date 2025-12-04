@@ -4,8 +4,8 @@
 #include "AICharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
-#include "ArrowProjectile.h"
-#include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Bow.h"
 
 AAICharacter::AAICharacter()
 {
@@ -62,16 +62,27 @@ void AAICharacter::HandleDeath()
 
 void AAICharacter::OnDeath()
 {
+    bIsDead = true;
     // 공격 타이머 정지
     GetWorldTimerManager().ClearTimer(AttackTimerHandle);
+
+    if (EquippedWeapon)
+    {
+        EquippedWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
+        if (USkeletalMeshComponent* WeaponMesh = EquippedWeapon->FindComponentByClass<USkeletalMeshComponent>())
+        {
+            WeaponMesh->SetSimulatePhysics(true);
+            WeaponMesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+            WeaponMesh->SetEnableGravity(true);
+        }
+
+        EquippedWeapon->SetOwner(nullptr);   // 더 이상 이 AI의 무기 아님
+    }
 
     // AI의 회전, 공격 등 논리 중단
     CurrentTarget = nullptr;
     SetActorTickEnabled(false); // 더 이상 Tick 돌리지 않음
-
-    // 피직스 / 충돌 처리
-    /*GetMesh()->SetSimulatePhysics(true);*/
-    /*GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);*/
 
     FTimerHandle Timer;
     GetWorldTimerManager().SetTimer(Timer, [this]() { Destroy(); }, 3.0f, false);
@@ -83,15 +94,28 @@ void AAICharacter::TryAttackTarget()
 
     if (!CurrentTarget) return;
 
+    ABow* Bow = Cast<ABow>(EquippedWeapon);
+    if (!Bow) return;
+
     FVector ToTarget = CurrentTarget->GetActorLocation() - GetActorLocation();
-    FRotator FireDir = ToTarget.Rotation();
+    FRotator TargetRot = ToTarget.Rotation();
 
-    //FireArrow() 호출
-    UE_LOG(LogTemp, Warning, TEXT("%s | SpawnPoint: %s | Class: %s"),
-        *GetName(),
-        ProjectileSpawnPoint ? TEXT("VALID") : TEXT("NULL"),
-        *GetNameSafe(ArrowProjectileClass));
-    FireArrow(FireDir, 3000.f);
+    SetActorRotation(TargetRot);
 
-    UE_LOG(LogTemp, Log, TEXT("%s fired at %s!"), *GetName(), *CurrentTarget->GetName());
+
+    // 바라보는 방향 보정
+    SetActorRotation(TargetRot);
+
+    // 2) AI용 단순화된 조준 로직
+    Bow->StartAim();
+
+    // 3) 바로 당기기
+    Bow->StartDraw();
+
+    // 4) 일정 속도의 발사
+    // AI는 ChargeTime 없이 바로 발사해도 됨
+    Bow->EndDraw();
+
+    UE_LOG(LogTemp, Log, TEXT("%s fired at %s"),
+        *GetName(), *CurrentTarget->GetName());
 }
