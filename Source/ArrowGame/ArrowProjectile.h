@@ -57,4 +57,10 @@ private:
 	float Damage = 50.f;
 
 	bool bStuck = false;
+
+	void StopAndDisable();  // 화살 멈추고 충돌 끄는 공통 처리
+	void StickIntoCharacter(APawn* HitPawn, UPrimitiveComponent* OtherComp, const FHitResult& Hit);
+	void HitPhysicsObject(UPrimitiveComponent* OtherComp, const FHitResult& Hit, AActor* MyOwner);
+	void StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* OtherActor, const FHitResult& Hit);
+
 };

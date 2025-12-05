@@ -27,7 +27,7 @@ private:
 	float Health = 0.f;
 
 	UFUNCTION()
-	void DamagerTaken(
+	void DamageTaken(
 		AActor* DamageActor,
 		float Damage,
 		const UDamageType* DamageType,

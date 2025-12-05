@@ -77,15 +77,23 @@ void AArrowCharacter::EquipWeapon(AWeapon* NewWeapon)
         NewWeapon->AttachToComponent(
             MeshComp,
             FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-            TEXT("Bow_socket")   // ← 소켓 이름
+            TEXT("Bow_Socket")   // ← 소켓 이름
         );
     }
 }
 
-void AArrowCharacter::PlayFireMontage()
+void AArrowCharacter::PlayMontage(UAnimMontage* Montage, float PlayRate)
 {
-	if (FireMontage)
-	{
-		PlayAnimMontage(FireMontage);
-	}
+    if (!Montage || !GetMesh()) return;
+
+    UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+    if (!AnimInstance) return;
+
+    // 1) 이미 죽은 상태면, Death 말고는 아무 것도 재생 금지
+    if (bIsDead)
+    {
+        return;
+    }
+
+    AnimInstance->Montage_Play(Montage, PlayRate);
 }

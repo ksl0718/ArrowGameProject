@@ -8,6 +8,7 @@
 #include "GameFramework/Character.h"
 #include "Camera/CameraComponent.h"
 #include "Components/AudioComponent.h"
+#include "Camera/CameraComponent.h"
 
 // Sets default values
 ABow::ABow()
@@ -88,15 +89,25 @@ void ABow::StartDraw()
     BowState = EBowState::Charging;
 
     // 화살 스폰
-    PreparedArrow = GetWorld()->SpawnActor<AArrowProjectile>(ArrowProjectileClass);
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = OwnerCharacter;
+    SpawnParams.Instigator = OwnerCharacter;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn; // 충돌 무시하고 스폰
+
+    PreparedArrow = GetWorld()->SpawnActor<AArrowProjectile>(ArrowProjectileClass, SpawnParams);
     if (!PreparedArrow)
     {
         UE_LOG(LogTemp, Error, TEXT("Bow: PreparedArrow spawn FAILED"));
         return;
     }
 
-    PreparedArrow->SetOwner(OwnerCharacter);
-    PreparedArrow->CollisionBox->IgnoreActorWhenMoving(OwnerCharacter, true);
+    // 발사자와 충돌 완전 무시
+    if (PreparedArrow->CollisionBox)
+    {
+        PreparedArrow->CollisionBox->IgnoreActorWhenMoving(OwnerCharacter, true);
+        PreparedArrow->CollisionBox->MoveIgnoreActors.AddUnique(OwnerCharacter);
+    }
+
 
     // 충돌 + 이동 끔
     PreparedArrow->SetActorEnableCollision(false);
@@ -110,7 +121,7 @@ void ABow::StartDraw()
     PreparedArrow->AttachToComponent(
         Mesh,
         FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-        TEXT("Arrow_socket")
+        TEXT("Arrow_Socket")
     );
 }
 
@@ -152,7 +163,7 @@ void ABow::FireArrow(float ChargePercent)
         UE_LOG(LogTemp, Error, TEXT("Bow: FireArrow called but missing reference."));
         return;
     }
-    if (FireSound)
+	if (FireSound) // 발사 사운드 재생
     {
         UGameplayStatics::SpawnSoundAtLocation(
             this,
@@ -160,53 +171,94 @@ void ABow::FireArrow(float ChargePercent)
             GetActorLocation()
         );
     }
+
     // 스폰 위치
     USkeletalMeshComponent* Mesh = OwnerCharacter->GetMesh();
+	if (!Mesh)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Bow: Mesh is NULL"));
+		return;
+	}
+
     FVector SpawnLoc = Mesh->GetSocketLocation(TEXT("Arrow_Socket"));
+	FVector ShootDir = FVector::ZeroVector;
+    APawn* PawnOwner = Cast<APawn>(OwnerCharacter);
 
-    // 카메라 방향 추적
-    FVector CamLoc;
-    FRotator CamRot;
-    OwnerCharacter->GetController()->GetPlayerViewPoint(CamLoc, CamRot);
+    //플레이어 캐릭터일 때
+    if (PawnOwner && PawnOwner->IsPlayerControlled())
+    {
+        UCameraComponent* CameraComp = OwnerCharacter->FindComponentByClass<UCameraComponent>();
 
-    FVector TraceStart = CamLoc;
-    FVector TraceEnd = TraceStart + CamRot.Vector() * 10000.f;
+        if (!CameraComp) return;
 
-    FHitResult Hit;
-    FCollisionQueryParams Params;
-    Params.AddIgnoredActor(OwnerCharacter);
+        FVector TraceStart = CameraComp->GetComponentLocation();
+        FVector TraceDir = CameraComp->GetForwardVector();
 
-    bool bHit = GetWorld()->LineTraceSingleByChannel(
-        Hit, TraceStart, TraceEnd, ECC_Visibility, Params
-    );
+        FVector TraceEnd = TraceStart + TraceDir * 10000.f;
 
-    FVector TargetPoint = bHit ? Hit.ImpactPoint : TraceEnd;
-    FVector ShootDir = (TargetPoint - SpawnLoc).GetSafeNormal();
+        FHitResult Hit;
+        FCollisionQueryParams Params(SCENE_QUERY_STAT(BowFireTrace), false);
+
+        Params.AddIgnoredActor(OwnerCharacter);
+        Params.AddIgnoredActor(this);
+        Params.AddIgnoredActor(PreparedArrow);
+
+        bool bHit = GetWorld()->LineTraceSingleByChannel(
+            Hit, TraceStart, TraceEnd, ECC_Visibility, Params
+        );
+
+        FVector TargetPoint = bHit ? Hit.ImpactPoint : TraceEnd; // 명중 지점 또는 최대 거리
+
+        ShootDir = (TargetPoint - SpawnLoc).GetSafeNormal(); // 발사 방향
+    }
+	else { //AI 캐릭터일 때
+        ShootDir = OwnerCharacter->GetActorForwardVector();
+    }
+	
 
     float Speed = FMath::Lerp(MinArrowSpeed, MaxArrowSpeed, ChargePercent);
     FVector ShootVelocity = ShootDir * Speed;
 
     // 1) 손에서 떼기
-    if (OwnerCharacter) {
-        OwnerCharacter->PlayFireMontage();
+    if (OwnerCharacter && OwnerCharacter->FireMontage) {
+        OwnerCharacter->PlayMontage(OwnerCharacter->FireMontage);
     }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("OwnerCharacter is null in Bow::FireArrow"));
+    }
+
     PreparedArrow->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
     if (PreparedArrow->TrailNiagara)
     {
         PreparedArrow->TrailNiagara->Activate(true);
     }
-    // 2) 충돌/이동 활성화
-    PreparedArrow->SetActorEnableCollision(true);
-    PreparedArrow->GetProjectileMovement()->Activate();
+    PreparedArrow->SetActorRotation(ShootDir.Rotation());
 
-    PreparedArrow->CollisionBox->IgnoreActorWhenMoving(OwnerCharacter, true);
-
-    if (PreparedArrow->GetProjectileMovement())
+    float HalfLength = 0.f;
+    if (PreparedArrow->CollisionBox)
     {
-        PreparedArrow->GetProjectileMovement()->Activate();
-        PreparedArrow->GetProjectileMovement()->Velocity = ShootVelocity;
+        // X축이 길이 방향이라고 가정 (BoxExtent 40,2,2 이니까)
+        HalfLength = PreparedArrow->CollisionBox->GetScaledBoxExtent().X;
     }
+
+    const float ExtraMargin = 10.f;          // 살짝 더 앞
+    const float StartOffset = HalfLength + ExtraMargin;
+
+    // Arrow_Socket 기준 위치에서 ShootDir 방향으로 쭉 빼기
+    FVector NewLoc = SpawnLoc + ShootDir * StartOffset;
+    PreparedArrow->SetActorLocation(NewLoc);
+
+    // 3) 이제 충돌 켜고 발사
+    PreparedArrow->SetActorEnableCollision(true);
+
+    if (auto Move = PreparedArrow->GetProjectileMovement())
+    {
+        Move->Velocity = ShootVelocity;
+        Move->Activate();
+    }
+
 
     PreparedArrow = nullptr;
 }

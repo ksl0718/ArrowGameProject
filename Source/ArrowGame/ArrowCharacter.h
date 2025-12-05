@@ -24,7 +24,18 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
     TSubclassOf<AWeapon> DefaultWeaponClass;
-    void PlayFireMontage();
+
+    UFUNCTION(BlueprintCallable)
+    void PlayMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
+    class UAnimMontage* FireMontage;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
+    class UAnimMontage* DeathMontage;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
+    class UAnimMontage* HitMontage;
 
 protected:
 
@@ -42,8 +53,7 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
     AWeapon* EquippedWeapon;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
-    class UAnimMontage* FireMontage;
+    
 
 	/*void PlayFireMontage();*/
     void HandleDeath();
