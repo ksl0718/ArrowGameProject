@@ -158,10 +158,11 @@ void AUserCharacter::HandleDeath()
 void AUserCharacter::OnDeath()
 {
 	bIsDead = true;
-
+    
     DisableInput(Cast<APlayerController>(GetController()));
     FTimerHandle Timer;
     GetWorldTimerManager().SetTimer(Timer, [this]() { Destroy(); }, 3.0f, false);
+    
 }
 void AUserCharacter::Tick(float DeltaTime)
 {

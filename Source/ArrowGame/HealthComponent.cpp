@@ -4,6 +4,7 @@
 #include "HealthComponent.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
+#include "ArrowCharacter.h"
 #include "ArrowGameGameMode.h"
 
 // Sets default values for this component's properties
@@ -25,7 +26,7 @@ void UHealthComponent::BeginPlay()
 	Health = MaxHealth;
 
 	// OnTakeAnyDamage 이벤트 등록
-	GetOwner()->OnTakeAnyDamage.AddDynamic(this, &UHealthComponent::DamagerTaken);
+	GetOwner()->OnTakeAnyDamage.AddDynamic(this, &UHealthComponent::DamageTaken);
 
 	//GameMode 캐스팅 테스트
 	ArrowGameGameMode = Cast<AArrowGameGameMode>(UGameplayStatics::GetGameMode(this));
@@ -50,7 +51,7 @@ void UHealthComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 	// ...
 }
 
-void UHealthComponent::DamagerTaken(
+void UHealthComponent::DamageTaken(
 	AActor* DamagedActor,
 	float Damage,
 	const UDamageType* DamageType,
@@ -58,10 +59,13 @@ void UHealthComponent::DamagerTaken(
 	AActor* DamageCause)
 {
 	if (Damage <= 0.f) return;
+	
+	AArrowCharacter* ArrowChar = Cast<AArrowCharacter>(DamagedActor);
 
 	Health -= Damage;
 	UE_LOG(LogTemp, Warning, TEXT("%s Health: %.1f"), *GetOwner()->GetName(), Health);
 
+	ArrowChar->PlayMontage(ArrowChar->HitMontage);
 	if (Health <= 0.f && ArrowGameGameMode)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ActorDied triggered for %s"), *DamagedActor->GetName());

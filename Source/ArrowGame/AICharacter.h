@@ -31,7 +31,11 @@ protected:
 
     //공격 타이머 (공격 쿨타임)
     FTimerHandle AttackTimerHandle;
+    FTimerHandle AttackCooldownHandle;
+    FTimerHandle AIDrawTimerHandle;
+    FTimerHandle AIFireTimerHandle;
 
+	//공격 간격
     UPROPERTY(EditAnywhere, Category = "AI")
     float AttackInterval = 3.f;
 
@@ -47,5 +51,13 @@ protected:
     UPROPERTY(EditAnywhere, Category = "AI")
     float TurnInterpSpeed = 5.f;
 
+    UPROPERTY()
+    bool bCanAttack = true;
+
     virtual void OnDeath();
+
+    void ResetAttackCooldown();
+    void BeginAIAim();
+    void BeginAIDraw();
+    void EndAIDrawAndFire();
 };

@@ -15,7 +15,9 @@ AAICharacter::AAICharacter()
 void AAICharacter::BeginPlay()
 {
     Super::BeginPlay();
-
+    if (EquippedWeapon) {
+		ABow* Bow = Cast<ABow>(EquippedWeapon);
+    }
     //일정 주기로 타겟 탐색
     GetWorldTimerManager().SetTimer(
         AttackTimerHandle, this, &AAICharacter::TryAttackTarget, AttackInterval, true, 1.f
@@ -64,6 +66,7 @@ void AAICharacter::OnDeath()
 {
     bIsDead = true;
     // 공격 타이머 정지
+ 
     GetWorldTimerManager().ClearTimer(AttackTimerHandle);
 
     if (EquippedWeapon)
@@ -90,6 +93,9 @@ void AAICharacter::OnDeath()
 
 void AAICharacter::TryAttackTarget()
 {
+    if (bIsDead) return;
+    if (!bCanAttack) return;
+
     SearchForTarget();
 
     if (!CurrentTarget) return;
@@ -105,17 +111,68 @@ void AAICharacter::TryAttackTarget()
 
     // 바라보는 방향 보정
     SetActorRotation(TargetRot);
+    BeginAIAim();
+}
 
-    // 2) AI용 단순화된 조준 로직
-    Bow->StartAim();
+void AAICharacter::BeginAIAim()
+{
+    if (bIsDead) return;
 
-    // 3) 바로 당기기
-    Bow->StartDraw();
+	ABow* Bow = Cast<ABow>(EquippedWeapon);
+	if (Bow)
+	{
+        bCanAttack = false;
+		Bow->StartAim();
 
-    // 4) 일정 속도의 발사
-    // AI는 ChargeTime 없이 바로 발사해도 됨
-    Bow->EndDraw();
+        GetWorldTimerManager().SetTimer(
+            AIDrawTimerHandle,
+            this,
+            &AAICharacter::BeginAIDraw,
+            1.f,
+            false
+        );
+	}
+}
 
-    UE_LOG(LogTemp, Log, TEXT("%s fired at %s"),
-        *GetName(), *CurrentTarget->GetName());
+void AAICharacter::BeginAIDraw()
+{
+    if (bIsDead) return;
+
+	ABow* Bow = Cast<ABow>(EquippedWeapon);
+	if (Bow)
+	{
+		Bow->StartDraw();
+        GetWorldTimerManager().SetTimer(
+            AIFireTimerHandle,
+            this,
+            &AAICharacter::EndAIDrawAndFire,
+            2.f,
+            false
+        );
+	}
+}
+
+void AAICharacter::EndAIDrawAndFire()
+{
+    if (bIsDead) return;
+
+	ABow* Bow = Cast<ABow>(EquippedWeapon);
+	if (Bow)
+	{
+		Bow->EndDraw();
+	}
+
+	//공격 쿨타임 시작
+	GetWorldTimerManager().SetTimer(
+		AttackCooldownHandle,
+		this,
+		&AAICharacter::ResetAttackCooldown,
+		3.f,
+		false
+	);
+}
+
+void AAICharacter::ResetAttackCooldown()
+{
+	bCanAttack = true;
 }
