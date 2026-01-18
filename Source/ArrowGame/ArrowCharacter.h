@@ -37,9 +37,14 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
     class UAnimMontage* HitMontage;
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
+    class UAnimMontage* RollMontage;
 protected:
 
     virtual void BeginPlay() override;
+
+    UPROPERTY(BlueprintReadOnly, Category = "stats")
+    bool bIsRolling = false; // 구르기 상태
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "stats")
     bool bIsDead = false;

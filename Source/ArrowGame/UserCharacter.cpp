@@ -8,6 +8,7 @@
 #include "InputActionValue.h"
 #include "ArrowProjectile.h"
 #include "Bow.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 AUserCharacter::AUserCharacter()
 {
@@ -30,6 +31,8 @@ AUserCharacter::AUserCharacter()
 void AUserCharacter::BeginPlay()
 {
     Super::BeginPlay();
+
+    GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
 
     // Enhanced Input 등록
     if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -59,6 +62,13 @@ void AUserCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
         // 차징 & 발사 (LMB)
         EnhancedInput->BindAction(ShootAction, ETriggerEvent::Started, this, &AUserCharacter::StartCharging);
         EnhancedInput->BindAction(ShootAction, ETriggerEvent::Completed, this, &AUserCharacter::ReleaseArrow);
+
+        //걷기
+        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Started, this, &AUserCharacter::OnWalkSlowStarted);
+        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Completed, this, &AUserCharacter::OnWalkSlowEnded);
+        
+        //다이브
+		EnhancedInput->BindAction(RollAction, ETriggerEvent::Started, this, &AUserCharacter::Roll);
     }
 }
 
@@ -90,7 +100,7 @@ void AUserCharacter::Look(const FInputActionValue& Value)
 void AUserCharacter::StartAiming()
 {
     if (!bCanMove) return;
-
+    GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
     // --- 조준 시 몸이 카메라 따라 돌도록 설정 ---
     GetCharacterMovement()->bOrientRotationToMovement = false;
     bUseControllerRotationYaw = true;
@@ -137,7 +147,7 @@ void AUserCharacter::ReleaseArrow()
 
 void AUserCharacter::StopAiming()
 {
-    GetCharacterMovement()->MaxWalkSpeed = 300.f;
+    GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
     /// --- 조준 종료 시 다시 이동 방향 바라보게 ---
     GetCharacterMovement()->bOrientRotationToMovement = true;
     bUseControllerRotationYaw = false;
@@ -180,4 +190,36 @@ void AUserCharacter::Tick(float DeltaTime)
     float TargetFOV = bAiming ? AimFOV : NormalFOV;
     float NewFOV = FMath::FInterpTo(FollowCamera->FieldOfView, TargetFOV, DeltaTime, AimInterpSpeed);
     FollowCamera->SetFieldOfView(NewFOV);
+}
+
+void AUserCharacter::OnWalkSlowStarted(const FInputActionValue& Value)
+{
+    // 쉬프트 누르는 순간 → 느리게 걷기
+    GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
+}
+
+void AUserCharacter::OnWalkSlowEnded(const FInputActionValue& Value)
+{
+    // 쉬프트 떼는 순간 → 원래 속도
+    GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
+}
+
+void AUserCharacter::Roll()
+{
+    UE_LOG(LogTemp, Warning, TEXT("Roll() called. bIsRolling=%d bIsDead=%d bCanMove=%d RollMontage=%s"),
+        bIsRolling, bIsDead, bCanMove, RollMontage ? *RollMontage->GetName() : TEXT("NULL"));
+    if (bIsRolling || bIsDead || !bCanMove) return;
+    if (!RollMontage) return; 
+
+    bIsRolling = true;
+    bCanMove = false;
+
+    PlayMontage(RollMontage, 1.f);
+}
+
+void AUserCharacter::OnRollEnd()
+{
+	bIsRolling = false;
+	bCanMove = true;
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 }
