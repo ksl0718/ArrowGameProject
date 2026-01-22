@@ -2,7 +2,7 @@
 
 
 #include "Bow.h"
-#include "ArrowCharacter.h"
+#include "../Character/ArrowCharacter.h"
 #include "ArrowProjectile.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Character.h"
@@ -83,16 +83,16 @@ void ABow::StartDraw()
         );
     }
 
-    // Â÷Â¡ ½ÃÀÛ
+    // ï¿½ï¿½Â¡ ï¿½ï¿½ï¿½ï¿½
     bIsCharging = true;
     ChargeTime = 0.f;
     BowState = EBowState::Charging;
 
-    // È­»ì ½ºÆù
+    // È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = OwnerCharacter;
     SpawnParams.Instigator = OwnerCharacter;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn; // Ãæµ¹ ¹«½ÃÇÏ°í ½ºÆù
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn; // ï¿½æµ¹ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½
 
     PreparedArrow = GetWorld()->SpawnActor<AArrowProjectile>(ArrowProjectileClass, SpawnParams);
     if (!PreparedArrow)
@@ -101,7 +101,7 @@ void ABow::StartDraw()
         return;
     }
 
-    // ¹ß»çÀÚ¿Í Ãæµ¹ ¿ÏÀü ¹«½Ã
+    // ï¿½ß»ï¿½ï¿½Ú¿ï¿½ ï¿½æµ¹ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     if (PreparedArrow->CollisionBox)
     {
         PreparedArrow->CollisionBox->IgnoreActorWhenMoving(OwnerCharacter, true);
@@ -109,7 +109,7 @@ void ABow::StartDraw()
     }
 
 
-    // Ãæµ¹ + ÀÌµ¿ ²û
+    // ï¿½æµ¹ + ï¿½Ìµï¿½ ï¿½ï¿½
     PreparedArrow->SetActorEnableCollision(false);
     if (PreparedArrow->GetProjectileMovement())
     {
@@ -117,7 +117,7 @@ void ABow::StartDraw()
         PreparedArrow->GetProjectileMovement()->Deactivate();
     }
 
-    // Arrow_Socket¿¡ ºÎÂø
+    // Arrow_Socketï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     PreparedArrow->AttachToComponent(
         Mesh,
         FAttachmentTransformRules::SnapToTargetNotIncludingScale,
@@ -131,7 +131,7 @@ void ABow::EndDraw()
 
     bIsCharging = false;
 
-    // PreparedArrow Á¸Àç ¿©ºÎ È®ÀÎ
+    // PreparedArrow ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½
     if (!PreparedArrow)
     {
         UE_LOG(LogTemp, Error, TEXT("Bow: EndDraw called but PreparedArrow NULL"));
@@ -163,7 +163,7 @@ void ABow::FireArrow(float ChargePercent)
         UE_LOG(LogTemp, Error, TEXT("Bow: FireArrow called but missing reference."));
         return;
     }
-	if (FireSound) // ¹ß»ç »ç¿îµå Àç»ý
+	if (FireSound) // ï¿½ß»ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
     {
         UGameplayStatics::SpawnSoundAtLocation(
             this,
@@ -172,7 +172,7 @@ void ABow::FireArrow(float ChargePercent)
         );
     }
 
-    // ½ºÆù À§Ä¡
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡
     USkeletalMeshComponent* Mesh = OwnerCharacter->GetMesh();
 	if (!Mesh)
 	{
@@ -184,7 +184,7 @@ void ABow::FireArrow(float ChargePercent)
 	FVector ShootDir = FVector::ZeroVector;
     APawn* PawnOwner = Cast<APawn>(OwnerCharacter);
 
-    //ÇÃ·¹ÀÌ¾î Ä³¸¯ÅÍÀÏ ¶§
+    //ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ Ä³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
     if (PawnOwner && PawnOwner->IsPlayerControlled())
     {
         UCameraComponent* CameraComp = OwnerCharacter->FindComponentByClass<UCameraComponent>();
@@ -207,11 +207,11 @@ void ABow::FireArrow(float ChargePercent)
             Hit, TraceStart, TraceEnd, ECC_Visibility, Params
         );
 
-        FVector TargetPoint = bHit ? Hit.ImpactPoint : TraceEnd; // ¸íÁß ÁöÁ¡ ¶Ç´Â ÃÖ´ë °Å¸®
+        FVector TargetPoint = bHit ? Hit.ImpactPoint : TraceEnd; // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ç´ï¿½ ï¿½Ö´ï¿½ ï¿½Å¸ï¿½
 
-        ShootDir = (TargetPoint - SpawnLoc).GetSafeNormal(); // ¹ß»ç ¹æÇâ
+        ShootDir = (TargetPoint - SpawnLoc).GetSafeNormal(); // ï¿½ß»ï¿½ ï¿½ï¿½ï¿½ï¿½
     }
-	else { //AI Ä³¸¯ÅÍÀÏ ¶§
+	else { //AI Ä³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
         ShootDir = OwnerCharacter->GetActorForwardVector();
     }
 	
@@ -219,7 +219,7 @@ void ABow::FireArrow(float ChargePercent)
     float Speed = FMath::Lerp(MinArrowSpeed, MaxArrowSpeed, ChargePercent);
     FVector ShootVelocity = ShootDir * Speed;
 
-    // 1) ¼Õ¿¡¼­ ¶¼±â
+    // 1) ï¿½Õ¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     if (OwnerCharacter && OwnerCharacter->FireMontage) {
         OwnerCharacter->PlayMontage(OwnerCharacter->FireMontage);
     }
@@ -239,18 +239,18 @@ void ABow::FireArrow(float ChargePercent)
     float HalfLength = 0.f;
     if (PreparedArrow->CollisionBox)
     {
-        // XÃàÀÌ ±æÀÌ ¹æÇâÀÌ¶ó°í °¡Á¤ (BoxExtent 40,2,2 ÀÌ´Ï±î)
+        // Xï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ì¶ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (BoxExtent 40,2,2 ï¿½Ì´Ï±ï¿½)
         HalfLength = PreparedArrow->CollisionBox->GetScaledBoxExtent().X;
     }
 
-    const float ExtraMargin = 10.f;          // »ìÂ¦ ´õ ¾Õ
+    const float ExtraMargin = 10.f;          // ï¿½ï¿½Â¦ ï¿½ï¿½ ï¿½ï¿½
     const float StartOffset = HalfLength + ExtraMargin;
 
-    // Arrow_Socket ±âÁØ À§Ä¡¿¡¼­ ShootDir ¹æÇâÀ¸·Î Âß »©±â
+    // Arrow_Socket ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½ ShootDir ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     FVector NewLoc = SpawnLoc + ShootDir * StartOffset;
     PreparedArrow->SetActorLocation(NewLoc);
 
-    // 3) ÀÌÁ¦ Ãæµ¹ ÄÑ°í ¹ß»ç
+    // 3) ï¿½ï¿½ï¿½ï¿½ ï¿½æµ¹ ï¿½Ñ°ï¿½ ï¿½ß»ï¿½
     PreparedArrow->SetActorEnableCollision(true);
 
     if (auto Move = PreparedArrow->GetProjectileMovement())

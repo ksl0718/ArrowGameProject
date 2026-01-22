@@ -6,9 +6,9 @@
 #include "GameFramework/PlayerController.h"
 #include "InputActionValue.h"
 #include "Kismet/GameplayStatics.h"
-#include "Weapon.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Weapon/Weapon.h"
 
 AArrowCharacter::AArrowCharacter()
 {
@@ -50,18 +50,18 @@ void AArrowCharacter::Die()
 
     UE_LOG(LogTemp, Warning, TEXT("%s has died."), *GetName());
 
-    // 나중에 사망 애니메이션 / 이펙트 넣을 자리
+    // ????? ??? ??????? / ????? ???? ???
     // e.g. PlayAnimMontage(DeathMontage);
 }
 
 void AArrowCharacter::HandleDeath()
 {
-    //일단 비워
+    //??? ???
 }
 
 void AArrowCharacter::OnDeath() 
 { 
-    //기본 구현 없음  - 자식이 오버라이드 
+    //?? ???? ????  - ????? ????????? 
 }
 
 void AArrowCharacter::EquipWeapon(AWeapon* NewWeapon)
@@ -77,7 +77,7 @@ void AArrowCharacter::EquipWeapon(AWeapon* NewWeapon)
         NewWeapon->AttachToComponent(
             MeshComp,
             FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-            TEXT("Bow_Socket")   // ← 소켓 이름
+            TEXT("Bow_Socket")   // ?? ???? ???
         );
     }
 }
@@ -89,7 +89,7 @@ void AArrowCharacter::PlayMontage(UAnimMontage* Montage, float PlayRate)
     UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
     if (!AnimInstance) return;
 
-    // 1) 이미 죽은 상태면, Death 말고는 아무 것도 재생 금지
+    // 1) ??? ???? ???쨍?, Death ????? ??? ??? ??? ????
     if (bIsDead)
     {
         return;

@@ -2,7 +2,7 @@
 
 
 #include "Weapon.h"
-#include "ArrowCharacter.h"
+#include "../Character/ArrowCharacter.h"
 
 // Sets default values
 AWeapon::AWeapon()

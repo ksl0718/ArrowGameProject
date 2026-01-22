@@ -5,7 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Bow.h"
+#include "../Weapon/Bow.h"
 
 AAICharacter::AAICharacter()
 {
@@ -18,7 +18,7 @@ void AAICharacter::BeginPlay()
     if (EquippedWeapon) {
 		ABow* Bow = Cast<ABow>(EquippedWeapon);
     }
-    //ÀÏÁ¤ ÁÖ±â·Î Å¸°Ù Å½»ö
+    //ï¿½ï¿½ï¿½ï¿½ ï¿½Ö±ï¿½ï¿½ Å¸ï¿½ï¿½ Å½ï¿½ï¿½
     GetWorldTimerManager().SetTimer(
         AttackTimerHandle, this, &AAICharacter::TryAttackTarget, AttackInterval, true, 1.f
     );
@@ -28,7 +28,7 @@ void AAICharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    //Å¸°ÙÀÌ ÀÖÀ¸¸é ÃµÃµÈ÷ È¸Àü
+    //Å¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ÃµÃµï¿½ï¿½ È¸ï¿½ï¿½
     if (CurrentTarget)
     {
         FVector ToTarget = (CurrentTarget->GetActorLocation() - GetActorLocation()).GetSafeNormal();
@@ -40,7 +40,7 @@ void AAICharacter::Tick(float DeltaTime)
 
 void AAICharacter::SearchForTarget()
 {
-    // ´Ü¼øÈ÷ ÇÃ·¹ÀÌ¾î Å½»ö (1ÀÎ¿ë Å×½ºÆ®¿ë)
+    // ï¿½Ü¼ï¿½ï¿½ï¿½ ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ Å½ï¿½ï¿½ (1ï¿½Î¿ï¿½ ï¿½×½ï¿½Æ®ï¿½ï¿½)
     AActor* Player = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
 
     if (!Player) return;
@@ -65,7 +65,7 @@ void AAICharacter::HandleDeath()
 void AAICharacter::OnDeath()
 {
     bIsDead = true;
-    // °ø°Ý Å¸ÀÌ¸Ó Á¤Áö
+    // ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½
  
     GetWorldTimerManager().ClearTimer(AttackTimerHandle);
 
@@ -80,12 +80,12 @@ void AAICharacter::OnDeath()
             WeaponMesh->SetEnableGravity(true);
         }
 
-        EquippedWeapon->SetOwner(nullptr);   // ´õ ÀÌ»ó ÀÌ AIÀÇ ¹«±â ¾Æ´Ô
+        EquippedWeapon->SetOwner(nullptr);   // ï¿½ï¿½ ï¿½Ì»ï¿½ ï¿½ï¿½ AIï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Æ´ï¿½
     }
 
-    // AIÀÇ È¸Àü, °ø°Ý µî ³í¸® Áß´Ü
+    // AIï¿½ï¿½ È¸ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½ß´ï¿½
     CurrentTarget = nullptr;
-    SetActorTickEnabled(false); // ´õ ÀÌ»ó Tick µ¹¸®Áö ¾ÊÀ½
+    SetActorTickEnabled(false); // ï¿½ï¿½ ï¿½Ì»ï¿½ Tick ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
     FTimerHandle Timer;
     GetWorldTimerManager().SetTimer(Timer, [this]() { Destroy(); }, 3.0f, false);
@@ -109,7 +109,7 @@ void AAICharacter::TryAttackTarget()
     SetActorRotation(TargetRot);
 
 
-    // ¹Ù¶óº¸´Â ¹æÇâ º¸Á¤
+    // ï¿½Ù¶óº¸´ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     SetActorRotation(TargetRot);
     BeginAIAim();
 }
@@ -162,7 +162,7 @@ void AAICharacter::EndAIDrawAndFire()
 		Bow->EndDraw();
 	}
 
-	//°ø°Ý ÄðÅ¸ÀÓ ½ÃÀÛ
+	//ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Å¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	GetWorldTimerManager().SetTimer(
 		AttackCooldownHandle,
 		this,

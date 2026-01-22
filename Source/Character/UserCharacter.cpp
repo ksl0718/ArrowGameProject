@@ -6,9 +6,9 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "InputActionValue.h"
-#include "ArrowProjectile.h"
-#include "Bow.h"
+//#include "ArrowProjectile.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Weapon/Bow.h"
 
 AUserCharacter::AUserCharacter()
 {

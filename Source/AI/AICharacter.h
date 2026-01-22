@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ArrowCharacter.h"
+#include "Character/ArrowCharacter.h"
 #include "AICharacter.generated.h"
 
 /**
@@ -23,31 +23,31 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
-    //°ø°Ý °ü·Ã
+    //ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     void TryAttackTarget();
 
-    //Å¸°Ù Å½Áö °ü·Ã
+    //Å¸ï¿½ï¿½ Å½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     void SearchForTarget();
 
-    //°ø°Ý Å¸ÀÌ¸Ó (°ø°Ý ÄðÅ¸ÀÓ)
+    //ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½Ì¸ï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Å¸ï¿½ï¿½)
     FTimerHandle AttackTimerHandle;
     FTimerHandle AttackCooldownHandle;
     FTimerHandle AIDrawTimerHandle;
     FTimerHandle AIFireTimerHandle;
 
-	//°ø°Ý °£°Ý
+	//ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     UPROPERTY(EditAnywhere, Category = "AI")
     float AttackInterval = 3.f;
 
-    //Å¸°Ù
+    //Å¸ï¿½ï¿½
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
     AActor* CurrentTarget = nullptr;
 
-    //»ç°Å¸®
+    //ï¿½ï¿½Å¸ï¿½
     UPROPERTY(EditAnywhere, Category = "AI")
     float AttackRange = 2000.f;
 
-    //È¸Àü ¼Óµµ
+    //È¸ï¿½ï¿½ ï¿½Óµï¿½
     UPROPERTY(EditAnywhere, Category = "AI")
     float TurnInterpSpeed = 5.f;
 

@@ -4,8 +4,8 @@
 #include "HealthComponent.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
-#include "ArrowCharacter.h"
-#include "ArrowGameGameMode.h"
+#include "../Character/ArrowCharacter.h"
+#include "../Core/ArrowGameGameMode.h"
 
 // Sets default values for this component's properties
 UHealthComponent::UHealthComponent()
@@ -25,10 +25,10 @@ void UHealthComponent::BeginPlay()
 
 	Health = MaxHealth;
 
-	// OnTakeAnyDamage ÀÌº¥Æ® µî·Ï
+	// OnTakeAnyDamage ï¿½Ìºï¿½Æ® ï¿½ï¿½ï¿½
 	GetOwner()->OnTakeAnyDamage.AddDynamic(this, &UHealthComponent::DamageTaken);
 
-	//GameMode Ä³½ºÆÃ Å×½ºÆ®
+	//GameMode Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½×½ï¿½Æ®
 	ArrowGameGameMode = Cast<AArrowGameGameMode>(UGameplayStatics::GetGameMode(this));
 	if (ArrowGameGameMode)
 	{

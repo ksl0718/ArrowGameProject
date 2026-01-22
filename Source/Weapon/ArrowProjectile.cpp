@@ -9,7 +9,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Particles/ParticleSystemComponent.h"
-#include "ArrowCharacter.h"
+#include "../Character/ArrowCharacter.h"
 #include "NiagaraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "NiagaraFunctionLibrary.h"
@@ -42,15 +42,15 @@ AArrowProjectile::AArrowProjectile()
 	TrailNiagara->bAutoActivate = false;
 
 
-    // Ãæµ¹ ÀÌº¥Æ® ¿¬°á
+    // ï¿½æµ¹ ï¿½Ìºï¿½Æ® ï¿½ï¿½ï¿½ï¿½
 	CollisionBox->OnComponentHit.AddDynamic(this, &AArrowProjectile::OnHit);
 
-    // ¿òÁ÷ÀÓ ¼³Á¤
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
     ProjectileMovement->InitialSpeed = 3000.f;
     ProjectileMovement->MaxSpeed = 6000.f;
     ProjectileMovement->bRotationFollowsVelocity = true;
-    ProjectileMovement->ProjectileGravityScale = 0.5f; // È­»ì ³«Â÷¿ë
+    ProjectileMovement->ProjectileGravityScale = 0.5f; // È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 }
 
@@ -96,13 +96,13 @@ void AArrowProjectile::OnHit(
 	FVector NormalImpulse,
 	const FHitResult& Hit)
 {
-	if (bStuck) // ÀÌ¹Ì ¹ÚÇûÀ¸¸é ¹«½Ã
+	if (bStuck) // ï¿½Ì¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		return;
 
-	if (!OtherActor || OtherActor == this) // À¯È¿ÇÏÁö ¾ÊÀº ¾×ÅÍ¸é ¹«½Ã
+	if (!OtherActor || OtherActor == this) // ï¿½ï¿½È¿ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½
 		return;
 
-	if (OtherActor == GetInstigator() || OtherActor == GetOwner()) // ¹ß»çÀÚ¸é ¹«½Ã
+	if (OtherActor == GetInstigator() || OtherActor == GetOwner()) // ï¿½ß»ï¿½ï¿½Ú¸ï¿½ ï¿½ï¿½ï¿½ï¿½
 		return;
 
 	UE_LOG(LogTemp, Warning, TEXT("HIT: %s"), *OtherActor->GetName());
@@ -131,7 +131,7 @@ void AArrowProjectile::OnHit(
 	{
 		StopAndDisable();
 		Destroy();
-		//// ½ºÄÌ¸Þ½Ã Ã£±â
+		//// ï¿½ï¿½ï¿½Ì¸Þ½ï¿½ Ã£ï¿½ï¿½
 		//USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(OtherComp);
 		//if (!SkelComp)
 		//{
@@ -149,7 +149,7 @@ void AArrowProjectile::OnHit(
 		//		0.f,
 		//		false
 		//	);
-		//	// º»¿¡ ºÙÀÌ±â
+		//	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì±ï¿½
 		//	AttachToComponent(
 		//		SkelComp,
 		//		FAttachmentTransformRules::KeepWorldTransform,
@@ -222,10 +222,10 @@ void AArrowProjectile::HitPhysicsObject(UPrimitiveComponent* OtherComp, const FH
 		return;
 	const float ImpulseStrength = Damage * 100.f;
 
-	//ÀÓÆÞ½º Ãß°¡
+	//ï¿½ï¿½ï¿½Þ½ï¿½ ï¿½ß°ï¿½
 	if (OtherComp && OtherComp->IsSimulatingPhysics())
 	{
-		// È­»ìÀÌ ³¯¾Æ°¡´ø ¹æÇâ ±âÁØÀ¸·Î
+		// È­ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Æ°ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		FVector ImpulseDir;
 
 		if (ProjectileMovement)
@@ -237,10 +237,10 @@ void AArrowProjectile::HitPhysicsObject(UPrimitiveComponent* OtherComp, const FH
 			ImpulseDir = GetActorForwardVector();
 		}
 
-		FVector	Impulse = Damage * 100.0f * ImpulseDir;  // °Å¸®ºñ·Ê ÀÓÆÞ½º ¾àÇØÁü
+		FVector	Impulse = Damage * 100.0f * ImpulseDir;  // ï¿½Å¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Þ½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		OtherComp->AddImpulseAtLocation(Impulse, Hit.ImpactPoint);
 	}
-	//È­»ì ¹ÚÈ÷±â
+	//È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	StopAndDisable();
 	StickIntoWorld(OtherComp, Hit.GetActor(), Hit);
 }
@@ -249,7 +249,7 @@ void AArrowProjectile::StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* Ot
 {
 	StopAndDisable();
 
-	// È­»ì ¹æÇâ(È¸Àü) ¸ÂÃß±â
+	// È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½(È¸ï¿½ï¿½) ï¿½ï¿½ï¿½ß±ï¿½
 	FVector ForwardDir;
 	if (ProjectileMovement && !ProjectileMovement->Velocity.IsNearlyZero())
 	{
@@ -261,7 +261,7 @@ void AArrowProjectile::StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* Ot
 	}
 	SetActorRotation(ForwardDir.Rotation());
 
-	// À§Ä¡: Ãæµ¹ ÁöÁ¡¿¡¼­ È­»ì ¹Ý ±æÀÌ¸¸Å­ ¾ÈÂÊÀ¸·Î
+	// ï¿½ï¿½Ä¡: ï¿½æµ¹ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È­ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¸ï¿½Å­ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	float HalfLength = 40.f;
 	if (CollisionBox)
 	{
