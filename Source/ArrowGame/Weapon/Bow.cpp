@@ -7,6 +7,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Character.h"
 #include "Camera/CameraComponent.h"
+#include "Net/UnrealNetwork.h" // DOREPLIFETIME 사용 위함
 #include "Components/AudioComponent.h"
 #include "Camera/CameraComponent.h"
 
@@ -15,6 +16,17 @@ ABow::ABow()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+}
+
+void ABow::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    
+    DOREPLIFETIME(ABow, PreparedArrow);
+    DOREPLIFETIME(ABow, BowState);
+    DOREPLIFETIME(ABow, bIsCharging);
+    DOREPLIFETIME(ABow, ChargeTime);
+    DOREPLIFETIME(ABow, bIsAiming);
 }
 
 // Called when the game starts or when spawned
@@ -55,11 +67,9 @@ void ABow::StopAim()
     }
 }
 
-void ABow::StartDraw()
+void ABow::ServerStartDraw_Implementation()
 {
-    if (!bIsAiming) return;
-    if (!OwnerCharacter) return;
-    if (!ArrowProjectileClass) return;
+    UE_LOG(LogTemp, Error, TEXT("Server OK"));
 
     USkeletalMeshComponent* Mesh = OwnerCharacter->GetMesh();
     if (!Mesh)
@@ -89,10 +99,10 @@ void ABow::StartDraw()
     BowState = EBowState::Charging;
 
     // ȭ�� ����
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = OwnerCharacter;
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner = OwnerCharacter;
     SpawnParams.Instigator = OwnerCharacter;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn; // �浹 �����ϰ� ����
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn; // �浹 �����ϰ� ����
 
     PreparedArrow = GetWorld()->SpawnActor<AArrowProjectile>(ArrowProjectileClass, SpawnParams);
     if (!PreparedArrow)
@@ -125,24 +135,46 @@ void ABow::StartDraw()
     );
 }
 
-void ABow::EndDraw()
+void ABow::StartDraw()
 {
-    if (!bIsCharging) return;
-
-    bIsCharging = false;
-
-    // PreparedArrow ���� ���� Ȯ��
-    if (!PreparedArrow)
+    if (!bIsAiming) return;
+    if (!OwnerCharacter) return;
+    if (!ArrowProjectileClass) return;
+    
+    if (DrawSound)
     {
-        UE_LOG(LogTemp, Error, TEXT("Bow: EndDraw called but PreparedArrow NULL"));
-        return;
+        UGameplayStatics::SpawnSoundAtLocation(
+            this,
+            DrawSound,
+            GetActorLocation()
+        );
     }
+    
+    ServerStartDraw();
+}
 
+void ABow::ServerEndDraw_Implementation()
+{
+    bIsCharging = false;
+    
     float ChargePercent = FMath::Clamp(ChargeTime / MaxChargeTime, 0.f, 1.f);
     ChargeTime = 0.f;
 
     FireArrow(ChargePercent);
     BowState = EBowState::Idle;
+}
+
+void ABow::EndDraw()
+{
+    if (!bIsCharging) return;
+    // PreparedArrow ���� ���� Ȯ��
+    if (!IsValid(PreparedArrow))
+    {
+        UE_LOG(LogTemp, Error, TEXT("Bow: EndDraw called but PreparedArrow NULL"));
+        return;
+    }
+    
+    ServerEndDraw();
 }
 
 void ABow::HandleCharge(float DeltaTime)

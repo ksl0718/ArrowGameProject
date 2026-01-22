@@ -13,6 +13,9 @@ class ARROWGAME_API UHealthComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:	
+
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
 	// Sets default values for this component's properties
 	UHealthComponent();
 
@@ -24,8 +27,13 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	float MaxHealth = 100.f;
+	
+	UPROPERTY(ReplicatedUsing = OnRep_Health)
 	float Health = 0.f;
 
+	UFUNCTION()
+	void OnRep_Health();
+	
 	UFUNCTION()
 	void DamageTaken(
 		AActor* DamageActor,

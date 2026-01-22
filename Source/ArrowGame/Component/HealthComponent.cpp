@@ -6,6 +6,14 @@
 #include "Kismet/GameplayStatics.h"
 #include "../Character/ArrowCharacter.h"
 #include "../Core/ArrowGameGameMode.h"
+#include "Net/UnrealNetwork.h"
+
+void UHealthComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME(UHealthComponent, Health);
+}
 
 // Sets default values for this component's properties
 UHealthComponent::UHealthComponent()
@@ -13,7 +21,8 @@ UHealthComponent::UHealthComponent()
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
+	
+	SetIsReplicatedByDefault(true);
 	// ...
 }
 
@@ -23,7 +32,10 @@ void UHealthComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	Health = MaxHealth;
+	if (GetOwner()->HasAuthority())
+	{
+		Health = MaxHealth;
+	}
 
 	// OnTakeAnyDamage �̺�Ʈ ���
 	GetOwner()->OnTakeAnyDamage.AddDynamic(this, &UHealthComponent::DamageTaken);
@@ -59,16 +71,28 @@ void UHealthComponent::DamageTaken(
 	AActor* DamageCause)
 {
 	if (Damage <= 0.f) return;
+	if (!GetOwner()->HasAuthority()) return;
 	
-	AArrowCharacter* ArrowChar = Cast<AArrowCharacter>(DamagedActor);
-
 	Health -= Damage;
 	UE_LOG(LogTemp, Warning, TEXT("%s Health: %.1f"), *GetOwner()->GetName(), Health);
 
-	ArrowChar->PlayMontage(ArrowChar->HitMontage);
+	OnRep_Health();
+	
 	if (Health <= 0.f && ArrowGameGameMode)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ActorDied triggered for %s"), *DamagedActor->GetName());
 		ArrowGameGameMode->ActorDied(DamagedActor);
+	}
+}
+
+void UHealthComponent::OnRep_Health()
+{
+	AArrowCharacter* ArrowChar = Cast<AArrowCharacter>(GetOwner());
+	if (ArrowChar)
+	{
+		if (Health > 0.f && ArrowChar->HitMontage)
+		{
+			ArrowChar->PlayMontage(ArrowChar->HitMontage);
+		}
 	}
 }
