@@ -1,0 +1,74 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
+#include "HealthComponent.h"
+#include "GameFramework/Actor.h"
+#include "Kismet/GameplayStatics.h"
+#include "../Character/ArrowCharacter.h"
+#include "../Core/ArrowGameGameMode.h"
+
+// Sets default values for this component's properties
+UHealthComponent::UHealthComponent()
+{
+	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
+	// off to improve performance if you don't need them.
+	PrimaryComponentTick.bCanEverTick = true;
+
+	// ...
+}
+
+
+// Called when the game starts
+void UHealthComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	Health = MaxHealth;
+
+	// OnTakeAnyDamage �̺�Ʈ ���
+	GetOwner()->OnTakeAnyDamage.AddDynamic(this, &UHealthComponent::DamageTaken);
+
+	//GameMode ĳ���� �׽�Ʈ
+	ArrowGameGameMode = Cast<AArrowGameGameMode>(UGameplayStatics::GetGameMode(this));
+	if (ArrowGameGameMode)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GameMode found: %s"), *ArrowGameGameMode->GetName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("GameMode cast failed!"));
+	}
+	// ...
+	
+}
+
+
+// Called every frame
+void UHealthComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// ...
+}
+
+void UHealthComponent::DamageTaken(
+	AActor* DamagedActor,
+	float Damage,
+	const UDamageType* DamageType,
+	class  AController* Instigator,
+	AActor* DamageCause)
+{
+	if (Damage <= 0.f) return;
+	
+	AArrowCharacter* ArrowChar = Cast<AArrowCharacter>(DamagedActor);
+
+	Health -= Damage;
+	UE_LOG(LogTemp, Warning, TEXT("%s Health: %.1f"), *GetOwner()->GetName(), Health);
+
+	ArrowChar->PlayMontage(ArrowChar->HitMontage);
+	if (Health <= 0.f && ArrowGameGameMode)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ActorDied triggered for %s"), *DamagedActor->GetName());
+		ArrowGameGameMode->ActorDied(DamagedActor);
+	}
+}
