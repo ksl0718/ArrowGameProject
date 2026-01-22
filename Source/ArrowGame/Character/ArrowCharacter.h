@@ -17,6 +17,8 @@ public:
 	// Sets default values for this character's properties
 	AArrowCharacter();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
     virtual void Die();
 
     UFUNCTION(BlueprintCallable)
@@ -42,13 +44,18 @@ public:
 protected:
 
     virtual void BeginPlay() override;
-
-    UPROPERTY(BlueprintReadOnly, Category = "stats")
-    bool bIsRolling = false; // 구르기 상태
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "stats")
+	
+	// 서버에서 값이 바뀌면 클라이언트에서 OnRep_IsDead 자동 실행
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats", ReplicatedUsing = OnRep_IsDead)
     bool bIsDead = false;
 
+	// 사망 상태가 복제되었을 때 실행되는 함수 (시각적 처리)
+	UFUNCTION()
+	void OnRep_IsDead();
+
+	UPROPERTY(BlueprintReadOnly, Category = "stats")
+	bool bIsRolling = false; // 구르기 상태
+	
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
     float MaxHealth = 100.f;
 
