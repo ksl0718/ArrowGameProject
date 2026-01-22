@@ -23,19 +23,24 @@ class ARROWGAME_API ABow : public AWeapon
     GENERATED_BODY()
 
 public:
-    // �⺻ ������
+    // �⺻ ������
     ABow();
 
+    // 변수 동기화 규칙을 정의하는 필수 함수
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    
     virtual void Tick(float DeltaTime) override;
     virtual void BeginPlay() override;
 
-    // ���� �Լ�
+    // ���� �Լ�
     virtual void StartAim() override;
     virtual void StopAim() override;
+
+    //얘낸 이제 요청만
     virtual void StartDraw() override;
     virtual void EndDraw() override;
 
-    // Bow ���� ��ȸ (BP������ ����)
+    // Bow ���� ��ȸ (BP������ ����)
     UFUNCTION(BlueprintCallable)
     bool IsAiming() const { return bIsAiming; }
 
@@ -43,25 +48,38 @@ public:
     bool IsCharging() const { return bIsCharging; }
 
 
-    UPROPERTY(BlueprintReadOnly, Category = "Bow|State")
+    UPROPERTY(BlueprintReadOnly, Category = "Bow|State", Replicated)
     EBowState BowState = EBowState::Idle;
 
-    UPROPERTY()
+    // 화살 객체는 서버가 만들어서 클라이언트에게 알려줘야 하니 Replicated
+    // 이거 나중에 protected로 캡슐화 하고 public에 확인용 함수 추가필요
+    UPROPERTY(Replicated) 
     AArrowProjectile* PreparedArrow = nullptr;
 
 protected:
-   
-    // ���� / ��¡ ����
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
+
+    // 서버한테 활 당기기 시작해라고 명령하는 함수
+    // Reliable: 게임플레이에 중요하므로 반드시 도착해야 함
+    UFUNCTION(Server, Reliable)
+    void ServerStartDraw();
+
+    // 서버한테 활 쏴! 명령
+    UFUNCTION(Server, Reliable)
+    void ServerEndDraw();
+
+    
+    
+    // ���� / ��¡ ����
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State", Replicated)
     bool bIsAiming = false;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State", Replicated)
     bool bIsCharging = false;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State", Replicated)
     float ChargeTime = 0.f;
 
-    // ��¡ ���� �ɼ�
+    // ��¡ ���� �ɼ�
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Charge")
     float MaxChargeTime = 1.0f;
 
