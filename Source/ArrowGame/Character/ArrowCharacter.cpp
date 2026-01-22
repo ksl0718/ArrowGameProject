@@ -13,6 +13,9 @@
 AArrowCharacter::AArrowCharacter()
 {
     PrimaryActorTick.bCanEverTick = true;
+
+    //ACharacter는 기본값이 true긴 한데, 명시적으로 적어주면 좋음
+    bReplicates = true;
 }
 
 void AArrowCharacter::BeginPlay()

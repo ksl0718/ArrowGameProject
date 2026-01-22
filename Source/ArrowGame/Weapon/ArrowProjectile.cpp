@@ -52,6 +52,13 @@ AArrowProjectile::AArrowProjectile()
     ProjectileMovement->bRotationFollowsVelocity = true;
     ProjectileMovement->ProjectileGravityScale = 0.5f; // ȭ�� ������
 
+	// 화살 액터 복제
+	bReplicates = true;
+
+	// 화살의 움직임(위치, 회전, 속도)을 서버 기준으로 동기화
+	// 이거 false면 아마 생성된 자리에 멈춰있을듯
+	SetReplicateMovement(true);
+
 }
 
 // Called when the game starts or when spawned
