@@ -19,9 +19,10 @@ public:
 	virtual void BeginPlay() override;
 
 private:
-
-	class AUserCharacter* User;
-	class AArrowGamePlayerController* ArrowGamePlayerController;
-
-
+	
+	// [삭제] 특정 유저만 저장하는 변수는 멀티플레이에서 위험쓰
+	// private:
+	// class AUserCharacter* User;
+	// class AArrowGamePlayerController* ArrowGamePlayerController;
+	
 };
