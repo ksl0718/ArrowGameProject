@@ -51,7 +51,9 @@ AArrowProjectile::AArrowProjectile()
     ProjectileMovement->MaxSpeed = 6000.f;
     ProjectileMovement->bRotationFollowsVelocity = true;
     ProjectileMovement->ProjectileGravityScale = 0.5f; // ȭ�� ������
-
+	
+	bReplicates = true;
+	SetReplicateMovement(true);
 }
 
 // Called when the game starts or when spawned

@@ -13,6 +13,8 @@
 AArrowCharacter::AArrowCharacter()
 {
     PrimaryActorTick.bCanEverTick = true;
+    
+    bReplicates = true;
 }
 
 void AArrowCharacter::BeginPlay()
