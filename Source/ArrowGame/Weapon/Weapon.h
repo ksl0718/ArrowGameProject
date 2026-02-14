@@ -30,5 +30,6 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly)
 	class AArrowCharacter* OwnerCharacter;
-
+	
+	
 };

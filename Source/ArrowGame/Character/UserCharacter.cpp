@@ -98,19 +98,25 @@ void AUserCharacter::Look(const FInputActionValue& Value)
 }
 
 void AUserCharacter::StartAiming()
-{
-    if (!bCanMove) return;
-    GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
-    // --- ���� �� ���� ī�޶� ���� ������ ���� ---
-    GetCharacterMovement()->bOrientRotationToMovement = false;
-    bUseControllerRotationYaw = true;
-
-    if (EquippedWeapon)
-    {
-        EquippedWeapon->StartAim();
-    }
-
-}
+ {
+     if (!bCanMove) return;
+     GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
+     // --- ���� �� ���� ī�޶� ���� ������ ���� ---
+     SetAiming(true);
+ 
+     if (EquippedWeapon)
+     {
+         ABow* Bow = Cast<ABow>(EquippedWeapon);
+         if (Bow)
+         {
+             Bow->SetAiming(true);
+         }
+     }else
+     {
+         UE_LOG(LogTemp, Error, TEXT("not spawned Weapon"));
+     }
+ 
+ }
 
 void AUserCharacter::StartCharging()
 {
@@ -148,13 +154,15 @@ void AUserCharacter::ReleaseArrow()
 void AUserCharacter::StopAiming()
 {
     GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
-    /// --- ���� ���� �� �ٽ� �̵� ���� �ٶ󺸰� ---
-    GetCharacterMovement()->bOrientRotationToMovement = true;
-    bUseControllerRotationYaw = false;
+    SetAiming(false);
 
     if (EquippedWeapon)
     {
-        EquippedWeapon->StopAim();
+        ABow* Bow = Cast<ABow>(EquippedWeapon);
+        if (Bow)
+        {
+            Bow->SetAiming(false);
+        }
     }
 
 }
@@ -206,8 +214,6 @@ void AUserCharacter::OnWalkSlowEnded(const FInputActionValue& Value)
 
 void AUserCharacter::Roll()
 {
-    UE_LOG(LogTemp, Warning, TEXT("Roll() called. bIsRolling=%d bIsDead=%d bCanMove=%d RollMontage=%s"),
-        bIsRolling, bIsDead, bCanMove, RollMontage ? *RollMontage->GetName() : TEXT("NULL"));
     if (bIsRolling || bIsDead || !bCanMove) return;
     if (!RollMontage) return; 
 
@@ -215,9 +221,35 @@ void AUserCharacter::Roll()
     bCanMove = false;
 
     PlayMontage(RollMontage, 1.f);
+    
+    ServerPlayRoll();
 }
 
-void AUserCharacter::OnRollEnd()
+void AUserCharacter::ServerPlayRoll_Implementation()
+{
+    MulticastPlayRoll();
+}
+
+void AUserCharacter::MulticastPlayRoll_Implementation()
+{
+    if (!IsLocallyControlled()) 
+    {
+        // 몽타주 재생
+        PlayAnimMontage(RollMontage);
+        bIsRolling = true;
+
+        // 여기도 마찬가지로 끝나면 상태를 풀어줘야 함 (남의 화면에서도 상태 관리가 필요하므로)
+        UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+        if (AnimInstance)
+        {
+            FOnMontageEnded EndDelegate;
+            EndDelegate.BindUObject(this, &AUserCharacter::OnRollEnd);
+            AnimInstance->Montage_SetEndDelegate(EndDelegate, RollMontage);
+        }
+    }
+}
+
+void AUserCharacter::OnRollEnd(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsRolling = false;
 	bCanMove = true;

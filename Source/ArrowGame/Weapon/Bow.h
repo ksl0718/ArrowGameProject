@@ -23,19 +23,23 @@ class ARROWGAME_API ABow : public AWeapon
     GENERATED_BODY()
 
 public:
-    // ±âº» »ı¼ºÀÚ
+    // ï¿½âº» ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     ABow();
 
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    
     virtual void Tick(float DeltaTime) override;
     virtual void BeginPlay() override;
 
-    // »óÅÂ ÇÔ¼ö
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
     virtual void StartAim() override;
     virtual void StopAim() override;
+    
+    //ì„œë²„ì— ìš”ì²­ë§Œ
     virtual void StartDraw() override;
     virtual void EndDraw() override;
 
-    // Bow »óÅÂ Á¶È¸ (BP¿¡¼­µµ °¡´É)
+    // Bow ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¸ (BPï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
     UFUNCTION(BlueprintCallable)
     bool IsAiming() const { return bIsAiming; }
 
@@ -43,25 +47,45 @@ public:
     bool IsCharging() const { return bIsCharging; }
 
 
-    UPROPERTY(BlueprintReadOnly, Category = "Bow|State")
+    UPROPERTY(BlueprintReadOnly, Category = "Bow|State", Replicated)
     EBowState BowState = EBowState::Idle;
 
     UPROPERTY()
     AArrowProjectile* PreparedArrow = nullptr;
 
+    void SetAiming(bool bNewAiming);
+    
 protected:
-   
-    // Á¶ÁØ / Â÷Â¡ »óÅÂ
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
+   //ì„œë²„í•œí…Œ í™œ ë‹¹ê¸°ë¼ê³  ìš”ì²­
+    UFUNCTION(Server, Reliable)
+    void ServerStartDraw();
+    
+    //í™œì˜ë¼ê³  ìš”ì²­
+    UFUNCTION(Server, Reliable)
+    void ServerEndDraw();
+    
+    UFUNCTION(Server, Reliable)
+    void ServerSetAiming(bool bNewAiming);
+    
+    // ï¿½ï¿½ï¿½ï¿½ / ï¿½ï¿½Â¡ ï¿½ï¿½ï¿½ï¿½
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State", Replicated)
     bool bIsAiming = false;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
+    UPROPERTY(ReplicatedUsing=OnRep_IsCharging, VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
     bool bIsCharging = false;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
+    // RepNotify ì½œë°± í•¨ìˆ˜ ì„ ì–¸
+    UFUNCTION()
+    void OnRep_IsCharging();
+    
+    // í—¬í¼ í•¨ìˆ˜ë“¤
+    void SpawnDrawArrow();
+    void DestroyDrawArrow();
+    
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State", Replicated)
     float ChargeTime = 0.f;
 
-    // Â÷Â¡ °ü·Ã ¿É¼Ç
+    // ï¿½ï¿½Â¡ ï¿½ï¿½ï¿½ï¿½ ï¿½É¼ï¿½
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Charge")
     float MaxChargeTime = 1.0f;
 
@@ -86,6 +110,7 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Sound")
     USoundBase* FireSound;
 
+    
 private:
     void HandleCharge(float DeltaTime);
     void FireArrow(float Power);

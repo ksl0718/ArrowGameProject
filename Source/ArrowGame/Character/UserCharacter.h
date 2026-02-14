@@ -94,9 +94,15 @@ protected:
     void OnWalkSlowStarted(const FInputActionValue& Value);
     void OnWalkSlowEnded(const FInputActionValue& Value);
     void Roll(); // ������
-
+	
+	UFUNCTION(Server, Reliable)
+	void ServerPlayRoll();
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayRoll();
+	
     UFUNCTION(BlueprintCallable)
-	void OnRollEnd(); // ������ �ִϸ��̼� ������ �� ȣ��
+	void OnRollEnd(UAnimMontage* Montage, bool bInterrupted); // ������ �ִϸ��̼� ������ �� ȣ��
 
     virtual void OnDeath() override;
 };
