@@ -12,7 +12,7 @@ public class ArrowGame : ModuleRules
             "CoreUObject",
             "Engine",
             "InputCore",
-            "EnhancedInput", "Niagara"
+            "EnhancedInput", "Niagara","AnimGraphRuntime"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] { });

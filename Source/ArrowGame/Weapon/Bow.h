@@ -27,6 +27,7 @@ public:
     ABow();
 
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    
     virtual void Tick(float DeltaTime) override;
     virtual void BeginPlay() override;
 
@@ -49,9 +50,11 @@ public:
     UPROPERTY(BlueprintReadOnly, Category = "Bow|State", Replicated)
     EBowState BowState = EBowState::Idle;
 
-    UPROPERTY(Replicated)
+    UPROPERTY()
     AArrowProjectile* PreparedArrow = nullptr;
 
+    void SetAiming(bool bNewAiming);
+    
 protected:
    //서버한테 활 당기라고 요청
     UFUNCTION(Server, Reliable)
@@ -61,13 +64,24 @@ protected:
     UFUNCTION(Server, Reliable)
     void ServerEndDraw();
     
+    UFUNCTION(Server, Reliable)
+    void ServerSetAiming(bool bNewAiming);
+    
     // ���� / ��¡ ����
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State", Replicated)
     bool bIsAiming = false;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State", Replicated)
+    UPROPERTY(ReplicatedUsing=OnRep_IsCharging, VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
     bool bIsCharging = false;
 
+    // RepNotify 콜백 함수 선언
+    UFUNCTION()
+    void OnRep_IsCharging();
+    
+    // 헬퍼 함수들
+    void SpawnDrawArrow();
+    void DestroyDrawArrow();
+    
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State", Replicated)
     float ChargeTime = 0.f;
 
@@ -96,6 +110,7 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Sound")
     USoundBase* FireSound;
 
+    
 private:
     void HandleCharge(float DeltaTime);
     void FireArrow(float Power);

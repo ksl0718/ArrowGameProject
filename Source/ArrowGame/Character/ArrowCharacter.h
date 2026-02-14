@@ -15,10 +15,14 @@ class ARROWGAME_API AArrowCharacter : public ACharacter
 
 public:
 	// Sets default values for this character's properties
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
 	AArrowCharacter();
 
     virtual void Die();
 
+	virtual void Tick(float DeltaTime) override;
+	
     UFUNCTION(BlueprintCallable)
     virtual void EquipWeapon(AWeapon* NewWeapon);
 
@@ -39,10 +43,24 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
     class UAnimMontage* RollMontage;
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	class AWeapon* GetEquippedWeapon() const { return EquippedWeapon; }
+	
+	void SetAiming(bool bNewAiming);
+	
+	float GetSyncPitch() const { return SyncPitch; }
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class UHealthComponent* HealthComp;
+	
 protected:
 
     virtual void BeginPlay() override;
 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Sync")
+	float SyncPitch;
+	
     UPROPERTY(BlueprintReadOnly, Category = "stats")
     bool bIsRolling = false; // 구르기 상태
 
@@ -55,11 +73,31 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
     float CurrentHealth;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon, VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
     AWeapon* EquippedWeapon;
 
-    
+	void SetRotationMode(bool bAiming);
+	
+	UFUNCTION(Server, Reliable)
+	void ServerSetAiming(bool bNewAiming);
+	
+	UPROPERTY(ReplicatedUsing = OnRep_IsAiming, BlueprintReadOnly, Category = "Combat")
+	bool bIsAiming;
+	
+	UFUNCTION()
+	void OnRep_IsAiming();
+	
+	UFUNCTION()
+	void OnRep_EquippedWeapon();
 
+	// [추가] 컴포넌트에서 "죽었다"고 신호 오면 실행할 함수
+	UFUNCTION()
+	void OnDeathProcessed();
+
+	// [추가] 멀티캐스트: 모두에게 래그돌 실행 명령
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_Die();
+	
 	/*void PlayFireMontage();*/
     void HandleDeath();
 

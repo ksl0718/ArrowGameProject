@@ -17,8 +17,9 @@ class ARROWGAME_API AArrowProjectile : public AActor
 	
 public:	
 	// Sets default values for this actor's properties
+	
 	AArrowProjectile();
-
+	
 	UProjectileMovementComponent* GetProjectileMovement() const { return ProjectileMovement; }
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Effects", meta = (AllowPrivateAccess = "true"))
@@ -27,17 +28,17 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
+	
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, FVector NormalImpulse,
 		const FHitResult& Hit);
 
+public:	
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	
 	void FireInDirection(const FVector& ShootDirection);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -57,8 +58,10 @@ private:
 	float Damage = 50.f;
 
 	bool bStuck = false;
-
-	void StopAndDisable();  // È­»ì ¸ØÃß°í Ãæµ¹ ²ô´Â °øÅë Ã³¸®
+	
+	FVector PrevLocation; 
+	
+	void StopAndDisable();  // È­ï¿½ï¿½ ï¿½ï¿½ï¿½ß°ï¿½ ï¿½æµ¹ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½
 	void StickIntoCharacter(APawn* HitPawn, UPrimitiveComponent* OtherComp, const FHitResult& Hit);
 	void HitPhysicsObject(UPrimitiveComponent* OtherComp, const FHitResult& Hit, AActor* MyOwner);
 	void StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* OtherActor, const FHitResult& Hit);

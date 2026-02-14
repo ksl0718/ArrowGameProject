@@ -37,21 +37,13 @@ void UHealthComponent::BeginPlay()
 		Health = MaxHealth;
 	}
 
-	// OnTakeAnyDamage �̺�Ʈ ���
-	GetOwner()->OnTakeAnyDamage.AddDynamic(this, &UHealthComponent::DamageTaken);
+	// Owner가 있으면 델리게이트 바인딩
+	if (GetOwner())
+	{
+		GetOwner()->OnTakeAnyDamage.AddDynamic(this, &UHealthComponent::DamageTaken);
+	}
 
-	//GameMode ĳ���� �׽�Ʈ
 	ArrowGameGameMode = Cast<AArrowGameGameMode>(UGameplayStatics::GetGameMode(this));
-	if (ArrowGameGameMode)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("GameMode found: %s"), *ArrowGameGameMode->GetName());
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("GameMode cast failed!"));
-	}
-	// ...
-	
 }
 
 
@@ -63,6 +55,7 @@ void UHealthComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 	// ...
 }
 
+// [핵심] 서버에서 데미지 처리
 void UHealthComponent::DamageTaken(
 	AActor* DamagedActor,
 	float Damage,
@@ -70,23 +63,36 @@ void UHealthComponent::DamageTaken(
 	class  AController* Instigator,
 	AActor* DamageCause)
 {
-	if (Damage <= 0.f) return;
+	UE_LOG(LogTemp, Warning, TEXT("Component Received Damage! Health: %f"), Health);
+	
+	if (Damage <= 0.f || Health <= 0.f) return;
 	if (!GetOwner()->HasAuthority()) return;
 	
-	Health -= Damage;
+	Health = FMath::Clamp(Health - Damage, 0.0f, MaxHealth);
+	
 	UE_LOG(LogTemp, Warning, TEXT("%s Health: %.1f"), *GetOwner()->GetName(), Health);
 
 	OnRep_Health();
-	
-	if (Health <= 0.f && ArrowGameGameMode)
+
+	// 사망 체크
+	if (Health <= 0.f)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ActorDied triggered for %s"), *DamagedActor->GetName());
-		ArrowGameGameMode->ActorDied(DamagedActor);
+		// 1. 캐릭터에게 "너 죽었어" 알림 (래그돌 실행용)
+		OnDead.Broadcast();
+
+		// 2. 게임모드에게 알림 (점수 계산, 리스폰 등)
+		if (ArrowGameGameMode)
+		{
+			ArrowGameGameMode->ActorDied(DamagedActor);
+		}
 	}
 }
 
 void UHealthComponent::OnRep_Health()
 {
+	// 값이 변해서 이 함수가 불리면, UI에게 알림
+	OnHealthChanged.Broadcast(Health, MaxHealth);
+	
 	AArrowCharacter* ArrowChar = Cast<AArrowCharacter>(GetOwner());
 	if (ArrowChar)
 	{

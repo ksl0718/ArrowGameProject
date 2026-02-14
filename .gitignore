@@ -362,15 +362,34 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-########################
-# Unreal Engine
-########################
+########################################
+## Unreal Engine 협업 최적화 (Lyra용)
+########################################
+
+# 빌드 결과물 및 임시 파일 (팀원끼리 공유할 필요 없음)
 Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
-Content/
-Config/
-#
-Script/
-Shaders/
+Build/
+.utest/
+
+# 프로젝트 파일 (팀원이 각자 슬롯이나 프로젝트 파일 생성 가능)
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+.vs/
+
+# 플러그인 빌드 파일 (협업 시 가장 흔한 충돌 원인)
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# 설정 파일 주의사항
+# 프로젝트 전체 설정(공유 필요): DefaultEngine.ini, DefaultInput.ini 등은 Git에 올라가야 합니다.
+# 개인화된 설정(공유 불필요): 아래 파일들만 제외합니다.
+Config/DefaultEditorPerProjectUserSettings.ini
+Config/DefaultEditorSettings.ini
+Config/DefaultGameUserSettings.ini

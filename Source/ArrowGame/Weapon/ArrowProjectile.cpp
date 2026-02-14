@@ -24,33 +24,47 @@ AArrowProjectile::AArrowProjectile()
 	RootComponent = CollisionBox;
 
 	CollisionBox->SetBoxExtent(FVector(40.f, 2.f, 2.f));
-	CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	CollisionBox->SetCollisionResponseToAllChannels(ECR_Block);
-	CollisionBox->SetSimulatePhysics(false);
+	CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
+	
+	CollisionBox->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+	CollisionBox->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
+	
+	if (ArrowMesh)
+	{
+		ArrowMesh->SetCollisionProfileName(TEXT("NoCollision"));
+		ArrowMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+	
+	CollisionBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
 
-	CollisionBox->SetNotifyRigidBodyCollision(true);
-
+	CollisionBox->SetNotifyRigidBodyCollision(false);	
+	CollisionBox->OnComponentHit.AddDynamic(this, &AArrowProjectile::OnHit);
+	
+	//Mesh
 	ArrowMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ArrowMesh"));
 	ArrowMesh->SetupAttachment(CollisionBox);
 	ArrowMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	ArrowMesh->SetRelativeScale3D(FVector(2.7f, 2.7f, 2.7f));
-    ArrowMesh->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
-
-
+	//ArrowMesh->SetRelativeScale3D(FVector(2.7f, 2.7f, 2.7f));
+    //ArrowMesh->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+	
+	//Trail
 	TrailNiagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Trail"));
 	TrailNiagara->SetupAttachment(RootComponent);
 	TrailNiagara->bAutoActivate = false;
+	
 
-
-    // �浹 �̺�Ʈ ����
-	CollisionBox->OnComponentHit.AddDynamic(this, &AArrowProjectile::OnHit);
-
-    // ������ ����
+    //ProjectileMovement
     ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
     ProjectileMovement->InitialSpeed = 3000.f;
     ProjectileMovement->MaxSpeed = 6000.f;
     ProjectileMovement->bRotationFollowsVelocity = true;
     ProjectileMovement->ProjectileGravityScale = 0.5f; // ȭ�� ������
+	
+	// 정확도 보강 (중요)
+	ProjectileMovement->bForceSubStepping = true;
+	ProjectileMovement->MaxSimulationTimeStep = 0.02f;
+	ProjectileMovement->MaxSimulationIterations = 8;
 	
 	bReplicates = true;
 	SetReplicateMovement(true);
@@ -60,7 +74,46 @@ AArrowProjectile::AArrowProjectile()
 void AArrowProjectile::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	FString RoleStr = HasAuthority() ? TEXT("Server") : TEXT("Client");
+	UE_LOG(LogTemp, Warning, TEXT("=== ARROW BORN [%s] ==="), *RoleStr);
 
+	// 1. Instigator(주인) 확인
+	AActor* MyOwner = GetInstigator();
+	UE_LOG(LogTemp, Warning, TEXT("1. Instigator: %s"), MyOwner ? *MyOwner->GetName() : TEXT("NULL (Problem!)"));
+
+	// 2. CollisionBox 상태 확인
+	if (CollisionBox)
+	{
+		ECollisionResponse Resp = CollisionBox->GetCollisionResponseToChannel(ECC_Pawn);
+		FString RespStr = UEnum::GetValueAsString(Resp);
+		FString Profile = CollisionBox->GetCollisionProfileName().ToString();
+
+		UE_LOG(LogTemp, Warning, TEXT("2. [BOX] Profile: %s | Response to Pawn: %s"), *Profile, *RespStr);
+        
+		if (Resp == ECR_Block)
+		{
+			UE_LOG(LogTemp, Error, TEXT("🚨 BOX IS BLOCKING PAWN! (This is the culprit)"));
+		}
+	}
+
+	// 3. ArrowMesh 상태 확인 (여기가 제일 의심됨)
+	if (ArrowMesh)
+	{
+		ECollisionResponse Resp = ArrowMesh->GetCollisionResponseToChannel(ECC_Pawn);
+		FString RespStr = UEnum::GetValueAsString(Resp);
+		FString Profile = ArrowMesh->GetCollisionProfileName().ToString();
+
+		UE_LOG(LogTemp, Warning, TEXT("3. [MESH] Profile: %s | Response to Pawn: %s"), *Profile, *RespStr);
+
+		if (Resp == ECR_Block)
+		{
+			UE_LOG(LogTemp, Error, TEXT("🚨 MESH IS BLOCKING PAWN! (You forgot to set NoCollision)"));
+		}
+	}
+	
+	PrevLocation = GetActorLocation();
+	
 	if (TrailNiagara)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("TrailNiagara valid: %s"), *TrailNiagara->GetName());
@@ -69,17 +122,25 @@ void AArrowProjectile::BeginPlay()
 	{
 		UE_LOG(LogTemp, Error, TEXT("TrailNiagara is null!"));
 	}
-
+	// CollisionBox 체크 추가!
+	if (!CollisionBox)
+	{
+		UE_LOG(LogTemp, Error, TEXT("ArrowProjectile: CollisionBox is NULL!"));
+		return;
+	}
+	
 	if (APawn* InstPawn = GetInstigator())
 	{
 		CollisionBox->IgnoreActorWhenMoving(InstPawn, true);
 		CollisionBox->MoveIgnoreActors.AddUnique(InstPawn);
+		UE_LOG(LogTemp, Log, TEXT("Arrow ignoring Instigator: %s"), *InstPawn->GetName());
 	}
 
 	if (AActor* OwnerActor = GetOwner())
 	{
 		CollisionBox->IgnoreActorWhenMoving(OwnerActor, true);
 		CollisionBox->MoveIgnoreActors.AddUnique(OwnerActor);
+		UE_LOG(LogTemp, Log, TEXT("Arrow ignoring Owner: %s"), *OwnerActor->GetName());
 	}
 
 }
@@ -88,7 +149,6 @@ void AArrowProjectile::BeginPlay()
 void AArrowProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
 void AArrowProjectile::OnHit(
@@ -98,85 +158,42 @@ void AArrowProjectile::OnHit(
 	FVector NormalImpulse,
 	const FHitResult& Hit)
 {
+	UE_LOG(LogTemp, Warning, TEXT("Arrow Hit: %s"), *OtherActor->GetName());
+	
 	if (bStuck) // �̹� �������� ����
 		return;
 
-	if (!OtherActor || OtherActor == this) // ��ȿ���� ���� ���͸� ����
-		return;
+	if (!OtherActor || OtherActor == this || OtherActor == GetInstigator()) return;
 
-	if (OtherActor == GetInstigator() || OtherActor == GetOwner()) // �߻��ڸ� ����
-		return;
+	if (OtherActor->IsA(APawn::StaticClass())) 
+	{
+		if (HasAuthority()) // 서버에서만 처리
+		{
+			UGameplayStatics::ApplyDamage(
+				OtherActor,
+				Damage,
+				GetInstigatorController(),
+				this,
+				UDamageType::StaticClass()
+			);
 
-	UE_LOG(LogTemp, Warning, TEXT("HIT: %s"), *OtherActor->GetName());
+			// [핵심] 맞자마자 화살 삭제! (박히는 로직 안 탐)
+			Destroy(); 
+		}
+		else 
+		{
+			// 클라이언트에서는 즉시 숨겨서 반응성을 높임 (선택사항)
+			SetActorHiddenInGame(true);
+		}
+        
+		// 여기서 함수 종료 (아래 꽂히는 로직 실행 안 함)
+		return; 
+	}
 	
-	AActor* MyOwner = GetOwner();
-	if (!MyOwner)
-	{
-		Destroy();
-		return;
-	}
-
-	if (OtherActor != MyOwner) {
-		AController* MyOwnerInstigator = MyOwner->GetInstigatorController();
-		UClass* DamageTypeClass = UDamageType::StaticClass();
-		
-		UGameplayStatics::ApplyDamage(
-			OtherActor,
-			Damage,
-			MyOwnerInstigator,
-			this,
-			DamageTypeClass
-		);
-	}
-
-	if (APawn* HitPawn = Cast<APawn>(OtherActor))
-	{
-		StopAndDisable();
-		Destroy();
-		//// ���̸޽� ã��
-		//USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(OtherComp);
-		//if (!SkelComp)
-		//{
-		//	SkelComp = HitPawn->FindComponentByClass<USkeletalMeshComponent>();
-		//	UE_LOG(LogTemp, Warning, TEXT("No Fount SkelComp"));
-		//}
-
-		//if (SkelComp)
-		//{
-		//	UE_LOG(LogTemp, Warning, TEXT("Fount SkelComp"));
-		//	FVector BoneWorldPos;
-		//	FName ClosestBone = SkelComp->FindClosestBone(
-		//		Hit.ImpactPoint,
-		//		&BoneWorldPos,
-		//		0.f,
-		//		false
-		//	);
-		//	// ���� ���̱�
-		//	AttachToComponent(
-		//		SkelComp,
-		//		FAttachmentTransformRules::KeepWorldTransform,
-		//		(ClosestBone != NAME_None) ? ClosestBone : NAME_None
-		//	);
-		//	UE_LOG(LogTemp, Warning, TEXT("BoneName: %s"), *ClosestBone.ToString());
-		//}
-		//else {
-		//	UE_LOG(LogTemp, Warning, TEXT("still Fount SkelComp"));
-		//	AttachToActor(
-		//		OtherActor,
-		//		FAttachmentTransformRules::KeepWorldTransform
-		//	);
-		//}
-		return;
-	}
-	else if (OtherComp && OtherComp->IsSimulatingPhysics())
-	{
-		HitPhysicsObject(OtherComp, Hit, MyOwner);
-		return;
-	}
-	else
-	{
-		StickIntoWorld(OtherComp, OtherActor, Hit);
-	}
+	HitPhysicsObject(OtherComp, Hit, GetOwner());
+	
+	StickIntoWorld(OtherComp, OtherActor, Hit);
+	
 }
 
 
@@ -209,12 +226,13 @@ void AArrowProjectile::StopAndDisable()
 		TrailNiagara->Deactivate();
 	}
 
-	if (CollisionBox)
-	{
-		CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
-		CollisionBox->SetSimulatePhysics(false);
-	}
+	//if (CollisionBox)
+	//{
+		//CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		//CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
+		//CollisionBox->SetSimulatePhysics(false);
+	//}
+	CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SetActorEnableCollision(false);
 }
 
@@ -263,22 +281,19 @@ void AArrowProjectile::StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* Ot
 	}
 	SetActorRotation(ForwardDir.Rotation());
 
-	// ��ġ: �浹 �������� ȭ�� �� ���̸�ŭ ��������
-	float HalfLength = 40.f;
-	if (CollisionBox)
-	{
-		HalfLength = CollisionBox->GetScaledBoxExtent().X;
-	}
+	//float HalfLen = CollisionBox->GetScaledBoxExtent().X;
+	//FVector NewLoc = Hit.ImpactPoint - ForwardDir * HalfLen;
 
-	const FVector NewLocation = Hit.ImpactPoint - ForwardDir * HalfLength * 0.8f;
-	SetActorLocation(NewLocation);
+	//SetActorLocation(NewLoc);
 
 	if (OtherComp)
 	{
-		AttachToComponent(OtherComp, FAttachmentTransformRules::KeepWorldTransform);
-	}
-	else
-	{
-		AttachToActor(OtherActor, FAttachmentTransformRules::KeepWorldTransform);
+		FAttachmentTransformRules AttachRules(
+			EAttachmentRule::KeepWorld, 
+			EAttachmentRule::KeepWorld, 
+			EAttachmentRule::KeepWorld, 
+			false
+		);
+		AttachToComponent(OtherComp, AttachRules);
 	}
 }
