@@ -19,7 +19,6 @@ void AArrowGameGameMode::ActorDied(AActor* DeadActor)
 {
 	if (DeadActor == User)
 	{
-		User->Die();
 		if (ArrowGamePlayerController)
 		{
 			ArrowGamePlayerController->SetPlayerEnabledState(false);
@@ -27,6 +26,6 @@ void AArrowGameGameMode::ActorDied(AActor* DeadActor)
 	}
 	else if (AAICharacter* DestroyedCharacter = Cast<AAICharacter>(DeadActor))
 	{
-		DestroyedCharacter->Die();
+		UE_LOG(LogTemp, Warning, TEXT("AI Died! Score or Kill Count logic can go here."));
 	}
 }

@@ -18,9 +18,7 @@ class ARROWGAME_API AUserCharacter : public AArrowCharacter
 	GENERATED_BODY()
 public:
     AUserCharacter();
-
-    void HandleDeath();
-
+	
 	bool IsDead() const { return bIsDead; }
     UPROPERTY(EditAnywhere, Category = "Movement")
     bool bCanMove = true;
@@ -103,6 +101,5 @@ protected:
 	
     UFUNCTION(BlueprintCallable)
 	void OnRollEnd(UAnimMontage* Montage, bool bInterrupted); // ������ �ִϸ��̼� ������ �� ȣ��
-
-    virtual void OnDeath() override;
+	
 };

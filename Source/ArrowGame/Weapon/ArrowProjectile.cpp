@@ -27,6 +27,7 @@ AArrowProjectile::AArrowProjectile()
 	CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
 	
+	CollisionBox->SetCollisionResponseToChannel(ECC_PhysicsBody, ECR_Block);
 	CollisionBox->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
 	CollisionBox->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
 	
@@ -44,7 +45,9 @@ AArrowProjectile::AArrowProjectile()
 	//Mesh
 	ArrowMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ArrowMesh"));
 	ArrowMesh->SetupAttachment(CollisionBox);
+	ArrowMesh->SetCollisionProfileName(TEXT("NoCollision"));
 	ArrowMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
 	//ArrowMesh->SetRelativeScale3D(FVector(2.7f, 2.7f, 2.7f));
     //ArrowMesh->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
 	
