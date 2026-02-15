@@ -143,9 +143,13 @@ void AUserCharacter::ReleaseArrow()
     ABow* Bow = Cast<ABow>(EquippedWeapon);
     if (!Bow) return;
 
-    if (!Bow->IsCharging())
+    if (!Bow->IsCharging() && !Bow->IsAiming())
+    {
+        Bow->SetAiming(false);
         return;
-
+    }
+        
+    
     Bow->EndDraw();
 }
 
@@ -167,21 +171,7 @@ void AUserCharacter::StopAiming()
 
 }
 
-void AUserCharacter::HandleDeath()
-{
-    Super::HandleDeath();
 
-}
-
-void AUserCharacter::OnDeath()
-{
-	bIsDead = true;
-    
-    DisableInput(Cast<APlayerController>(GetController()));
-    FTimerHandle Timer;
-    GetWorldTimerManager().SetTimer(Timer, [this]() { Destroy(); }, 3.0f, false);
-    
-}
 void AUserCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);

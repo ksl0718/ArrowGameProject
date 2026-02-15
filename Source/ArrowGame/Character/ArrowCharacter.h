@@ -18,9 +18,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	AArrowCharacter();
-
-    virtual void Die();
-
+	
 	virtual void Tick(float DeltaTime) override;
 	
     UFUNCTION(BlueprintCallable)
@@ -97,9 +95,4 @@ protected:
 	// [추가] 멀티캐스트: 모두에게 래그돌 실행 명령
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_Die();
-	
-	/*void PlayFireMontage();*/
-    void HandleDeath();
-
-    virtual void OnDeath();
 };

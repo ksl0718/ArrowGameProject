@@ -52,6 +52,8 @@ AArrowCharacter::AArrowCharacter()
     bUseControllerRotationPitch = false; 
     bUseControllerRotationRoll = false;
 
+    HealthComp = CreateDefaultSubobject<UHealthComponent>(TEXT("HealthComp"));
+    
     GetCharacterMovement()->bOrientRotationToMovement = true; 
     
     //회전 속도 설정 (너무 휙휙 돌면 어색하니까)
@@ -151,21 +153,6 @@ void AArrowCharacter::OnRep_IsAiming()
 }
 
 
-void AArrowCharacter::Die()
-{
-    if (bIsDead) return;
-    bIsDead = true;
-
-    HandleDeath();
-
-    OnDeath();
-
-    UE_LOG(LogTemp, Warning, TEXT("%s has died."), *GetName());
-
-    // ���߿� ��� �ִϸ��̼� / ����Ʈ ���� �ڸ�
-    // e.g. PlayAnimMontage(DeathMontage);
-}
-
 
 void AArrowCharacter::EquipWeapon(AWeapon* NewWeapon)
 {
@@ -190,53 +177,68 @@ void AArrowCharacter::OnRep_EquippedWeapon()
     );
 }
 
-// 1. 컴포넌트나 외부에서 호출하는 사망 처리 함수
-void AArrowCharacter::HandleDeath()
-{
-    // 가상 함수인 OnDeath를 호출해서 자식 클래스(AI 등)가 덮어쓸 수 있게 함
-    OnDeath();
-}
-
-// 2. 실제 사망 로직 (가상 함수)
-void AArrowCharacter::OnDeath()
-{
-    // 서버에서 래그돌 방송(Multicast)을 실행
-    Multicast_Die();
-
-    // 컨트롤러 분리 (플레이어가 더 이상 조작 못하게)
-    DetachFromControllerPendingDestroy();
-    
-    // 5초 뒤 시체 삭제
-    SetLifeSpan(5.0f);
-}
-
-
-// 1. 컴포넌트가 죽었다고 신호를 보냄 (서버에서 실행됨)
+// 1. HealthComponent에서 "피 0임!" 하고 신호를 보낼 때 실행되는 함수
 void AArrowCharacter::OnDeathProcessed()
 {
-    // 서버가 "모든 클라이언트들아, 얘 래그돌 만들어라!" 명령
-    Multicast_Die();
+    // [안전장치] 이미 죽었다면 무시 (중복 실행 방지)
+    if (bIsDead) return;
+	
+    // 서버에서만 사망 로직 시작
+    if (HasAuthority())
+    {
+        // 모든 클라이언트에게 "얘 죽었으니 래그돌 켜라"고 방송
+        Multicast_Die();
 
-    // (선택사항) 컨트롤러 분리
-    DetachFromControllerPendingDestroy();
+        // [중요] 서버 전용 로직: 컨트롤러 분리 및 삭제 예약
+        // 0.1초 정도 뒤에 컨트롤러를 떼어내어 튕김 현상을 방지합니다.
+        GetWorldTimerManager().SetTimerForNextTick([this]()
+        {
+            if (Controller)
+            {
+                DetachFromControllerPendingDestroy();
+            }
+        });
+
+        SetLifeSpan(5.0f); // 5초 뒤 시체 삭제
+    }
 }
 
 // 2. 모든 클라이언트에서 실행됨
 void AArrowCharacter::Multicast_Die_Implementation()
 {
-    // 1. 캡슐 콜리전 끄기 (시체가 붕 뜨지 않게)
-    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    // 중복 실행 방지
+    if (bIsDead) return;
+    bIsDead = true;
 
-    // 2. 이동 멈추기
-    GetCharacterMovement()->StopMovementImmediately();
-    GetCharacterMovement()->DisableMovement();
+    // 1. 캡슐 콜리전 끄기 (땅 파고 들어가는 현상 방지)
+    if (GetCapsuleComponent())
+    {
+        GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECR_Ignore);
+    }
 
-    // 3. 래그돌 실행 (Mesh Physics 켜기)
-    GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
-    GetMesh()->SetSimulatePhysics(true);
+    // 2. 이동 정지
+    if (GetCharacterMovement())
+    {
+        GetCharacterMovement()->StopMovementImmediately();
+        GetCharacterMovement()->DisableMovement();
+    }
 
-    // 4. 시체 5초 뒤 삭제
-    SetLifeSpan(5.0f);
+    // 3. 래그돌(물리) 실행
+    if (GetMesh())
+    {
+        GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
+        GetMesh()->SetSimulatePhysics(true);
+		
+        // 죽을 때 화살 쏘는 애니메이션 등을 강제 중단
+        UAnimInstance* AnimInst = GetMesh()->GetAnimInstance();
+        if (AnimInst)
+        {
+            AnimInst->Montage_Stop(0.2f);
+        }
+    }
+	
+    UE_LOG(LogTemp, Warning, TEXT("[%s] Ragdoll Activated"), HasAuthority() ? TEXT("Server") : TEXT("Client"));
 }
 
 

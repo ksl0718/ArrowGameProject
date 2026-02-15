@@ -44,9 +44,13 @@ void ABow::Tick(float DeltaTime)
 
 	if (bIsCharging)
 	{
-		HandleCharge(DeltaTime);
+	    if (!IsAiming()) // 조준 상태가 아닌 경우 drawing 상태 변경
+	    {
+	        bIsCharging = false;
+	        return;
+	    }
+	    HandleCharge(DeltaTime);
 	}
-
 }
 
 void ABow::StartAim()
@@ -128,6 +132,8 @@ void ABow::StartDraw()
 
 void ABow::SpawnDrawArrow()
 {
+    if (PreparedArrow) return;
+    
     USkeletalMeshComponent* Mesh = OwnerCharacter->GetMesh();
     if (!Mesh || !Mesh->DoesSocketExist(TEXT("Arrow_Socket")))
     {
