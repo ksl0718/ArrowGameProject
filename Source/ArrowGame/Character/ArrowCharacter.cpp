@@ -11,7 +11,10 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "../Component/HealthComponent.h"
+#include "ArrowGame/Weapon/Bow.h"
 #include "Components/CapsuleComponent.h"
+#include "../UI/HealthBarWidget.h"
+#include "ArrowGame/Weapon/ArrowProjectile.h"
 
 void AArrowCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -20,6 +23,8 @@ void AArrowCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     DOREPLIFETIME(AArrowCharacter, EquippedWeapon);
     DOREPLIFETIME(AArrowCharacter, bIsAiming);
     DOREPLIFETIME(AArrowCharacter, SyncPitch);
+    DOREPLIFETIME(AArrowCharacter, CurrentArrowType);
+    DOREPLIFETIME(AArrowCharacter, ArrowAmmoCounts);
 }
 
 void AArrowCharacter::Tick(float DeltaTime)
@@ -67,8 +72,40 @@ void AArrowCharacter::BeginPlay()
     Super::BeginPlay();
 
     CurrentHealth = MaxHealth;
+    
+    // 1. 위젯 생성 (HUD 형태인 경우)
+    if (IsLocallyControlled() && HealthBarClass)
+    {
+        UHealthBarWidget* HealthWidget = CreateWidget<UHealthBarWidget>(GetWorld(), HealthBarClass);
+        if (HealthWidget)
+        {
+            HealthWidget->AddToViewport();
+            
+            // 2. 델리게이트 바인딩: 체력이 변할 때마다 위젯 함수 호출
+            if (HealthComp)
+            {
+                HealthComp->OnHealthChanged.AddDynamic(HealthWidget, &UHealthBarWidget::UpdateHealthBar);
+                
+                // 초기값 설정
+                HealthWidget->UpdateHealthBar(HealthComp->GetHealth(), HealthComp->GetMaxHealth());
+            }
+        }
+    }
+    
     if (HasAuthority())
     {
+        ArrowAmmoCounts.Init(0, static_cast<int32>(EArrowType::Max));
+        
+        //블루프린트(StartingAmmo)에서 설정한 값들을 배열에 입력
+        for (const auto& AmmoPair : StartingAmmo)
+        {
+            int32 Index = static_cast<int32>(AmmoPair.Key);
+            if (ArrowAmmoCounts.IsValidIndex(Index))
+            {
+                ArrowAmmoCounts[Index] = AmmoPair.Value;
+            }
+        }
+        
         if (DefaultWeaponClass)
         {
             FActorSpawnParameters Params;
@@ -92,64 +129,64 @@ void AArrowCharacter::BeginPlay()
     }
 }
 
-void AArrowCharacter::SetRotationMode(bool bAiming)
+void AArrowCharacter::ApplyAimingMovementSettings(bool bAiming)
 {
+    float TargetSpeed = bAiming ? WalkSpeed : NormalSpeed;
+    if (GetCharacterMovement())
+    {
+        GetCharacterMovement()->MaxWalkSpeed = TargetSpeed;
+    }
+
+    // 2. 회전 설정
     GetCharacterMovement()->bOrientRotationToMovement = !bAiming;
+    
     if (bAiming)
     {
-        // [중요] "나(Local)" 혹은 "서버(Authority)"일 때만 컨트롤러를 따라가야 함.
-        // 남의 캐릭터(Proxy)는 컨트롤러가 없으므로 이 옵션을 켜면 고장남!
-        if (IsLocallyControlled() || HasAuthority())
+        // 로컬 플레이어거나 서버일 때만 컨트롤러 회전을 사용
+        if (IsLocallyControlled() || (HasAuthority()))
         {
             bUseControllerRotationYaw = true;
-        }
-        else
-        {
-            // 남의 캐릭터는 서버가 보내주는 회전값을 그대로 받아먹어야 함
-            bUseControllerRotationYaw = false; 
         }
     }
     else
     {
-        // 조준 풀면 무조건 끔
         bUseControllerRotationYaw = false;
     }
 }
 
 void AArrowCharacter::SetAiming(bool bNewAiming)
 {
-    //FString Role = HasAuthority() ? TEXT("Server") : TEXT("Client");
-    //UE_LOG(LogTemp, Warning, TEXT("[%s] 1. SetAiming Called: %d"), *Role, bNewAiming);
-    
-    bIsAiming = bNewAiming;
-    SetRotationMode(bNewAiming);
+    // [1. 예측] 서버 응답 기다리지 말고 내 화면(Client) 변수부터 즉시 업데이트
+    bIsAiming = bNewAiming; 
 
-    if (!HasAuthority())
+    if (HasAuthority())
     {
-        ServerSetAiming(bNewAiming);
+        // [2. 서버 본인일 때] 직접 활에게 명령
+        if (ABow* Bow = Cast<ABow>(EquippedWeapon))
+        {
+            if (bNewAiming) Bow->StartAim();
+            else Bow->StopAim();
+        }
     }
     else
     {
-        ServerSetAiming_Implementation(bNewAiming);
+        // [3. 클라이언트일 때] 서버에게 "도장 찍어달라고" 요청
+        ServerSetAiming(bNewAiming);
     }
+
+    ApplyAimingMovementSettings(bNewAiming);
 }
 
 void AArrowCharacter::ServerSetAiming_Implementation(bool bNewAiming)
 {
-    UE_LOG(LogTemp, Warning, TEXT("[Server] 2. RPC Arrived: %d"), bNewAiming);
-    // 변수 동기화 (이미 되어있던 것)
-    bIsAiming = bNewAiming;
-    
-    SetRotationMode(bNewAiming);
-    
-    // ForceUpdateComponents(); 
+    SetAiming(bNewAiming);
 }
 
 void AArrowCharacter::OnRep_IsAiming()
 {
     UE_LOG(LogTemp, Warning, TEXT("[Client Proxy] 3. OnRep Fired! Value: %d"), bIsAiming);
     // 변수가 서버로부터 도착하면, 자동으로 회전 모드를 바꿈
-    SetRotationMode(bIsAiming);
+    ApplyAimingMovementSettings(bIsAiming);
 }
 
 
@@ -256,4 +293,87 @@ void AArrowCharacter::PlayMontage(UAnimMontage* Montage, float PlayRate)
     }
 
     AnimInstance->Montage_Play(Montage, PlayRate);
+}
+void AArrowCharacter::ServerPlayCancelMontage_Implementation() { MulticastPlayCancelMontage(); }
+void AArrowCharacter::MulticastPlayCancelMontage_Implementation() 
+{
+    if (CancelMontage)
+    {
+        PlayAnimMontage(CancelMontage);
+        UE_LOG(LogTemp, Log, TEXT("Playing Cancel Montage on All Clients"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("CancelMontage is NULL! Check Blueprint."));
+    }
+}
+
+
+//------------------화살 관련------------------//
+
+// ----- 탄약 관리 (Getter & Setter) ----- //
+int32 AArrowCharacter::GetAmmoCount(EArrowType Type) const
+{
+    int32 Index = static_cast<int32>(Type);
+    if (ArrowAmmoCounts.IsValidIndex(Index))
+    {
+        return ArrowAmmoCounts[Index];
+    }
+    return 0;
+}
+
+void AArrowCharacter::ConsumeAmmo(EArrowType Type, int32 Amount)
+{
+    if (!HasAuthority()) return; // 소비는 서버에서만!
+
+    int32 Index = static_cast<int32>(Type);
+    if (ArrowAmmoCounts.IsValidIndex(Index))
+    {
+        ArrowAmmoCounts[Index] = FMath::Max(0, ArrowAmmoCounts[Index] - Amount);
+    }
+}
+
+void AArrowCharacter::AddAmmo(EArrowType Type, int32 Amount)
+{
+    if (!HasAuthority()) return; // 획득도 서버에서만!
+
+    int32 Index = static_cast<int32>(Type);
+    if (ArrowAmmoCounts.IsValidIndex(Index))
+    {
+        ArrowAmmoCounts[Index] += Amount;
+    }
+}
+// ----- 화살 교체 로직 ----- //
+void AArrowCharacter::EquipArrow(EArrowType NewType)
+{
+    // 불화살이 1개 이상 있을 때만 교체 가능
+    if (GetAmmoCount(NewType) > 0)
+    {
+        ServerChangeArrowType(NewType);
+    }
+}
+
+void AArrowCharacter::ServerChangeArrowType_Implementation(EArrowType NewType)
+{
+    CurrentArrowType = NewType;
+    // (선택) 여기서 무기(Bow)에게 "장전된 화살 룩 바꿔!" 라고 명령을 내릴 수도 있습니다.
+}
+
+void AArrowCharacter::OnRep_CurrentArrowType()
+{
+    // 클라이언트 화면에서 화살 종류가 바뀌었을 때 UI 업데이트나 
+    // 활에 꽂힌 화살 이펙트(불꽃 등)를 갱신하는 로직을 넣습니다.
+}
+
+TSubclassOf<class AArrowProjectile> AArrowCharacter::GetCurrentArrowClass() const
+{
+    // TMap에 현재 화살 타입이 세팅되어 있다면 그 클래스를 반환
+    if (ArrowClasses.Contains(CurrentArrowType))
+    {
+        return ArrowClasses[CurrentArrowType];
+    }
+    
+    // 세팅을 깜빡했을 때를 대비한 방어 코드 (크래시 방지)
+    UE_LOG(LogTemp, Error, TEXT("ArrowClasses TMap에 현재 화살(%d) 클래스가 세팅되지 않았습니다!"), (int32)CurrentArrowType);
+    return nullptr; 
 }

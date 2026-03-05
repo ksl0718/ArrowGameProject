@@ -17,11 +17,14 @@ class ARROWGAME_API AArrowGameGameMode : public AGameModeBase
 public:
 	void ActorDied(AActor* DeadActor);
 	virtual void BeginPlay() override;
-
+	
+	void RequestRespawn(AController* Controller);
+	
 private:
 
 	class AUserCharacter* User;
 	class AArrowGamePlayerController* ArrowGamePlayerController;
 
-
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float RespawnDelay = 3.0f;
 };

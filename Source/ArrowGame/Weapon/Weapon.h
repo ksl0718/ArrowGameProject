@@ -26,6 +26,7 @@ public:
 	virtual void StartDraw() {}
 	virtual void EndDraw() {}
 
+	void SetOwnerCharacter(AArrowCharacter* NewOwner){ OwnerCharacter = NewOwner;};
 protected:
 
 	UPROPERTY(BlueprintReadOnly)

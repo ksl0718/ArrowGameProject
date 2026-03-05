@@ -30,6 +30,8 @@ AArrowProjectile::AArrowProjectile()
 	CollisionBox->SetCollisionResponseToChannel(ECC_PhysicsBody, ECR_Block);
 	CollisionBox->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
 	CollisionBox->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
+	CollisionBox->SetCollisionResponseToChannel(ECC_Visibility, ECR_Overlap);
+	CollisionBox->SetGenerateOverlapEvents(true);
 	
 	if (ArrowMesh)
 	{
@@ -81,9 +83,13 @@ void AArrowProjectile::BeginPlay()
 	FString RoleStr = HasAuthority() ? TEXT("Server") : TEXT("Client");
 	UE_LOG(LogTemp, Warning, TEXT("=== ARROW BORN [%s] ==="), *RoleStr);
 
-	// 1. Instigator(주인) 확인
-	AActor* MyOwner = GetInstigator();
-	UE_LOG(LogTemp, Warning, TEXT("1. Instigator: %s"), MyOwner ? *MyOwner->GetName() : TEXT("NULL (Problem!)"));
+	AActor* MyOwner = GetOwner();
+	if (MyOwner)
+	{
+		// 중요: 화살의 충돌 박스가 주인을 물리적으로 무시하도록 설정
+		// 이렇게 하면 캐릭터 몸 안에서 생성되어도 밀어내지(튀어나가지) 않습니다.
+		CollisionBox->IgnoreActorWhenMoving(MyOwner, true);
+	}
 
 	// 2. CollisionBox 상태 확인
 	if (CollisionBox)
@@ -194,9 +200,6 @@ void AArrowProjectile::OnHit(
 	}
 	
 	HitPhysicsObject(OtherComp, Hit, GetOwner());
-	
-	StickIntoWorld(OtherComp, OtherActor, Hit);
-	
 }
 
 
@@ -224,54 +227,47 @@ void AArrowProjectile::StopAndDisable()
 		ProjectileMovement->Deactivate();
 	}
 
-	if (TrailNiagara)
-	{
-		TrailNiagara->Deactivate();
-	}
+	if (TrailNiagara) TrailNiagara->Deactivate();
 
-	//if (CollisionBox)
-	//{
-		//CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		//CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
-		//CollisionBox->SetSimulatePhysics(false);
-	//}
-	CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	SetActorEnableCollision(false);
+	if (CollisionBox)
+	{
+		CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		CollisionBox->SetCollisionResponseToAllChannels(ECR_Overlap);
+		CollisionBox->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+	}
 }
 
 void AArrowProjectile::HitPhysicsObject(UPrimitiveComponent* OtherComp, const FHitResult& Hit, AActor* MyOwner)
 {
+	// 1. 물리 체크 (입구 컷)
 	if (!OtherComp || !OtherComp->IsSimulatingPhysics())
-		return;
-	const float ImpulseStrength = Damage * 100.f;
-
-	//���޽� �߰�
-	if (OtherComp && OtherComp->IsSimulatingPhysics())
 	{
-		// ȭ���� ���ư��� ���� ��������
-		FVector ImpulseDir;
-
-		if (ProjectileMovement)
-		{
-			ImpulseDir = ProjectileMovement->Velocity.GetSafeNormal();
-		}
-		else
-		{
-			ImpulseDir = GetActorForwardVector();
-		}
-
-		FVector	Impulse = Damage * 100.0f * ImpulseDir;  // �Ÿ���� ���޽� ������
-		OtherComp->AddImpulseAtLocation(Impulse, Hit.ImpactPoint);
+		// 물리가 없는 물체라면 그냥 박기만 하고 종료
+		StickIntoWorld(OtherComp, Hit.GetActor(), Hit);
+		return;
 	}
-	//ȭ�� ������
-	StopAndDisable();
+
+	// 2. 물리 충격 계산 및 적용
+	FVector ImpulseDir = ProjectileMovement ? ProjectileMovement->Velocity.GetSafeNormal() : GetActorForwardVector();
+	FVector Impulse = Damage * 100.0f * ImpulseDir;
+    
+	OtherComp->AddImpulseAtLocation(Impulse, Hit.ImpactPoint);
+
+	// 3. 충격 줬으니 이제 박히러 가자!
 	StickIntoWorld(OtherComp, Hit.GetActor(), Hit);
 }
 
 void AArrowProjectile::StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* OtherActor, const FHitResult& Hit)
 {
 	StopAndDisable();
-
+	
+	if (CollisionBox) 
+	{
+		CollisionBox->SetGenerateOverlapEvents(true);
+		//라인트레이스를 위한
+		CollisionBox->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+	}
+	
 	// ȭ�� ����(ȸ��) ���߱�
 	FVector ForwardDir;
 	if (ProjectileMovement && !ProjectileMovement->Velocity.IsNearlyZero())
@@ -283,20 +279,30 @@ void AArrowProjectile::StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* Ot
 		ForwardDir = GetActorForwardVector();
 	}
 	SetActorRotation(ForwardDir.Rotation());
-
-	//float HalfLen = CollisionBox->GetScaledBoxExtent().X;
-	//FVector NewLoc = Hit.ImpactPoint - ForwardDir * HalfLen;
-
-	//SetActorLocation(NewLoc);
-
+	
 	if (OtherComp)
 	{
-		FAttachmentTransformRules AttachRules(
-			EAttachmentRule::KeepWorld, 
-			EAttachmentRule::KeepWorld, 
-			EAttachmentRule::KeepWorld, 
-			false
-		);
+		FAttachmentTransformRules AttachRules(EAttachmentRule::KeepWorld, true);
 		AttachToComponent(OtherComp, AttachRules);
+	}
+	UpdateOverlaps();
+}
+
+//나이아가라 서버호출
+void AArrowProjectile::MulticastActivateTrail_Implementation()
+{
+	if (TrailNiagara)
+	{
+		TrailNiagara->Activate(true);
+	}
+}
+
+void AArrowProjectile::PickUp(AArrowCharacter* Picker)
+{
+	// 박혀있을 때, 그리고 서버에서만 실행
+	if (bStuck && HasAuthority() && Picker)
+	{
+		Picker->AddAmmo(ArrowType, 1); // 쏜 거 주웠으니 1개만 돌려줌
+		Destroy();
 	}
 }

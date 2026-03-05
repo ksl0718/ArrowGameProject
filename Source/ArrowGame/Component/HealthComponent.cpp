@@ -96,9 +96,16 @@ void UHealthComponent::OnRep_Health()
 	AArrowCharacter* ArrowChar = Cast<AArrowCharacter>(GetOwner());
 	if (ArrowChar)
 	{
-		if (Health > 0.f && ArrowChar->HitMontage)
+		// 🔥 [핵심 추가] 체력이 0보다 크고, 몽타주가 있고, "구르는 중이 아닐 때만(!!!)" 재생
+		if (Health > 0.f && ArrowChar->HitMontage && !ArrowChar->IsRolling())
 		{
 			ArrowChar->PlayMontage(ArrowChar->HitMontage);
+		}
+		else if (ArrowChar->IsRolling())
+		{
+			// (선택 사항) 구르는 중이라 모션은 안 틀지만, 맞았다는 타격감을 위해 
+			// 핏물 튀기는 파티클(VFX)이나 윽! 하는 사운드만 여기서 따로 틀어줘도 아주 좋습니다.
+			UE_LOG(LogTemp, Log, TEXT("구르는 중에 맞아서 피격 모션을 생략합니다."));
 		}
 	}
 }
