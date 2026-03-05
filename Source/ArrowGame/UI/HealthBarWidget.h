@@ -1,4 +1,6 @@
-﻿#include "Blueprint/UserWidget.h"
+﻿#pragma once
+
+#include "Blueprint/UserWidget.h"
 #include "HealthBarWidget.generated.h"
 
 UCLASS()
