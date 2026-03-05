@@ -11,6 +11,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHealthChangedDelegate, float, Cu
 // [추가] 2. 사망했을 때 (캐릭터 래그돌용)
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeadDelegate);
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHealthChangedSignature, float, Health, float, MaxHealth);
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class ARROWGAME_API UHealthComponent : public UActorComponent
 {
@@ -18,13 +20,16 @@ class ARROWGAME_API UHealthComponent : public UActorComponent
 
 public:	
 
+	
+	// 체력 변경 시 호출될 이벤트
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnHealthChangedSignature OnHealthChanged;
+	
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	// [추가] 외부(UI, 캐릭터)에서 귀를 기울일 방송 채널
-	UPROPERTY(BlueprintAssignable, Category = "Events")
-	FOnHealthChangedDelegate OnHealthChanged;
 
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnDeadDelegate OnDead;
@@ -32,6 +37,8 @@ public:
 	// Sets default values for this component's properties
 	UHealthComponent();
 
+	float GetHealth(){ return Health; }
+	float GetMaxHealth(){ return MaxHealth; }
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;

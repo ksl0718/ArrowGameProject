@@ -24,6 +24,9 @@ public:
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Character State")
 	bool bIsAiming = false;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Character State")
+	bool bIsReloading = false;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Character State")
 	bool bIsCharging = false;

@@ -10,6 +10,15 @@
 #include "NiagaraComponent.h"                            
 #include "ArrowProjectile.generated.h"
 
+UENUM(BlueprintType)
+enum class EArrowType : uint8
+{
+	Normal      UMETA(DisplayName = "Normal Arrow"),
+	Fire        UMETA(DisplayName = "Fire Arrow"),
+	Explosive   UMETA(DisplayName = "Explosive Arrow"),
+	Max         UMETA(Hidden) 
+};
+
 UCLASS()
 class ARROWGAME_API AArrowProjectile : public AActor
 {
@@ -25,6 +34,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Effects", meta = (AllowPrivateAccess = "true"))
 	class UNiagaraComponent* TrailNiagara;
 
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastActivateTrail();
+	
+	UFUNCTION(BlueprintCallable, Category = "Arrow Data")
+	EArrowType GetArrowType() const { return ArrowType; }
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -34,10 +49,12 @@ protected:
 		UPrimitiveComponent* OtherComp, FVector NormalImpulse,
 		const FHitResult& Hit);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arrow Data")
+	EArrowType ArrowType = EArrowType::Normal;
+	
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
 	
 	void FireInDirection(const FVector& ShootDirection);
 
@@ -50,6 +67,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void InitVelocity(const FVector& Velocity);
 
+	// 캐릭터가 주울 때 부를 함수
+	void PickUp(class AArrowCharacter* Picker);
+    
+	// 박혀있는 상태인지 확인
+	bool IsStuck() const { return bStuck; }
+	
 private:
 	UPROPERTY(EditAnyWhere)
 	class UProjectileMovementComponent* ProjectileMovement;
