@@ -38,24 +38,25 @@ public:
     //서버에 요청만
     virtual void StartDraw() override;
     virtual void EndDraw() override;
-
-    // Bow ���� ��ȸ (BP������ ����)
-    UFUNCTION(BlueprintCallable)
-    bool IsAiming() const { return bIsAiming; }
-
+    
+    void CancelAction();
+    
     UFUNCTION(BlueprintCallable)
     bool IsCharging() const { return bIsCharging; }
-
-
+    FORCEINLINE bool IsReloading() const { return bIsReloading; }
+    FORCEINLINE bool HasPreparedArrow() const { return PreparedArrow != nullptr; }
+    FORCEINLINE bool IsNocking() const { return bIsNocking; }
+    
     UPROPERTY(BlueprintReadOnly, Category = "Bow|State", Replicated)
     EBowState BowState = EBowState::Idle;
 
     UPROPERTY()
     AArrowProjectile* PreparedArrow = nullptr;
 
-    void SetAiming(bool bNewAiming);
-    
 protected:
+    UFUNCTION(Server, Reliable)
+    void ServerStartAim();
+    
    //서버한테 활 당기라고 요청
     UFUNCTION(Server, Reliable)
     void ServerStartDraw();
@@ -64,19 +65,20 @@ protected:
     UFUNCTION(Server, Reliable)
     void ServerEndDraw();
     
-    UFUNCTION(Server, Reliable)
-    void ServerSetAiming(bool bNewAiming);
-    
-    // ���� / ��¡ ����
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State", Replicated)
-    bool bIsAiming = false;
-
     UPROPERTY(ReplicatedUsing=OnRep_IsCharging, VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
     bool bIsCharging = false;
-
+    
+    UPROPERTY(ReplicatedUsing = OnRep_IsVisualAiming)
+    bool bIsVisualAiming = false;
+    
+    void UpdateArrowVisual();
+    
     // RepNotify 콜백 함수 선언
     UFUNCTION()
     void OnRep_IsCharging();
+    
+    UFUNCTION()
+    void OnRep_IsVisualAiming();
     
     // 헬퍼 함수들
     void SpawnDrawArrow();
@@ -110,9 +112,41 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Sound")
     USoundBase* FireSound;
 
+    // 발사 직후 재장전 중인지 확인하는 변수
+    UPROPERTY(ReplicatedUsing = OnRep_IsReloading, BlueprintReadOnly, Category = "Bow|State")
+    bool bIsReloading = false;
     
+    UFUNCTION()
+    void OnRep_IsReloading();
+    
+    UFUNCTION()
+    void OnRep_IsNocking();
+    
+    // 화살을 시위에 거는 중인지 확인 (조준 진입 초기 단계)
+    UPROPERTY(ReplicatedUsing = OnRep_IsNocking, BlueprintReadOnly, Category = "Bow|State")
+    bool bIsNocking = false;
+
+    // 장전 동작(등에서 꺼내기)에 걸리는 시간 (0.3~0.5초 추천)
+    UPROPERTY(EditAnywhere, Category = "Bow|Fire")
+    float NockingDelayTime = 0.4f;
+    
+    // 발사 후 다음 화살을 꺼낼 때까지 걸리는 시간 (0.4~0.7초 추천)
+    UPROPERTY(EditAnywhere, Category = "Bow|Fire")
+    float ReloadDelayTime = 0.6f;
+
+    // 쿨타임이 끝나면 호출될 함수
+    void FinishReloading();
+    
+    void FinishNocking();
+    
+    FTimerHandle ReloadTimerHandle;
+    FTimerHandle NockingTimerHandle;
 private:
+    UPROPERTY(EditAnywhere, Category = "Mesh")
+    class USkeletalMeshComponent* Mesh;
+    
     void HandleCharge(float DeltaTime);
+    
     void FireArrow(float Power);
 
     

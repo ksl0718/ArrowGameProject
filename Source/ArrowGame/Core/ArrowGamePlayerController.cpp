@@ -18,16 +18,14 @@ void AArrowGamePlayerController::BeginPlay()
 
 }
 
-void AArrowGamePlayerController::SetPlayerEnabledState(bool bPlayerEnalbed) {
+void AArrowGamePlayerController::SetPlayerEnabledState(bool bPlayerEnabled) {
 
-    if (bPlayerEnalbed)
+    APawn* MyPawn = GetPawn();
+    if (MyPawn) // [추가] 폰이 파괴된 상태일 수 있으므로 체크 필수
     {
-        GetPawn()->EnableInput(this);
-    }
-    else
-    {
-        GetPawn()->DisableInput(this);
+        if (bPlayerEnabled) MyPawn->EnableInput(this);
+        else MyPawn->DisableInput(this);
     }
 
-    bShowMouseCursor = bPlayerEnalbed;
+    bShowMouseCursor = !bPlayerEnabled; // 죽었을 때(false) 마우스를 보여줄지 선택
 }

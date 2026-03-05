@@ -12,7 +12,10 @@ public class ArrowGame : ModuleRules
             "CoreUObject",
             "Engine",
             "InputCore",
-            "EnhancedInput", "Niagara","AnimGraphRuntime"
+            "EnhancedInput", "Niagara","AnimGraphRuntime",
+            "UMG", "Slate", "SlateCore","OnlineSubsystem",
+            "OnlineSubsystemUtils",
+            "OnlineSubsystemSteam"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] { });

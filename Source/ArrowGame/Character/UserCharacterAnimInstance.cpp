@@ -20,6 +20,7 @@ void UUserCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
     AUserCharacter* Character = Cast<AUserCharacter>(Pawn);
     if (!Character) return;
     
+    bIsAiming = Character->IsAiming(); 
     bIsDead = Character->IsDead();
     FVector Velocity = Character->GetVelocity();
     GroundSpeed = Velocity.Size2D();
@@ -63,8 +64,8 @@ void UUserCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
         if (Bow)
         {
             // 활의 상태를 복사 (동기화)
-            bIsAiming = Bow->IsAiming(); 
             bIsCharging = Bow->IsCharging();
+            bIsReloading = Bow ->IsReloading();
             //FString Role = Character->HasAuthority() ? TEXT("Server") : TEXT("Client");
             //UE_LOG(LogTemp, Warning, TEXT("[%s] Bow Found! Aiming: %s"), *Role, Bow->IsAiming() ? TEXT("TRUE") : TEXT("FALSE"));
         }

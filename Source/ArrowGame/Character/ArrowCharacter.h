@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ArrowGame/Weapon/ArrowProjectile.h"
 #include "GameFramework/Character.h"
 #include "ArrowCharacter.generated.h"
 
@@ -42,6 +43,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
     class UAnimMontage* RollMontage;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
+	class UAnimMontage* CancelMontage;
+	
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	class AWeapon* GetEquippedWeapon() const { return EquippedWeapon; }
 	
@@ -52,6 +56,29 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class UHealthComponent* HealthComp;
 	
+	UFUNCTION(BlueprintCallable)
+	bool IsAiming() const { return bIsAiming; }
+	
+	UFUNCTION(BlueprintCallable)
+	bool IsRolling() const { return bIsRolling; }
+	
+	// 화살 개수를 확인하고 소비하는 함수들
+	UFUNCTION(BlueprintCallable, Category = "Ammo")
+	int32 GetAmmoCount(EArrowType Type) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Ammo")
+	void ConsumeAmmo(EArrowType Type, int32 Amount = 1);
+
+	UFUNCTION(BlueprintCallable, Category = "Ammo")
+	void AddAmmo(EArrowType Type, int32 Amount);
+	
+	UFUNCTION(BlueprintCallable, Category = "Ammo")
+	EArrowType GetCurrentArrowType() const { return CurrentArrowType; }
+	
+	// 현재 선택된 화살의 '블루프린트 클래스'를 반환 (스폰용)
+	UFUNCTION(BlueprintCallable, Category = "Ammo")
+	TSubclassOf<class AArrowProjectile> GetCurrentArrowClass() const;
+	
 protected:
 
     virtual void BeginPlay() override;
@@ -60,7 +87,7 @@ protected:
 	float SyncPitch;
 	
     UPROPERTY(BlueprintReadOnly, Category = "stats")
-    bool bIsRolling = false; // ������ ����
+    bool bIsRolling = false; // ������ ����
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "stats")
     bool bIsDead = false;
@@ -74,7 +101,7 @@ protected:
     UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon, VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
     AWeapon* EquippedWeapon;
 
-	void SetRotationMode(bool bAiming);
+	void ApplyAimingMovementSettings(bool bAiming);
 	
 	UFUNCTION(Server, Reliable)
 	void ServerSetAiming(bool bNewAiming);
@@ -88,11 +115,55 @@ protected:
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
 
-	// [�߰�] ������Ʈ���� "�׾���"�� ��ȣ ���� ������ �Լ�
+	// [�߰�] ������Ʈ���� "�׾���"�� ��ȣ ���� ������ �Լ�
 	UFUNCTION()
 	void OnDeathProcessed();
-
-	// [�߰�] ��Ƽĳ��Ʈ: ��ο��� ���׵� ���� ����
+	
+	// [�߰�] ��Ƽĳ��Ʈ: ��ο��� ���׵� ���� ���
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_Die();
+	
+	UFUNCTION(Server, Reliable)
+	void ServerPlayCancelMontage();
+
+	// [�߰�] ��� Ŭ���̾�Ʈ���� ��Ÿ�� ��� ���
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayCancelMontage();
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float NormalSpeed = 400.f;     // ?? ???
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float WalkSpeed = 200.f;       // ????? ???? ?? ???? ???
+	
+	UPROPERTY(EditAnywhere, Category = "UI")
+	TSubclassOf<class UUserWidget> HealthBarClass;
+
+	
+	//----------------화살 관련----------//
+	// 1. 현재 들고 있는 화살 타입 (동기화 필수)
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentArrowType, BlueprintReadOnly, Category = "Inventory")
+	EArrowType CurrentArrowType = EArrowType::Normal;
+
+	UFUNCTION()
+	void OnRep_CurrentArrowType();
+
+	// 2. 화살 소지 개수 배열 (인덱스 = EArrowType의 정수값)
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = "Inventory")
+	TArray<int32> ArrowAmmoCounts;
+
+	// 3. 에디터에서 [Normal -> BP_NormalArrow], [Fire -> BP_FireArrow] 짝지어주는 맵
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Inventory")
+	TMap<EArrowType, TSubclassOf<class AArrowProjectile>> ArrowClasses;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Inventory")
+	TMap<EArrowType, int32> StartingAmmo;
+	
+	// 4. 화살 교체를 서버에 요청하는 함수
+	UFUNCTION(Server, Reliable)
+	void ServerChangeArrowType(EArrowType NewType);
+
+	// 입력 키(1, 2, 3 또는 휠)에 바인딩할 함수들
+	void EquipArrow(EArrowType NewType);
+	
 };
