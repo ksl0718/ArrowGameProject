@@ -4,6 +4,7 @@
 #include "ArrowGameGameMode.h"
 #include "../Character/UserCharacter.h"
 #include "ArrowGamePlayerController.h"
+#include "ArrowPlayerState.h"
 #include "../AI/AICharacter.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -15,27 +16,45 @@ void AArrowGameGameMode::BeginPlay()
 	//ArrowGamePlayerController = Cast<AArrowGamePlayerController>(UGameplayStatics::GetPlayerController(this, 0));
 }
 
-void AArrowGameGameMode::ActorDied(AActor* DeadActor)
+void AArrowGameGameMode::ActorDied(AActor* DeadActor, AController* KillerController)
 {
-	// 1. 죽은 액터가 플레이어인지 확인
-	APawn* DeadPawn = Cast<APawn>(DeadActor);
-	if (DeadPawn && DeadPawn->IsPlayerControlled())
+	if (KillerController && KillerController != Cast<APawn>(DeadActor)->GetController())
 	{
-		AController* PC = DeadPawn->GetController();
-		if (PC)
+		AArrowPlayerState* KillerPS = KillerController->GetPlayerState<AArrowPlayerState>();
+		if (KillerPS)
 		{
-			// 2. 입력 비활성화 (기존 로직 유지)
-			AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC);
-			if (MyPC) MyPC->SetPlayerEnabledState(false);
-
-			// 3. 타이머 설정: RespawnDelay(3초) 후에 RequestRespawn 호출
-			FTimerHandle RespawnTimerHandle;
-			FTimerDelegate RespawnDelegate;
-			RespawnDelegate.BindUObject(this, &AArrowGameGameMode::RequestRespawn, PC);
-
-			GetWorldTimerManager().SetTimer(RespawnTimerHandle, RespawnDelegate, RespawnDelay, false);
+			KillerPS->AddKill(); // 또는 AddKill() 함수 호출
+			UE_LOG(LogTemp, Warning, TEXT("Killer: %s, Kills: %d"), *KillerPS->GetPlayerName(), KillerPS->GetKills());
 		}
 	}
+	
+	// 1. 죽은 액터가 플레이어인지 확인
+	APawn* DeadPawn = Cast<APawn>(DeadActor);
+	if (DeadPawn)
+	{
+		AArrowPlayerState* VictimPS = DeadPawn->GetPlayerState<AArrowPlayerState>();
+		if (VictimPS)
+		{
+			VictimPS->AddDeath(); 
+		}
+		if (DeadPawn->IsPlayerControlled())
+		{
+			AController* PC = DeadPawn->GetController();
+			if (PC)
+			{
+				// 2. 입력 비활성화 (기존 로직 유지)
+				AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC);
+				if (MyPC) MyPC->SetPlayerEnabledState(false);
+
+				// 3. 타이머 설정: RespawnDelay(3초) 후에 RequestRespawn 호출
+				FTimerHandle RespawnTimerHandle;
+				FTimerDelegate RespawnDelegate;
+				RespawnDelegate.BindUObject(this, &AArrowGameGameMode::RequestRespawn, PC);
+				GetWorldTimerManager().SetTimer(RespawnTimerHandle, RespawnDelegate, RespawnDelay, false);
+			}
+		}
+	}
+	
 }
 
 void AArrowGameGameMode::RequestRespawn(AController* Controller)

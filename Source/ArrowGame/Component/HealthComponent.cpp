@@ -65,7 +65,7 @@ void UHealthComponent::DamageTaken(
 {
 	UE_LOG(LogTemp, Warning, TEXT("Component Received Damage! Health: %f"), Health);
 	
-	if (Damage <= 0.f || Health <= 0.f) return;
+	if (Damage <= 0.f || bIsDead) return;
 	if (!GetOwner()->HasAuthority()) return;
 	
 	Health = FMath::Clamp(Health - Damage, 0.0f, MaxHealth);
@@ -77,13 +77,14 @@ void UHealthComponent::DamageTaken(
 	// 사망 체크
 	if (Health <= 0.f)
 	{
+		bIsDead = true;
 		// 1. 캐릭터에게 "너 죽었어" 알림 (래그돌 실행용)
 		OnDead.Broadcast();
 
 		// 2. 게임모드에게 알림 (점수 계산, 리스폰 등)
 		if (ArrowGameGameMode)
 		{
-			ArrowGameGameMode->ActorDied(DamagedActor);
+			ArrowGameGameMode->ActorDied(DamagedActor, Instigator);
 		}
 	}
 }

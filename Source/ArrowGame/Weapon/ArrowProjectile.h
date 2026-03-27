@@ -52,6 +52,25 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arrow Data")
 	EArrowType ArrowType = EArrowType::Normal;
 	
+	UPROPERTY(EditAnyWhere)
+	class UProjectileMovementComponent* ProjectileMovement;
+
+	UPROPERTY(EditAnywhere)
+	float Damage = 50.f;
+
+	bool bStuck = false;
+	
+	FVector PrevLocation; 
+	
+	void StopAndDisable();  // ȭ�� ���߰� �浹 ���� ���� ó��
+	void StickIntoCharacter(APawn* HitPawn, UPrimitiveComponent* OtherComp, const FHitResult& Hit);
+	void HitPhysicsObject(UPrimitiveComponent* OtherComp, const FHitResult& Hit, AActor* MyOwner);
+	void StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* OtherActor, const FHitResult& Hit);
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
+	bool bShouldApplyDirectDamage = true;
+	
+	virtual void NotifyImpact(const FHitResult& Hit);
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -73,20 +92,8 @@ public:
 	// 박혀있는 상태인지 확인
 	bool IsStuck() const { return bStuck; }
 	
+	
 private:
-	UPROPERTY(EditAnyWhere)
-	class UProjectileMovementComponent* ProjectileMovement;
-
-	UPROPERTY(EditAnywhere)
-	float Damage = 50.f;
-
-	bool bStuck = false;
 	
-	FVector PrevLocation; 
-	
-	void StopAndDisable();  // ȭ�� ���߰� �浹 ���� ���� ó��
-	void StickIntoCharacter(APawn* HitPawn, UPrimitiveComponent* OtherComp, const FHitResult& Hit);
-	void HitPhysicsObject(UPrimitiveComponent* OtherComp, const FHitResult& Hit, AActor* MyOwner);
-	void StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* OtherActor, const FHitResult& Hit);
 
 };

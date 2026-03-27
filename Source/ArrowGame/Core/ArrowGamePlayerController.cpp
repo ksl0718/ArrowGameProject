@@ -2,11 +2,28 @@
 
 
 #include "ArrowGamePlayerController.h"
+#include "Blueprint/UserWidget.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "../UI/ScoreboardWidget.h"
 
 void AArrowGamePlayerController::BeginPlay()
 {
     Super::BeginPlay();
 
+    // 이 컨트롤러가 로컬(내 컴퓨터)일 때만 위젯 생성
+    if (IsLocalPlayerController())
+    {
+        if (IsLocalPlayerController())
+        {
+            if (ScoreboardClass)
+            {
+                // 위젯을 생성하고 포인터 변수에 저장
+                ScoreboardWidget = CreateWidget<UScoreboardWidget>(this, ScoreboardClass);
+            }
+        }
+    }
+    
     bShowMouseCursor = false;
     DefaultMouseCursor = EMouseCursor::None;
 
@@ -16,6 +33,21 @@ void AArrowGamePlayerController::BeginPlay()
     bEnableClickEvents = false;
     bEnableMouseOverEvents = false;
 
+}
+
+void AArrowGamePlayerController::SetupInputComponent()
+{
+    Super::SetupInputComponent();
+
+    // 3. Enhanced Input 컴포넌트로 캐스팅하여 바인딩
+    if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent))
+    {
+        // Started: 키를 눌렀을 때 (Triggered도 가능하지만 탭 키는 보통 Started가 명확합니다)
+        EnhancedInputComponent->BindAction(ScoreboardAction, ETriggerEvent::Started, this, &AArrowGamePlayerController::ShowScoreboard);
+		
+        // Completed: 키를 뗐을 때
+        EnhancedInputComponent->BindAction(ScoreboardAction, ETriggerEvent::Completed, this, &AArrowGamePlayerController::HideScoreboard);
+    }
 }
 
 void AArrowGamePlayerController::SetPlayerEnabledState(bool bPlayerEnabled) {
@@ -28,4 +60,30 @@ void AArrowGamePlayerController::SetPlayerEnabledState(bool bPlayerEnabled) {
     }
 
     bShowMouseCursor = !bPlayerEnabled; // 죽었을 때(false) 마우스를 보여줄지 선택
+}
+
+void AArrowGamePlayerController::ShowScoreboard()
+{
+    if (ScoreboardWidget)
+    {
+        // 3. 점수판을 갱신하고 화면에 띄웁니다.
+        ScoreboardWidget->RefreshScoreboard();
+        ScoreboardWidget->AddToViewport();
+		
+        // 마우스 커서가 필요하다면 아래 주석 해제
+        // bShowMouseCursor = true;
+        // SetInputMode(FInputModeGameAndUI());
+    }
+}
+
+void AArrowGamePlayerController::HideScoreboard()
+{
+    if (ScoreboardWidget)
+    {
+        // 4. 화면에서 지웁니다.
+        ScoreboardWidget->RemoveFromParent();
+		
+        // bShowMouseCursor = false;
+        // SetInputMode(FInputModeGameOnly());
+    }
 }

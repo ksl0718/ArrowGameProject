@@ -51,6 +51,9 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_Health)
 	float Health = 0.f;
 
+	UPROPERTY()
+	bool bIsDead = false;
+	
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	float GetHealthPercent() const { return MaxHealth > 0 ? Health / MaxHealth : 0.f; }
 	

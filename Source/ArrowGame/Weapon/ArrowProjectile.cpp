@@ -174,10 +174,13 @@ void AArrowProjectile::OnHit(
 
 	if (!OtherActor || OtherActor == this || OtherActor == GetInstigator()) return;
 
+	NotifyImpact(Hit);
+	
 	if (OtherActor->IsA(APawn::StaticClass())) 
 	{
 		if (HasAuthority()) // 서버에서만 처리
 		{
+			CollisionBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 			UGameplayStatics::ApplyDamage(
 				OtherActor,
 				Damage,
@@ -202,6 +205,10 @@ void AArrowProjectile::OnHit(
 	HitPhysicsObject(OtherComp, Hit, GetOwner());
 }
 
+void AArrowProjectile::NotifyImpact(const FHitResult& Hit)
+{
+	// 일반 화살은 여기서 아무것도 안 함! (ㅅㅂ 휴... 깨끗)
+}
 
 void AArrowProjectile::FireInDirection(const FVector& ShootDirection)
 {

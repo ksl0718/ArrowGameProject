@@ -96,7 +96,7 @@ void UArrowGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
     if (bWasSuccessful)
     {
         UE_LOG(LogTemp, Log, TEXT("세션 생성 최종 성공!"));
-        GetWorld()->ServerTravel("/Game/ArrowGame/Maps/Map_Test?listen");
+        GetWorld()->ServerTravel("/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024?listen");
     }
 }
 

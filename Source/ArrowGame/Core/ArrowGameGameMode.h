@@ -15,7 +15,7 @@ class ARROWGAME_API AArrowGameGameMode : public AGameModeBase
 	GENERATED_BODY()
 
 public:
-	void ActorDied(AActor* DeadActor);
+	void ActorDied(AActor* DeadActor, AController* KillerController);
 	virtual void BeginPlay() override;
 	
 	void RequestRespawn(AController* Controller);
