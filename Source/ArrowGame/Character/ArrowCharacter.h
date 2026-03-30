@@ -4,13 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "ArrowGame/Weapon/ArrowProjectile.h"
-#include "GameFramework/Character.h"
+#include "CharacterBase.h"
 #include "ArrowCharacter.generated.h"
 
 class AWeapon;
 
 UCLASS()
-class ARROWGAME_API AArrowCharacter : public ACharacter
+class ARROWGAME_API AArrowCharacter : public ACharacterBase
 {
 	GENERATED_BODY()
 
@@ -52,10 +52,7 @@ public:
 	void SetAiming(bool bNewAiming);
 	
 	float GetSyncPitch() const { return SyncPitch; }
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	class UHealthComponent* HealthComp;
-	
+
 	UFUNCTION(BlueprintCallable)
 	bool IsAiming() const { return bIsAiming; }
 	
@@ -89,15 +86,6 @@ protected:
     UPROPERTY(BlueprintReadOnly, Category = "stats")
     bool bIsRolling = false; // ������ ����
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "stats")
-    bool bIsDead = false;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-    float MaxHealth = 100.f;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
-    float CurrentHealth;
-
     UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon, VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
     AWeapon* EquippedWeapon;
 
@@ -115,14 +103,6 @@ protected:
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
 
-	// [�߰�] ������Ʈ���� "�׾���"�� ��ȣ ���� ������ �Լ�
-	UFUNCTION()
-	void OnDeathProcessed();
-	
-	// [�߰�] ��Ƽĳ��Ʈ: ��ο��� ���׵� ���� ���
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_Die();
-	
 	UFUNCTION(Server, Reliable)
 	void ServerPlayCancelMontage();
 
@@ -136,10 +116,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float WalkSpeed = 200.f;       // ????? ???? ?? ???? ???
 	
-	UPROPERTY(EditAnywhere, Category = "UI")
-	TSubclassOf<class UUserWidget> HealthBarClass;
 
-	
 	//----------------화살 관련----------//
 	// 1. 현재 들고 있는 화살 타입 (동기화 필수)
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentArrowType, BlueprintReadOnly, Category = "Inventory")

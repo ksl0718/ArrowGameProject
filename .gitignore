@@ -396,3 +396,6 @@ Config/DefaultGameUserSettings.ini
 
 # 대용량 빌드 데이터 제외
 Content/HwaseongHaenggung/Maps/HwaseongHaenggung_2024_BuiltData.uasset
+# 용량이 커서 제외하는 에셋 폴더
+Content/M5VFXVOL2/
+Content/VDBPack_01/
