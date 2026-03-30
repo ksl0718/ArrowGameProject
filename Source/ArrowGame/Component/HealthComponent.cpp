@@ -110,3 +110,40 @@ void UHealthComponent::OnRep_Health()
 		}
 	}
 }
+
+void UHealthComponent::StartBurn(float Duration, float Interval, float Damage)
+{
+	if (!GetOwner()->HasAuthority() || bIsDead) return;
+
+	BurnTicksRemaining = FMath::FloorToInt(Duration / Interval);
+	DamagePerTick = Damage;
+
+	// 기존에 불타고 있었다면 타이머 초기화 후 재시작
+	GetWorld()->GetTimerManager().SetTimer(
+		BurnTimerHandle, 
+		this, 
+		&UHealthComponent::ApplyBurnTick, 
+		Interval, 
+		true // 반복 실행
+	);
+}
+
+void UHealthComponent::ApplyBurnTick()
+{
+	if (bIsDead)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(BurnTimerHandle);
+		return;
+	}
+
+	// [중요] 기존 DamageTaken 로직을 재활용합니다! 
+	// 그래야 사망 처리, 킬 기록 등이 그대로 연동됩니다.
+	// 자기 자신에게 데미지를 입히는 방식
+	UGameplayStatics::ApplyDamage(GetOwner(), DamagePerTick, nullptr, nullptr, UDamageType::StaticClass());
+
+	BurnTicksRemaining--;
+	if (BurnTicksRemaining <= 0)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(BurnTimerHandle);
+	}
+}

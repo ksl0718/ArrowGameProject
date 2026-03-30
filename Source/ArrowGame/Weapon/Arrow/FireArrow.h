@@ -16,9 +16,17 @@ protected:
 
 	virtual void NotifyImpact(const FHitResult& Hit) override;
 	
+	void SpawnFireFX();
+	
+	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
+	float ExplosionRadius = 300.f;
+	
 	// 불화살만의 전용 변수들
 	UPROPERTY(EditAnywhere, Category = "Fire")
 	float BurnDamage = 5.f;
+	
+	UPROPERTY(EditAnywhere, Category = "Fire")
+	float BurnInterval = 0.5f;
 
 	UPROPERTY(EditAnywhere, Category = "Fire")
 	float BurnDuration = 3.f;

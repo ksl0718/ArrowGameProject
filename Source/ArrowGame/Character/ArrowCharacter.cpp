@@ -10,10 +10,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
-#include "../Component/HealthComponent.h"
 #include "ArrowGame/Weapon/Bow.h"
 #include "Components/CapsuleComponent.h"
-#include "../UI/HealthBarWidget.h"
 #include "ArrowGame/Weapon/ArrowProjectile.h"
 
 void AArrowCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -57,8 +55,6 @@ AArrowCharacter::AArrowCharacter()
     bUseControllerRotationPitch = false; 
     bUseControllerRotationRoll = false;
 
-    HealthComp = CreateDefaultSubobject<UHealthComponent>(TEXT("HealthComp"));
-    
     GetCharacterMovement()->bOrientRotationToMovement = true; 
     
     //회전 속도 설정 (너무 휙휙 돌면 어색하니까)
@@ -70,27 +66,6 @@ AArrowCharacter::AArrowCharacter()
 void AArrowCharacter::BeginPlay()
 {
     Super::BeginPlay();
-
-    CurrentHealth = MaxHealth;
-    
-    // 1. 위젯 생성 (HUD 형태인 경우)
-    if (IsLocallyControlled() && HealthBarClass)
-    {
-        UHealthBarWidget* HealthWidget = CreateWidget<UHealthBarWidget>(GetWorld(), HealthBarClass);
-        if (HealthWidget)
-        {
-            HealthWidget->AddToViewport();
-            
-            // 2. 델리게이트 바인딩: 체력이 변할 때마다 위젯 함수 호출
-            if (HealthComp)
-            {
-                HealthComp->OnHealthChanged.AddDynamic(HealthWidget, &UHealthBarWidget::UpdateHealthBar);
-                
-                // 초기값 설정
-                HealthWidget->UpdateHealthBar(HealthComp->GetHealth(), HealthComp->GetMaxHealth());
-            }
-        }
-    }
     
     if (HasAuthority())
     {
@@ -121,11 +96,6 @@ void AArrowCharacter::BeginPlay()
         {
             UE_LOG(LogTemp, Error, TEXT("DefaultWeaponClass is invalid or not a Weapon class!"));
         }
-    }
-    
-    if (HealthComp)
-    {
-        HealthComp->OnDead.AddDynamic(this, &AArrowCharacter::OnDeathProcessed);
     }
 }
 
@@ -213,71 +183,6 @@ void AArrowCharacter::OnRep_EquippedWeapon()
         TEXT("Bow_Socket")
     );
 }
-
-// 1. HealthComponent에서 "피 0임!" 하고 신호를 보낼 때 실행되는 함수
-void AArrowCharacter::OnDeathProcessed()
-{
-    // [안전장치] 이미 죽었다면 무시 (중복 실행 방지)
-    if (bIsDead) return;
-	
-    // 서버에서만 사망 로직 시작
-    if (HasAuthority())
-    {
-        // 모든 클라이언트에게 "얘 죽었으니 래그돌 켜라"고 방송
-        Multicast_Die();
-
-        // [중요] 서버 전용 로직: 컨트롤러 분리 및 삭제 예약
-        // 0.1초 정도 뒤에 컨트롤러를 떼어내어 튕김 현상을 방지합니다.
-        GetWorldTimerManager().SetTimerForNextTick([this]()
-        {
-            if (Controller)
-            {
-                DetachFromControllerPendingDestroy();
-            }
-        });
-
-        SetLifeSpan(5.0f); // 5초 뒤 시체 삭제
-    }
-}
-
-// 2. 모든 클라이언트에서 실행됨
-void AArrowCharacter::Multicast_Die_Implementation()
-{
-    // 중복 실행 방지
-    if (bIsDead) return;
-    bIsDead = true;
-
-    // 1. 캡슐 콜리전 끄기 (땅 파고 들어가는 현상 방지)
-    if (GetCapsuleComponent())
-    {
-        GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECR_Ignore);
-    }
-
-    // 2. 이동 정지
-    if (GetCharacterMovement())
-    {
-        GetCharacterMovement()->StopMovementImmediately();
-        GetCharacterMovement()->DisableMovement();
-    }
-
-    // 3. 래그돌(물리) 실행
-    if (GetMesh())
-    {
-        GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
-        GetMesh()->SetSimulatePhysics(true);
-		
-        // 죽을 때 화살 쏘는 애니메이션 등을 강제 중단
-        UAnimInstance* AnimInst = GetMesh()->GetAnimInstance();
-        if (AnimInst)
-        {
-            AnimInst->Montage_Stop(0.2f);
-        }
-    }
-	
-    UE_LOG(LogTemp, Warning, TEXT("[%s] Ragdoll Activated"), HasAuthority() ? TEXT("Server") : TEXT("Client"));
-}
-
 
 void AArrowCharacter::PlayMontage(UAnimMontage* Montage, float PlayRate)
 {

@@ -29,7 +29,7 @@ public:
 	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	// [추가] 외부(UI, 캐릭터)에서 귀를 기울일 방송 채널
+	void StartBurn(float Duration, float Interval, float Damage);
 
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnDeadDelegate OnDead;
@@ -43,6 +43,16 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
+	// 도트 데미지용 타이머 핸들
+	FTimerHandle BurnTimerHandle;
+
+	// 현재 남은 틱(Tick) 횟수
+	int32 BurnTicksRemaining;
+	float DamagePerTick;
+
+	// 실제로 피를 깎는 내부 함수
+	void ApplyBurnTick();
+	
 private:
 
 	UPROPERTY(EditAnywhere)
