@@ -2,11 +2,9 @@
 
 
 #include "ArrowGameGameMode.h"
-#include "../Character/UserCharacter.h"
-#include "ArrowGamePlayerController.h"
-#include "ArrowPlayerState.h"
-#include "../AI/AICharacter.h"
-#include "Kismet/GameplayStatics.h"
+#include "ArrowGame/Core/ArrowGamePlayerController.h"
+#include "ArrowGame/Core/ArrowPlayerState.h"
+
 
 void AArrowGameGameMode::BeginPlay()
 {
