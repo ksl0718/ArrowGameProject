@@ -7,6 +7,10 @@
 /**
  * 킬, 데스, 점수 등 플레이어의 게임 데이터를 관리하는 클래스
  */
+
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReadyStateChangedDelegate, bool, bNewReady);
+
 UCLASS()
 class ARROWGAME_API AArrowPlayerState : public APlayerState
 {
@@ -28,6 +32,17 @@ public:
 	// --- 데이터 수정 (서버에서만 호출) ---
 	void AddKill() { Kills++; }
 	void AddDeath() { Deaths++; }
+	
+	bool IsReady() const { return bIsReady; }
+	
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnReadyStateChangedDelegate OnReadyStateChanged;
+
+	UFUNCTION()
+	void OnRep_IsReady();
+	
+	UFUNCTION(Server, Reliable)
+	void ServerSetReady(bool bNewReady);
 
 protected:
 	// Replicated: 서버에서 값이 바뀌면 클라이언트들에게 자동으로 전달됨
@@ -37,4 +52,7 @@ protected:
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Stats")
 	int32 Deaths;
+	
+	UPROPERTY(ReplicatedUsing = OnRep_IsReady, BlueprintReadOnly, Category = "Lobby")
+	bool bIsReady = false;
 };

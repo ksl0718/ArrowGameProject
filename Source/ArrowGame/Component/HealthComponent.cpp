@@ -5,7 +5,7 @@
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
 #include "../Character/ArrowCharacter.h"
-#include "../Core/ArrowGameGameMode.h"
+#include "../Core/GameModes/ArrowGameGameMode.h"
 #include "Net/UnrealNetwork.h"
 
 void UHealthComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

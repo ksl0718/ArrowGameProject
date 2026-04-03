@@ -106,17 +106,16 @@ void UArrowGameInstance::FindServer()
     if (!SessionInterface.IsValid()) return;
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = false;
-    SessionSearch->MaxSearchResults = 10000; // 스팀이 자르더라도 요청은 최대로 둡니다.
+    SessionSearch->MaxSearchResults = 10000;
 
-    // 1. [기본] 로비 & 프레즌스 활성화 (이건 필수)
+    // 1. 로비 & 프레즌스 활성화
     SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
     SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 
-    // 2. [강력한 필터] 빈자리가 1개 이상 있는 방만 가져와라!
-    // Spacewar 방의 90%는 빈자리가 없거나 꽉 찬 유령 방입니다. 이걸로 엄청나게 걸러집니다.
+    // 2. [강력한 필터] 빈자리가 1개 이상 있는 방만 가져와라
     SessionSearch->QuerySettings.Set(SEARCH_MINSLOTSAVAILABLE, 1, EOnlineComparisonOp::GreaterThanEquals);
 
-    // 3. [승래님 고유 키] (이미 적용됨)
+    // 3. [고유 키]
     SessionSearch->QuerySettings.Set(FName("SERVER_NAME_KEY"), FString("SeungRae_Arrow_Game"), EOnlineComparisonOp::Equals);
 
     SessionInterface->FindSessions(0, SessionSearch.ToSharedRef());
