@@ -14,6 +14,102 @@ void AArrowGameGameMode::BeginPlay()
 	//ArrowGamePlayerController = Cast<AArrowGamePlayerController>(UGameplayStatics::GetPlayerController(this, 0));
 }
 
+void AArrowGameGameMode::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+	
+	PendingPlayers.Add(NewPlayer);
+
+	UE_LOG(LogTemp, Warning, TEXT("플레이어 접속: %s | 현재 인원: %d / %d"), 
+	   *NewPlayer->GetName(), PendingPlayers.Num(), ExpectedPlayers);
+    
+	if (PendingPlayers.Num() >= ExpectedPlayers && !bGameStarted)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("모든 인원 집합! 게임 시작 시작!"));
+		AssignDokkaebiAndStart();
+	}
+}
+
+void AArrowGameGameMode::AssignDokkaebiAndStart()
+{
+	bGameStarted = true;
+	
+	int32 LuckyIdx = FMath::RandRange(0, PendingPlayers.Num() - 1);
+	
+	for (int32 i = 0; i < PendingPlayers.Num(); i++)
+	{
+		APlayerController* PC = PendingPlayers[i];
+		if (AArrowPlayerState* PS = PC->GetPlayerState<AArrowPlayerState>())
+		{
+			PS -> SetIsDokkaebi(i == LuckyIdx);
+			// 여기서 확인 로그를 찍어보세요!
+			UE_LOG(LogTemp, Warning, TEXT("플레이어 %d번(%s) 도깨비 설정: %s"), 
+				i, *PC->GetName(), PS->IsDokkaebi() ? TEXT("True") : TEXT("False"));
+		}
+		
+		if (PC->GetPawn()) 
+		{
+			PC->GetPawn()->Destroy();
+		}
+		
+		RestartPlayer(PC); // 캐릭터 생성
+		if (AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC))
+		{
+			MyPC -> SetPlayerEnabledState(false);
+		}
+		
+	}
+	FTimerHandle UIStartHandle;
+	GetWorldTimerManager().SetTimer(UIStartHandle, [this]()
+	{
+		for (APlayerController* PC : PendingPlayers)
+		{
+			if (AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC))
+			{
+				MyPC->Client_StartCountdown(5.0f); // 이제서야 명령 전송!
+			}
+		}
+
+		// 실제 게임 시작(봉인 해제) 타이머는 여기서부터 5초 뒤에 실행
+		GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &AArrowGameGameMode::ActualStartGame, 5.0f, false);
+        
+	}, 1.0f, false); // 1.0초의 대기 시간 부여
+}
+
+UClass* AArrowGameGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
+{
+	if (AArrowPlayerState* PS = InController->GetPlayerState<AArrowPlayerState>())
+	{
+		// 로그 추가: 이 플레이어가 도깨비인지 서버가 어떻게 판단하는지 출력
+		UE_LOG(LogTemp, Warning, TEXT("플레이어 %s 도깨비 여부: %s"), 
+			   *PS->GetPlayerName(), PS->IsDokkaebi() ? TEXT("True") : TEXT("False"));
+
+		if (PS->IsDokkaebi()) 
+		{
+			return DokkaebiClass; //
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("PlayerState를 찾을 수 없습니다!"));
+	}
+
+	return HumanClass; //
+}
+
+void AArrowGameGameMode::ActualStartGame()
+{
+	for (APlayerController* PC : PendingPlayers)
+	{
+		if (AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC))
+		{
+			MyPC -> SetPlayerEnabledState(true);
+			MyPC -> Client_BattleStart();
+		}
+	}
+}
+
+
 void AArrowGameGameMode::ActorDied(AActor* DeadActor, AController* KillerController)
 {
 	if (KillerController && KillerController != Cast<APawn>(DeadActor)->GetController())

@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "../UI/ScoreboardWidget.h"
+#include "../UI/CountdownWidget.h"
 
 void AArrowGamePlayerController::BeginPlay()
 {
@@ -21,6 +22,13 @@ void AArrowGamePlayerController::BeginPlay()
                 // 위젯을 생성하고 포인터 변수에 저장
                 ScoreboardWidget = CreateWidget<UScoreboardWidget>(this, ScoreboardClass);
             }
+            
+            if (LoadingWidgetClass)
+            {
+                LoadingWidget = CreateWidget<UUserWidget>(this, LoadingWidgetClass);
+                if (LoadingWidget) LoadingWidget->AddToViewport(100);
+            }
+            
         }
     }
     
@@ -85,5 +93,32 @@ void AArrowGamePlayerController::HideScoreboard()
 		
         // bShowMouseCursor = false;
         // SetInputMode(FInputModeGameOnly());
+    }
+}
+
+void AArrowGamePlayerController::Client_StartCountdown_Implementation(float Duration)
+{
+    if (LoadingWidget) LoadingWidget->RemoveFromParent();
+
+    if (CountdownWidgetClass)
+    {
+        CountdownWidget = CreateWidget<UCountdownWidget>(this, CountdownWidgetClass);
+        if (CountdownWidget)
+        {
+            CountdownWidget->AddToViewport();
+            CountdownWidget->StartCountdown(FMath::RoundToInt(Duration));
+        }
+    }
+}
+
+void AArrowGamePlayerController::Client_BattleStart_Implementation()
+{
+    if (CountdownWidget)
+    {
+        // 1초 뒤에 실제로 제거
+        FTimerHandle DestroyHandle;
+        GetWorld()->GetTimerManager().SetTimer(DestroyHandle, [this]() {
+            if (CountdownWidget) CountdownWidget->RemoveFromParent();
+        }, 1.0f, false);
     }
 }

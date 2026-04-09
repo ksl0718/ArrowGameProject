@@ -43,6 +43,16 @@ public:
 	
 	UFUNCTION(Server, Reliable)
 	void ServerSetReady(bool bNewReady);
+	
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "PlayerState")
+	bool bIsDokkaebi = false;
+
+	// 2. Getter와 Setter 추가
+	void SetIsDokkaebi(bool bNewState) { bIsDokkaebi = bNewState; }
+	
+	UFUNCTION(BlueprintCallable) // 블루프린트에서도 확인 가능하게
+	bool IsDokkaebi() const { return bIsDokkaebi; }
+	
 
 protected:
 	// Replicated: 서버에서 값이 바뀌면 클라이언트들에게 자동으로 전달됨
