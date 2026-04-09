@@ -99,6 +99,8 @@ UClass* AArrowGameGameMode::GetDefaultPawnClassForController_Implementation(ACon
 
 void AArrowGameGameMode::ActualStartGame()
 {
+	bRoundEnded = false;
+
 	for (APlayerController* PC : PendingPlayers)
 	{
 		if (AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC))
@@ -112,7 +114,14 @@ void AArrowGameGameMode::ActualStartGame()
 
 void AArrowGameGameMode::ActorDied(AActor* DeadActor, AController* KillerController)
 {
-	if (KillerController && KillerController != Cast<APawn>(DeadActor)->GetController())
+	if (bRoundEnded) return;
+	
+
+
+	APawn* DeadPawn = Cast<APawn>(DeadActor);
+	if(!DeadPawn) return;
+
+	if (KillerController && KillerController != DeadPawn->GetController())
 	{
 		AArrowPlayerState* KillerPS = KillerController->GetPlayerState<AArrowPlayerState>();
 		if (KillerPS)
@@ -122,37 +131,45 @@ void AArrowGameGameMode::ActorDied(AActor* DeadActor, AController* KillerControl
 		}
 	}
 	
+	
 	// 1. 죽은 액터가 플레이어인지 확인
-	APawn* DeadPawn = Cast<APawn>(DeadActor);
-	if (DeadPawn)
-	{
-		AArrowPlayerState* VictimPS = DeadPawn->GetPlayerState<AArrowPlayerState>();
-		if (VictimPS)
-		{
-			VictimPS->AddDeath(); 
-		}
-		if (DeadPawn->IsPlayerControlled())
-		{
-			AController* PC = DeadPawn->GetController();
-			if (PC)
-			{
-				// 2. 입력 비활성화 (기존 로직 유지)
-				AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC);
-				if (MyPC) MyPC->SetPlayerEnabledState(false);
 
+	AArrowPlayerState* VictimPS = DeadPawn->GetPlayerState<AArrowPlayerState>();
+	if (VictimPS)
+	{
+		VictimPS->AddDeath();
+		UE_LOG(LogTemp, Warning, TEXT("deadpawn is dokkaebi: %d"),VictimPS->IsDokkaebi());
+		
+		if (VictimPS->IsDokkaebi())
+		{
+			EndRound(false); // Humans Win
+			return;          // 도깨비는 리스폰 없음
+		}
+	}
+
+	if (DeadPawn->IsPlayerControlled())
+	{
+		AController* PC = DeadPawn->GetController();
+		if (PC)
+		{
+			// 2. 입력 비활성화 (기존 로직 유지)
+			AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC);
+			if (MyPC) MyPC->SetPlayerEnabledState(false);
 				// 3. 타이머 설정: RespawnDelay(3초) 후에 RequestRespawn 호출
-				FTimerHandle RespawnTimerHandle;
-				FTimerDelegate RespawnDelegate;
-				RespawnDelegate.BindUObject(this, &AArrowGameGameMode::RequestRespawn, PC);
-				GetWorldTimerManager().SetTimer(RespawnTimerHandle, RespawnDelegate, RespawnDelay, false);
-			}
+			FTimerHandle RespawnTimerHandle;
+			FTimerDelegate RespawnDelegate;
+			RespawnDelegate.BindUObject(this, &AArrowGameGameMode::RequestRespawn, PC);
+			GetWorldTimerManager().SetTimer(RespawnTimerHandle, RespawnDelegate, RespawnDelay, false);
 		}
 	}
 	
+	
 }
+
 
 void AArrowGameGameMode::RequestRespawn(AController* Controller)
 {
+	
 	if (Controller)
 	{
 		// 4. 엔진 기본 기능: 플레이어를 새로운 StartPoint에서 부활시키고 Pawn을 빙의(Possess)시킴
@@ -162,4 +179,22 @@ void AArrowGameGameMode::RequestRespawn(AController* Controller)
 		AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(Controller);
 		if (MyPC) MyPC->SetPlayerEnabledState(true);
 	}
+}
+
+
+void AArrowGameGameMode::EndRound(bool bDokkaebiWin)
+{
+	if (bRoundEnded) return;
+	bRoundEnded = true;
+	UE_LOG(LogTemp, Warning, TEXT("Round Ended! Winner: %s"),
+		bDokkaebiWin ? TEXT("Dokkaebi") : TEXT("Humans"));
+	// 전원 입력 잠금
+	for (APlayerController* PC : PendingPlayers)
+	{
+		if (AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC))
+		{
+			MyPC->SetPlayerEnabledState(false);
+		}
+	}
+	// TODO: 결과 UI RPC 호출 (원하면 나중에 붙이기)
 }

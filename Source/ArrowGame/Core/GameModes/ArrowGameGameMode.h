@@ -29,6 +29,8 @@ protected:
 	void AssignDokkaebiAndStart();
 	void ActualStartGame();
 	
+	void EndRound(bool bDokkaebiWin);
+	
 private:
 	
 	// 캐릭터 클래스 설정
@@ -45,6 +47,8 @@ private:
 	int32 ExpectedPlayers = 2; // GameInstance 연동 권장
 	bool bGameStarted = false;
 	
+	bool bRoundEnded = false;
+
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	float RespawnDelay = 3.0f;
 };
