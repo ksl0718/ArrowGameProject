@@ -11,6 +11,7 @@
  */
 
 class UCountdownWidget;
+class UResultWidget;
 
 UCLASS()
 class ARROWGAME_API AArrowGamePlayerController : public APlayerController
@@ -34,6 +35,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "UI")
 	class UScoreboardWidget* ScoreboardWidget;
 	
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UResultWidget* ResultWidget;
 	
 	// 서버가 호출할 클라이언트 전용 함수
 	UFUNCTION(Client, Reliable)
