@@ -217,6 +217,6 @@ void AArrowGameGameMode::ShowRoundResultToAll(bool bDokkaebiWin)
 		
 		const bool bIsWinner = (ArrowPS->IsDokkaebi() == bDokkaebiWin);
 		
-		MyPC->Client_ShowRoundResult(bIsWinner, 4.0f);
+		MyPC->Client_ShowRoundResult(bIsWinner, 8.0f);
 	}
 }

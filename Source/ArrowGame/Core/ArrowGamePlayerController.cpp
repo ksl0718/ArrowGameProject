@@ -7,6 +7,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "../UI/ScoreboardWidget.h"
 #include "../UI/CountdownWidget.h"
+#include "../UI/ResultWidget.h"
 #include "GameFramework/PlayerState.h"
 
 void AArrowGamePlayerController::BeginPlay()
@@ -126,12 +127,25 @@ void AArrowGamePlayerController::Client_BattleStart_Implementation()
 
 void AArrowGamePlayerController::Client_ShowRoundResult_Implementation( bool bIsWin, float MoveToLobbyInSeconds)
 {
-    const FString PlayerName = GetPlayerState<APlayerState>()
+    if (ResultWidget)
+    {
+        
+        ResultWidget->AddToViewport();
+        ResultWidget->showResult(bIsWin);
+        // 1초 뒤에 실제로 제거
+        FTimerHandle DestroyHandle;
+        GetWorld()->GetTimerManager().SetTimer(DestroyHandle, [this]() {
+            if (ResultWidget) ResultWidget->RemoveFromParent();
+        }, MoveToLobbyInSeconds, false);
+    }
+    
+    
+    /*const FString PlayerName = GetPlayerState<APlayerState>()
         ? GetPlayerState<APlayerState>()->GetPlayerName()
         : TEXT("Unknown");
     
     FTimerHandle ResultHandle;
     GetWorld()->GetTimerManager().SetTimer(ResultHandle, [this, bIsWin, PlayerName]() {
         UE_LOG(LogTemp, Warning, TEXT("GameOver %4s %s"), *PlayerName,  bIsWin ? TEXT("WIN") : TEXT("LOSE"));
-    }, MoveToLobbyInSeconds, false);
+    }, MoveToLobbyInSeconds, false); */
 }
