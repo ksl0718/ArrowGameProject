@@ -136,7 +136,10 @@ void ULobbyBoardWidget::OnStartClicked()
 	if (bAllReady)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("모든 플레이어 준비 완료! 출정 가능!"));
-        
+		if (AGameModeBase* CurrentGM = GetWorld()->GetAuthGameMode())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("심리스 트래블 상태: %s"), CurrentGM->bUseSeamlessTravel ? TEXT("True") : TEXT("False"));
+		}
 		if (UWorld* World = GetWorld())
 		{
 			// 1. 이동할 맵 경로 (예: /Game/Maps/BattleMap)

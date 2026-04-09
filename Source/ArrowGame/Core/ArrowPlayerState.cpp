@@ -15,6 +15,7 @@ void AArrowPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(AArrowPlayerState, Kills);
 	DOREPLIFETIME(AArrowPlayerState, Deaths);
 	DOREPLIFETIME(AArrowPlayerState, bIsReady);
+	DOREPLIFETIME(AArrowPlayerState, bIsDokkaebi);
 }
 
 void AArrowPlayerState::ServerSetReady_Implementation(bool bNewReady)

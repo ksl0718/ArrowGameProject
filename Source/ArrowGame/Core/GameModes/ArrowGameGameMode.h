@@ -15,15 +15,39 @@ class ARROWGAME_API AArrowGameGameMode : public AGameModeBase
 	GENERATED_BODY()
 
 public:
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
+	
 	void ActorDied(AActor* DeadActor, AController* KillerController);
-	virtual void BeginPlay() override;
+	
 	
 	void RequestRespawn(AController* Controller);
+
+protected:
+	virtual void BeginPlay() override;
+	
+	void AssignDokkaebiAndStart();
+	void ActualStartGame();
+	
+	void EndRound(bool bDokkaebiWin);
 	
 private:
+	
+	// 캐릭터 클래스 설정
+	UPROPERTY(EditAnywhere, Category = "Battle Settings")
+	TSubclassOf<APawn> HumanClass;
 
-	class AUserCharacter* User;
-	class AArrowGamePlayerController* ArrowGamePlayerController;
+	UPROPERTY(EditAnywhere, Category = "Battle Settings")
+	TSubclassOf<APawn> DokkaebiClass;
+
+	UPROPERTY()
+	TArray<class APlayerController*> PendingPlayers;
+
+	FTimerHandle CountdownTimerHandle;
+	int32 ExpectedPlayers = 2; // GameInstance 연동 권장
+	bool bGameStarted = false;
+	
+	bool bRoundEnded = false;
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	float RespawnDelay = 3.0f;

@@ -9,6 +9,9 @@
 /**
  * 
  */
+
+class UCountdownWidget;
+
 UCLASS()
 class ARROWGAME_API AArrowGamePlayerController : public APlayerController
 {
@@ -31,10 +34,32 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "UI")
 	class UScoreboardWidget* ScoreboardWidget;
 	
+	
+	// 서버가 호출할 클라이언트 전용 함수
+	UFUNCTION(Client, Reliable)
+	void Client_StartCountdown(float Duration);
+
+	UFUNCTION(Client, Reliable)
+	void Client_BattleStart();
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	TSubclassOf<UUserWidget> LoadingWidgetClass;
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	TSubclassOf<UCountdownWidget> CountdownWidgetClass;
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 	
 	void ShowScoreboard();
 	void HideScoreboard();
+	
+	
+private:
+	UPROPERTY()
+	UUserWidget* LoadingWidget;
+
+	UPROPERTY()
+	UCountdownWidget* CountdownWidget;
 };
