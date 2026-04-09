@@ -42,11 +42,17 @@ public:
 	UFUNCTION(Client, Reliable)
 	void Client_BattleStart();
 
+	UFUNCTION(Client, Reliable)
+	void Client_ShowRoundResult(bool bIsWin, float MoveToLobbyInSeconds);
+	
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<UUserWidget> LoadingWidgetClass;
 
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<UCountdownWidget> CountdownWidgetClass;
+	
+	
+	
 	
 protected:
 	virtual void BeginPlay() override;
