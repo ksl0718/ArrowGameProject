@@ -106,7 +106,7 @@ void AArrowGameGameMode::ActualStartGame()
 		if (AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC))
 		{
 			MyPC -> SetPlayerEnabledState(true);
-			MyPC -> Client_BattleStart();
+			MyPC -> Client_BattleStart(RoundTimeLimit);
 		}
 	}
 	
