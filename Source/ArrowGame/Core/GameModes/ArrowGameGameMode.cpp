@@ -169,6 +169,7 @@ void AArrowGameGameMode::ActorDied(AActor* DeadActor, AController* KillerControl
 
 void AArrowGameGameMode::RequestRespawn(AController* Controller)
 {
+	if (bRoundEnded) return;
 	
 	if (Controller)
 	{
