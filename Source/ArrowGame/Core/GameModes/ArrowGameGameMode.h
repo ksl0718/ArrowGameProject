@@ -29,7 +29,11 @@ protected:
 	void AssignDokkaebiAndStart();
 	void ActualStartGame();
 	
-	void EndRound(bool bDokkaebiWin);
+	void EndRound(bool bDokkaebiWin);//true면 도깨비 승리, false면 인간 승리
+
+	void ShowRoundResultToAll(bool bDokkaebiWin);
+
+	void ScheduleReturnToLobby(float Delay);
 	
 private:
 	
