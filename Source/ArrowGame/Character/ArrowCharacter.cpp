@@ -99,6 +99,22 @@ void AArrowCharacter::BeginPlay()
     }
 }
 
+void AArrowCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    // 폰이 Destroy()될 때(도깨비 배정 후 RestartPlayer 등) 부착 무기 액터가
+    // 캐릭터와 함께 반드시 제거되지 않으면 월드에 고아 메시로 남을 수 있음.
+    // 이미 Detach된 무기(AI 사망 시 물리 드롭 등)는 건드리지 않음.
+    if (HasAuthority() && IsValid(EquippedWeapon))
+    {
+        if (EquippedWeapon->GetAttachParentActor() == this)
+        {
+            EquippedWeapon->Destroy();
+        }
+        EquippedWeapon = nullptr;
+    }
+    Super::EndPlay(EndPlayReason);
+}
+
 void AArrowCharacter::ApplyAimingMovementSettings(bool bAiming)
 {
     float TargetSpeed = bAiming ? WalkSpeed : NormalSpeed;
