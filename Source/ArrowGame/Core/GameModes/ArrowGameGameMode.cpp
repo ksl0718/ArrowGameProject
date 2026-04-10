@@ -4,7 +4,7 @@
 #include "ArrowGameGameMode.h"
 #include "ArrowGame/Core/ArrowGamePlayerController.h"
 #include "ArrowGame/Core/ArrowPlayerState.h"
-
+#include "ArrowGame//ArrowGameInstance.h"
 
 void AArrowGameGameMode::BeginPlay()
 {
@@ -20,6 +20,23 @@ void AArrowGameGameMode::PostLogin(APlayerController* NewPlayer)
 	
 	PendingPlayers.Add(NewPlayer);
 
+	int32 RequiredToStart = ExpectedPlayers;
+	if (UWorld* World = GetWorld())
+	{
+		if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(World->GetGameInstance()))
+		{
+			const int32 FromLobby = ArrowGI->GetMatchStartPlayerCount();
+			if (FromLobby > 0)
+			{
+				RequiredToStart = FromLobby;
+			}
+		}
+	}
+
+	const int32 MinPlayers = 2;
+	const bool bEnoughPlayers = PendingPlayers.Num() >= FMath::Max(RequiredToStart, MinPlayers)
+		&& RequiredToStart >= MinPlayers;
+
 	UE_LOG(LogTemp, Warning, TEXT("플레이어 접속: %s | 현재 인원: %d / %d"), 
 	   *NewPlayer->GetName(), PendingPlayers.Num(), ExpectedPlayers);
     
@@ -33,6 +50,14 @@ void AArrowGameGameMode::PostLogin(APlayerController* NewPlayer)
 void AArrowGameGameMode::AssignDokkaebiAndStart()
 {
 	bGameStarted = true;
+	
+	if (UWorld* World = GetWorld())
+	{
+		if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(World->GetGameInstance()))
+		{
+			ArrowGI->SetMatchStartPlayerCount(0);
+		}
+	}
 	
 	int32 LuckyIdx = FMath::RandRange(0, PendingPlayers.Num() - 1);
 	

@@ -3,6 +3,7 @@
 #include "Components/Button.h"
 #include "GameFramework/GameStateBase.h"
 #include "LobbyRowWidget.h"
+#include "../ArrowGameInstance.h"
 #include "../Core/ArrowGameState.h"
 #include "../Core/ArrowPlayerState.h"
 
@@ -142,10 +143,19 @@ void ULobbyBoardWidget::OnStartClicked()
 		}
 		if (UWorld* World = GetWorld())
 		{
+			const int32 PlayersLeaving = GS->PlayerArray.Num();
+			if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(World->GetGameInstance()))
+			{
+				ArrowGI->SetMatchStartPlayerCount(PlayersLeaving);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Error, TEXT("ArrowGameInstance 캐스트 실패 — MatchStartPlayerCount 설정 안 됨"));
+			}
 			// 1. 이동할 맵 경로 (예: /Game/Maps/BattleMap)
 			// 2. "?listen" 옵션은 서버로서 대기하겠다는 뜻으로 멀티플레이 이동 시 필수입니다.
 			FString MapPath = TEXT("/Game/ThirdPerson/Maps/ThirdPersonMap?listen");
-        
+			
 			// 3. ServerTravel은 모든 클라이언트를 동시에 이동시킵니다.
 			World->ServerTravel(MapPath);
 		}
