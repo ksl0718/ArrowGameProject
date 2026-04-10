@@ -198,6 +198,7 @@ void AArrowGameGameMode::EndRound(bool bDokkaebiWin)
 	}
 	
 	ShowRoundResultToAll(bDokkaebiWin);
+	ScheduleReturnToLobby(8.0f);
 }
 
 void AArrowGameGameMode::ShowRoundResultToAll(bool bDokkaebiWin)
@@ -219,4 +220,15 @@ void AArrowGameGameMode::ShowRoundResultToAll(bool bDokkaebiWin)
 		
 		MyPC->Client_ShowRoundResult(bIsWinner, 8.0f);
 	}
+}
+
+void AArrowGameGameMode::ScheduleReturnToLobby(float Delay)
+{
+    FTimerHandle ReturnHandle;
+    GetWorldTimerManager().SetTimer(ReturnHandle, [this]()
+    {
+        if (!HasAuthority()) return;
+        // 실제 로비 맵 경로로 바꿔야 함
+        GetWorld()->ServerTravel(TEXT("/Game/ArrowGame/Maps/LobbyMap?listen"));
+    }, Delay, false);
 }
