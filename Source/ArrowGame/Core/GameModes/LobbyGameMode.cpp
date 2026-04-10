@@ -2,6 +2,20 @@
 #include "ArrowGame/Core/ArrowGameState.h"
 #include "ArrowGame/Core/ArrowPlayerState.h"
 #include "GameFramework/DefaultPawn.h"
+#include "ArrowGame/ArrowGameInstance.h"
+
+
+void ALobbyGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+	if (UWorld* World = GetWorld())
+	{
+		if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(World->GetGameInstance()))
+		{
+			ArrowGI->SetMatchStartPlayerCount(0);
+		}
+	}
+}
 
 ALobbyGameMode::ALobbyGameMode()
 {

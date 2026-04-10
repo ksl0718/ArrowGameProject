@@ -78,7 +78,7 @@ void UArrowGameInstance::StartCreateSession()
 
     FOnlineSessionSettings SessionSettings;
     SessionSettings.bIsLANMatch = false;
-    SessionSettings.NumPublicConnections = 2;
+    SessionSettings.NumPublicConnections = 8;
     SessionSettings.bShouldAdvertise = true;
     SessionSettings.bUsesPresence = true;
     SessionSettings.bIsDedicated = false;
@@ -182,4 +182,9 @@ void UArrowGameInstance::OnSessionUserInviteAccepted(const bool bWasSuccessful, 
         // 찾아온 방 정보(InviteResult)를 가지고 기존에 만들어둔 Join 로직을 실행합니다.
         SessionInterface->JoinSession(0, NAME_GameSession, InviteResult);
     }
+}
+void UArrowGameInstance::SetMatchStartPlayerCount(int32 Count)
+{
+	MatchStartPlayerCount = Count;
+	UE_LOG(LogTemp, Log, TEXT("MatchStartPlayerCount = %d"), MatchStartPlayerCount);
 }

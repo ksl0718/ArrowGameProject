@@ -25,6 +25,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Network")
 	void FindServer();
 
+
+	UFUNCTION(BlueprintCallable, Category = "Match")
+	void SetMatchStartPlayerCount(int32 Count);
+
+	UFUNCTION(BlueprintPure, Category = "Match")
+	int32 GetMatchStartPlayerCount() const { return MatchStartPlayerCount; }
+
 protected:
 	// 세션 인터페이스 포인터
 	IOnlineSessionPtr SessionInterface;
@@ -43,6 +50,10 @@ protected:
 
 	// 실제 생성을 담당하는 내부 함수
 	void StartCreateSession();
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Match")
+	int32 MatchStartPlayerCount = 0;
+	
 private:
 	// 델리게이트 핸들 보관용 (필요 시 해제용)
 	FDelegateHandle CreateSessionCompleteDelegateHandle;

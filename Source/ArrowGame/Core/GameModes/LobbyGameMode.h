@@ -14,5 +14,6 @@ public:
 
 	// 플레이어가 서버에 완전히 접속했을 때 호출 (명단 갱신 확인용)
 	virtual void PostLogin(APlayerController* NewPlayer) override;
-	
+protected:
+	virtual void BeginPlay() override;
 };
