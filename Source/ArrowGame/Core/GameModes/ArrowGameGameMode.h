@@ -35,6 +35,16 @@ protected:
 
 	void ScheduleReturnToLobby(float Delay);
 	
+	// 라운드 제한 시간 (에디터에서 쉽게 수정 가능하도록 UPROPERTY 설정)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game Rules")
+	float RoundTimeLimit = 10.0f; // 기본 3분 (180초)
+
+	// 제한 시간 타이머를 잡고 있을 손잡이
+	FTimerHandle RoundTimerHandle;
+
+	// 시간이 다 지났을 때 호출될 함수
+	void OnRoundTimeUp();
+	
 private:
 	
 	// 캐릭터 클래스 설정

@@ -8,6 +8,7 @@
 #include "../UI/ScoreboardWidget.h"
 #include "../UI/CountdownWidget.h"
 #include "../UI/ResultWidget.h"
+#include "../UI/RoundTimerWidget.h"
 #include "GameFramework/PlayerState.h"
 
 void AArrowGamePlayerController::BeginPlay()
@@ -113,16 +114,25 @@ void AArrowGamePlayerController::Client_StartCountdown_Implementation(float Dura
     }
 }
 
-void AArrowGamePlayerController::Client_BattleStart_Implementation()
+void AArrowGamePlayerController::Client_BattleStart_Implementation(float TimeLimit)
 {
     if (CountdownWidget)
     {
-        // 1초 뒤에 실제로 제거
-        FTimerHandle DestroyHandle;
-        GetWorld()->GetTimerManager().SetTimer(DestroyHandle, [this]() {
-            if (CountdownWidget) CountdownWidget->RemoveFromParent();
-        }, 1.0f, false);
+        CountdownWidget->RemoveFromParent();
     }
+    
+    if (RoundTimerWidgetClass)
+    {
+        RoundTimerWidget = CreateWidget<URoundTimerWidget>(this, RoundTimerWidgetClass);
+        if (RoundTimerWidget)
+        {
+            RoundTimerWidget->AddToViewport();
+            
+            // ★ 여기서 아까 만든 UI 타이머 작동!
+            RoundTimerWidget->StartTimer(TimeLimit);
+        }
+    }
+    
 }
 
 void AArrowGamePlayerController::Client_ShowRoundResult_Implementation( bool bIsWin, float MoveToLobbyInSeconds)

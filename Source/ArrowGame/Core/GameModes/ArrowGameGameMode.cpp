@@ -106,9 +106,13 @@ void AArrowGameGameMode::ActualStartGame()
 		if (AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC))
 		{
 			MyPC -> SetPlayerEnabledState(true);
-			MyPC -> Client_BattleStart();
+			MyPC -> Client_BattleStart(RoundTimeLimit);
 		}
 	}
+	
+	// [추가] 실제 배틀이 시작되면 제한 시간 타이머를 돌립니다.
+	UE_LOG(LogTemp, Warning, TEXT("라운드 타이머 시작! 제한 시간: %f초"), RoundTimeLimit);
+	GetWorldTimerManager().SetTimer(RoundTimerHandle, this, &AArrowGameGameMode::OnRoundTimeUp, RoundTimeLimit, false);
 }
 
 
@@ -169,6 +173,7 @@ void AArrowGameGameMode::ActorDied(AActor* DeadActor, AController* KillerControl
 
 void AArrowGameGameMode::RequestRespawn(AController* Controller)
 {
+	if (bRoundEnded) return;
 	
 	if (Controller)
 	{
@@ -186,6 +191,10 @@ void AArrowGameGameMode::EndRound(bool bDokkaebiWin)
 {
 	if (bRoundEnded) return;
 	bRoundEnded = true;
+	
+	// 라운드 카운트 강제 제거
+	GetWorldTimerManager().ClearTimer(RoundTimerHandle);
+	
 	UE_LOG(LogTemp, Warning, TEXT("Round Ended! Winner: %s"),
 		bDokkaebiWin ? TEXT("Dokkaebi") : TEXT("Humans"));
 	// 전원 입력 잠금
@@ -231,4 +240,15 @@ void AArrowGameGameMode::ScheduleReturnToLobby(float Delay)
         // 실제 로비 맵 경로로 바꿔야 함
         GetWorld()->ServerTravel(TEXT("/Game/ArrowGame/Maps/LobbyMap?listen"));
     }, Delay, false);
+}
+
+void AArrowGameGameMode::OnRoundTimeUp()
+{
+	// 혹시라도 이미 라운드가 끝났다면 무시
+	if (bRoundEnded) return;
+
+	UE_LOG(LogTemp, Warning, TEXT("시간 초과! 살아남은 도깨비의 승리입니다."));
+    
+	// 도깨비 승리(true)로 라운드 종료
+	EndRound(true); 
 }
