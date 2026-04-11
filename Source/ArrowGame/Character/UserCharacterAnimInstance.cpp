@@ -4,6 +4,7 @@
 #include "UserCharacterAnimInstance.h"
 #include "../Character/UserCharacter.h"
 #include "../Character/ArrowCharacter.h"
+#include "../Character/CharacterBase.h"
 #include "../Weapon/Weapon.h"
 #include "../Weapon/Bow.h"
 #include "Kismet/KismetMathLibrary.h" // 방향 계산용 수학 함수
@@ -17,85 +18,90 @@ void UUserCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
     APawn* Pawn = TryGetPawnOwner(); 
     if (!Pawn) return;
 
-    AUserCharacter* Character = Cast<AUserCharacter>(Pawn);
+    ACharacter* Character = Cast<ACharacter>(Pawn);
     if (!Character) return;
-    
-    bIsAiming = Character->IsAiming(); 
-    bIsDead = Character->IsDead();
-    FVector Velocity = Character->GetVelocity();
+
+    if (ACharacterBase* CharBase = Cast<ACharacterBase>(Pawn))
+    {
+        bIsDead = CharBase->bIsDead;
+    }
+    else
+    {
+        bIsDead = false;
+    }
+
+    const FVector Velocity = Character->GetVelocity();
     GroundSpeed = Velocity.Size2D();
-    
-    FRotator ActorRotation = Character->GetActorRotation();
+    const FRotator ActorRotation = Character->GetActorRotation();
     Direction = UKismetAnimationLibrary::CalculateDirection(Velocity, ActorRotation);
 
-    
-    float TargetPitch = 0.f;
-    // 1. 내 캐릭터 (Local): 반응 속도를 위해 즉시 반영되는 내 컨트롤러 값 사용
-    if (Character->IsLocallyControlled())
+    if (AUserCharacter* Archer = Cast<AUserCharacter>(Pawn))
     {
-        TargetPitch = Character->GetControlRotation().Pitch;
-        TargetPitch = FRotator::NormalizeAxis(TargetPitch);
-    }
-    // 2. 남의 캐릭터 (Remote/Server): 서버가 보내준 SyncPitch 사용
-    else
-    {
-        // 복잡한 계산 X, 압축 해제 X -> 그냥 가져다 쓰면 됨
-        TargetPitch = Character->GetSyncPitch();
-    }
+        bIsAiming = Archer->IsAiming();
 
-    // 3. [선택] 만약 에임 오프셋 방향이 반대라면 여기서만 뒤집으면 됨 (* -1)
-    // TargetPitch *= -1.0f; 
-
-    // 4. 각도 제한
-    TargetPitch = FMath::Clamp(TargetPitch, -90.0f, 90.0f);
-
-    // 5. 보간 (부드럽게)
-    float InterpSpeed = Character->IsLocallyControlled() ? 0.0f : 15.0f;
-    
-    FRotator CurrentRot = FRotator(Pitch, 0, 0);
-    FRotator GoalRot = FRotator(TargetPitch, 0, 0);
-    
-    if (InterpSpeed <= 0.f) Pitch = TargetPitch;
-    else Pitch = FMath::RInterpTo(CurrentRot, GoalRot, DeltaSeconds, InterpSpeed).Pitch;
-    
-    if (Character->GetEquippedWeapon()) 
-    {
-        ABow* Bow = Cast<ABow>(Character->GetEquippedWeapon());
-        if (Bow)
+        float TargetPitch = 0.f;
+        if (Archer->IsLocallyControlled())
         {
-            // 활의 상태를 복사 (동기화)
-            bIsCharging = Bow->IsCharging();
-            bIsReloading = Bow ->IsReloading();
-            //FString Role = Character->HasAuthority() ? TEXT("Server") : TEXT("Client");
-            //UE_LOG(LogTemp, Warning, TEXT("[%s] Bow Found! Aiming: %s"), *Role, Bow->IsAiming() ? TEXT("TRUE") : TEXT("FALSE"));
-        }
-    }
-    else
-    {
-        // 무기가 없으면 조준 해제
-        bIsAiming = false;
-        bIsCharging = false;
-        //FString Role = Character->HasAuthority() ? TEXT("Server") : TEXT("Client");
-        //UE_LOG(LogTemp, Error, TEXT("[%s] Weapon is NULL!"), *Role);
-    }
-    
-    if (Character->GetCharacterMovement())
-    {
-        // 1. 현재 가속도(키보드 입력 등) 가져오기
-        FVector Acceleration = Character->GetCharacterMovement()->GetCurrentAcceleration();
-        
-        // 2. 가속도가 0이 아닌지 체크 (키를 눌렀는가?)
-        bool bHasInput = !Acceleration.IsNearlyZero();
-
-        // 3. 로직 구현: (속도가 3보다 크고) AND (입력이 있을 때) -> 움직이는 것
-        if (GroundSpeed > 3.0f && bHasInput)
-        {
-            bShouldMove = true;
+            TargetPitch = Archer->GetControlRotation().Pitch;
+            TargetPitch = FRotator::NormalizeAxis(TargetPitch);
         }
         else
         {
-            bShouldMove = false;
+            TargetPitch = Archer->GetSyncPitch();
         }
+
+        TargetPitch = FMath::Clamp(TargetPitch, -90.0f, 90.0f);
+
+        const float InterpSpeed = Archer->IsLocallyControlled() ? 0.0f : 15.0f;
+        const FRotator CurrentRot = FRotator(Pitch, 0, 0);
+        const FRotator GoalRot = FRotator(TargetPitch, 0, 0);
+        if (InterpSpeed <= 0.f)
+        {
+            Pitch = TargetPitch;
+        }
+        else
+        {
+            Pitch = FMath::RInterpTo(CurrentRot, GoalRot, DeltaSeconds, InterpSpeed).Pitch;
+        }
+
+        if (Archer->GetEquippedWeapon())
+        {
+            if (ABow* Bow = Cast<ABow>(Archer->GetEquippedWeapon()))
+            {
+                bIsCharging = Bow->IsCharging();
+                bIsReloading = Bow->IsReloading();
+            }
+        }
+        else
+        {
+            bIsAiming = false;
+            bIsCharging = false;
+        }
+    }
+    else
+    {
+        bIsAiming = false;
+        bIsCharging = false;
+        bIsReloading = false;
+
+        if (Character->IsLocallyControlled())
+        {
+            float TargetPitch = Character->GetControlRotation().Pitch;
+            TargetPitch = FRotator::NormalizeAxis(TargetPitch);
+            Pitch = FMath::Clamp(TargetPitch, -90.0f, 90.0f);
+        }
+        else
+        {
+            const FRotator CurrentRot = FRotator(Pitch, 0, 0);
+            Pitch = FMath::RInterpTo(CurrentRot, FRotator::ZeroRotator, DeltaSeconds, 15.f).Pitch;
+        }
+    }
+
+    if (UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement())
+    {
+        const FVector Acceleration = MoveComp->GetCurrentAcceleration();
+        const bool bHasInput = !Acceleration.IsNearlyZero();
+        bShouldMove = (GroundSpeed > 3.0f && bHasInput);
     }
 }
 
