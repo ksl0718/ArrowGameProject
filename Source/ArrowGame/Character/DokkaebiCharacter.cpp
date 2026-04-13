@@ -47,18 +47,28 @@ void ADokkaebiCharacter::BeginPlay()
 	{
 		MoveComp->MaxWalkSpeed = NormalWalkSpeed;
 	}
+}
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+void ADokkaebiCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (DefaultMappingContext)
 	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
-			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		if (APlayerController* PC = Cast<APlayerController>(Controller))
 		{
-			if (DefaultMappingContext)
+			if (PC->IsLocalPlayerController())
 			{
-				Subsystem->AddMappingContext(DefaultMappingContext, 0);
+				if (ULocalPlayer* LP = PC->GetLocalPlayer())
+				{
+					if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+						ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
+					{
+						Subsystem->RemoveMappingContext(DefaultMappingContext);
+					}
+				}
 			}
 		}
 	}
+	Super::EndPlay(EndPlayReason);
 }
 
 void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -83,6 +93,26 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		if (DecoySkillAction)
 		{
 			EnhancedInput->BindAction(DecoySkillAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::Input_DecoySkillA);
+		}
+	}
+
+	// BeginPlay 때는 아직 Possess 전이라 Controller가 없을 수 있음(호스트에서 특히).
+	// 빙의 직후 이 함수가 호출될 때만 로컬 서브시스템에 IMC를 올린다.
+	if (DefaultMappingContext)
+	{
+		if (APlayerController* PC = Cast<APlayerController>(GetController()))
+		{
+			if (PC->IsLocalPlayerController())
+			{
+				if (ULocalPlayer* LP = PC->GetLocalPlayer())
+				{
+					if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+						ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
+					{
+						Subsystem->AddMappingContext(DefaultMappingContext, 0);
+					}
+				}
+			}
 		}
 	}
 }
@@ -122,28 +152,57 @@ void ADokkaebiCharacter::Look(const FInputActionValue& Value)
 
 void ADokkaebiCharacter::Server_UseDecoySkill_Implementation(FVector SpawnLoc, FRotator SpawnRot)
 {
-	if (bIsStealthed) return;
-	
-	bIsStealthed = true;
-	
-	//분신 스폰
-	FActorSpawnParameters Params;
-	Params.Owner = this;
-	GetWorld()->SpawnActor<ADokkaebiDecoy>(DecoyClass, SpawnLoc, SpawnRot, Params);
-	
-	//2, 3초 뒤 은신 해제 타이머
-	FTimerHandle StealthTimer;
-	GetWorldTimerManager().SetTimer(StealthTimer, [this]()
+	ExecuteDecoySkillOnAuthority(SpawnLoc, SpawnRot);
+}
+
+void ADokkaebiCharacter::ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator SpawnRot)
+{
+	if (!HasAuthority() || bIsDead || bIsStealthed)
 	{
-		bIsStealthed = false;
-		OnRep_IsStealthed();
-	}, 3.0f, false);
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Dokkaebi: ExecuteDecoySkillOnAuthority (listen server / dedicated)"));
+
+	bIsStealthed = true;
+	OnRep_IsStealthed();
+
+	if (DecoyClass)
+	{
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		Params.Instigator = this;
+		GetWorld()->SpawnActor<ADokkaebiDecoy>(DecoyClass, SpawnLoc, SpawnRot, Params);
+	}
+
+	GetWorldTimerManager().ClearTimer(StealthEndTimerHandle);
+	GetWorldTimerManager().SetTimer(
+		StealthEndTimerHandle,
+		[this]()
+		{
+			bIsStealthed = false;
+			OnRep_IsStealthed();
+		},
+		3.0f,
+		false);
 }
 
 void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
 {
-	// 여기서 이전에 설계한 은신/분신 서버 RPC를 호출합니다.
-	Server_UseDecoySkill(GetActorLocation(), GetControlRotation());
+	const FVector SpawnLoc = GetActorLocation();
+	const FRotator SpawnRot = GetControlRotation();
+
+	// 리스닝 서버 호스트는 이미 Authority — Server RPC만 호출하면 구현이 안 도는 경우가 있어 직접 실행.
+	if (HasAuthority())
+	{
+		ExecuteDecoySkillOnAuthority(SpawnLoc, SpawnRot);
+	}
+	else
+	{
+		Server_UseDecoySkill(SpawnLoc, SpawnRot);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("Dokkaebi: Skill Input Pressed (Authority=%d)"), HasAuthority() ? 1 : 0);
 }
 
 void ADokkaebiCharacter::OnRep_IsStealthed()
@@ -155,5 +214,6 @@ void ADokkaebiCharacter::OnRep_IsStealthed()
 	else
 	{
 		GetMesh()->SetHiddenInGame(bIsStealthed);
+		
 	}
 }

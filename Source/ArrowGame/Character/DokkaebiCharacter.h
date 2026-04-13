@@ -22,6 +22,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	
@@ -37,9 +38,12 @@ protected:
 	UFUNCTION()
 	void OnRep_IsStealthed();
 
-	// 서버 스킬 실행
+	// 서버 스킬 실행 (클라 → 서버). 리스닝 서버 호스트는 Input 쪽에서 Authority로 직접 실행.
 	UFUNCTION(Server, Reliable)
 	void Server_UseDecoySkill(FVector SpawnLoc, FRotator SpawnRot);
+
+	/** 서버(또는 리스닝 서버 호스트)에서만 호출 — RPC와 동일한 본문 */
+	void ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator SpawnRot);
 
 	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill")
 	TSubclassOf<ADokkaebiDecoy> DecoyClass;
@@ -73,5 +77,6 @@ protected:
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
-	
+
+	FTimerHandle StealthEndTimerHandle;
 };

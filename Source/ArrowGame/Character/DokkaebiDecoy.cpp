@@ -1,4 +1,4 @@
-﻿#include "DokkaebiDecoy.h"
+#include "DokkaebiDecoy.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 
@@ -6,10 +6,11 @@
 ADokkaebiDecoy::ADokkaebiDecoy()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	bReplicates = true; // 서버에서 스폰되어 클라로 복제됨
-    
+	bReplicates = true;
+	SetReplicateMovement(true);
+
 	// 발사체 통과 설정 (기획 선택 반영)
-	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap); 
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
 }
 
 void ADokkaebiDecoy::BeginPlay()
@@ -22,8 +23,10 @@ void ADokkaebiDecoy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (HasAuthority()) // 서버에서만 진실로 이동
+	// 컨트롤러 없는 분신은 AddMovementInput이 먹지 않음 → 서버에서 직접 이동
+	if (HasAuthority())
 	{
-		AddMovementInput(GetActorForwardVector(), 1.0f);
+		const FVector Delta = GetActorForwardVector() * DecoySpeed * DeltaTime;
+		AddActorWorldOffset(Delta, true);
 	}
 }
