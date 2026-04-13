@@ -6,6 +6,14 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "InputActionValue.h"
+#include "../Character/DokkaebiDecoy.h"
+#include "Net/UnrealNetwork.h"
+
+void ADokkaebiCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ADokkaebiCharacter, bIsStealthed);
+}
 
 ADokkaebiCharacter::ADokkaebiCharacter()
 {
@@ -72,6 +80,10 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			EnhancedInput->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 			EnhancedInput->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 		}
+		if (DecoySkillAction)
+		{
+			EnhancedInput->BindAction(DecoySkillAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::Input_DecoySkillA);
+		}
 	}
 }
 
@@ -106,4 +118,42 @@ void ADokkaebiCharacter::Look(const FInputActionValue& Value)
 	const FVector2D LookAxis = Value.Get<FVector2D>();
 	AddControllerYawInput(LookAxis.X);
 	AddControllerPitchInput(LookAxis.Y);
+}
+
+void ADokkaebiCharacter::Server_UseDecoySkill_Implementation(FVector SpawnLoc, FRotator SpawnRot)
+{
+	if (bIsStealthed) return;
+	
+	bIsStealthed = true;
+	
+	//분신 스폰
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	GetWorld()->SpawnActor<ADokkaebiDecoy>(DecoyClass, SpawnLoc, SpawnRot, Params);
+	
+	//2, 3초 뒤 은신 해제 타이머
+	FTimerHandle StealthTimer;
+	GetWorldTimerManager().SetTimer(StealthTimer, [this]()
+	{
+		bIsStealthed = false;
+		OnRep_IsStealthed();
+	}, 3.0f, false);
+}
+
+void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
+{
+	// 여기서 이전에 설계한 은신/분신 서버 RPC를 호출합니다.
+	Server_UseDecoySkill(GetActorLocation(), GetControlRotation());
+}
+
+void ADokkaebiCharacter::OnRep_IsStealthed()
+{
+	if (IsLocallyControlled())
+	{
+		GetMesh()->SetScalarParameterValueOnMaterials(TEXT("Opacity"),bIsStealthed ? 0.3f : 1.0f);
+	}
+	else
+	{
+		GetMesh()->SetHiddenInGame(bIsStealthed);
+	}
 }
