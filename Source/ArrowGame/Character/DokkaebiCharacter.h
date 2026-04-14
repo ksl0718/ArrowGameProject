@@ -19,6 +19,8 @@ class ARROWGAME_API ADokkaebiCharacter : public ACharacterBase
 public:
 	ADokkaebiCharacter();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	
 
 protected:
 	virtual void BeginPlay() override;
@@ -27,7 +29,19 @@ protected:
 
 	
 	
-
+#pragma region Decoy
+	
+public:
+	UFUNCTION(BlueprintPure, Category="Dokkaebi|Skill")
+	float GetDecoyCooldownRemaining() const;
+	
+	UFUNCTION(BlueprintPure, Category="Dokkaebi|Skill")
+	float GetDecoyCooldownDuration() const;
+	
+	UFUNCTION(BlueprintPure, Category="Dokkaebi|Skill")
+	bool IsDecoyCoolingDown() const;
+	
+protected:
 	// 입력 시 실행될 로직
 	void Input_DecoySkillA(const FInputActionValue& Value);
 	
@@ -35,6 +49,27 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_IsStealthed)
 	bool bIsStealthed = false;
 
+	// 입력 연타 방지용 짧은 락 (서버 권한 상태)
+	bool bDecoyInputLocked = false;
+
+	// 서버 시간 기준 쿨다운 종료 시각
+	float NextSkillAvailableTime = 0.f;
+	
+	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
+	float StealthDuration = 3.0f;
+	
+	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
+	float SkillCooldown = 8.0f;
+	
+	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
+	float InputLockDuration = 0.2f;
+	
+	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
+	float DecoySpawnForwardOffset = 80.f;
+	
+	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
+	float DecoySpawnUpOffset = 10.f;
+	
 	UFUNCTION()
 	void OnRep_IsStealthed();
 
@@ -45,6 +80,16 @@ protected:
 	/** 서버(또는 리스닝 서버 호스트)에서만 호출 — RPC와 동일한 본문 */
 	void ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator SpawnRot);
 
+	// 공통 종료 처리
+	void EndStealthOnAuthority();
+	// 쿨다운/락/상태 검사
+	bool CanUseDecoySkillOnAuthority() const;
+	
+	FTimerHandle StealthEndTimerHandle;
+	FTimerHandle SkillInputUnlockTimerHandle;
+	
+#pragma endregion
+	
 	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill")
 	TSubclassOf<ADokkaebiDecoy> DecoyClass;
 	
@@ -78,5 +123,5 @@ protected:
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 
-	FTimerHandle StealthEndTimerHandle;
+	
 };

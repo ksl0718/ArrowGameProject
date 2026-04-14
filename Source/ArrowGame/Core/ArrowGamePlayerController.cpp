@@ -9,7 +9,11 @@
 #include "../UI/CountdownWidget.h"
 #include "../UI/ResultWidget.h"
 #include "../UI/RoundTimerWidget.h"
+#include "../UI/SkillCooldownHUDWidget.h"
+#include "../Character/DokkaebiCharacter.h"
 #include "GameFramework/PlayerState.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 
 void AArrowGamePlayerController::BeginPlay()
 {
@@ -32,6 +36,25 @@ void AArrowGamePlayerController::BeginPlay()
                 if (LoadingWidget) LoadingWidget->AddToViewport(100);
             }
             
+            if (SkillCooldownHUDClass)
+            {
+                SkillCooldownHUDWidget = CreateWidget<USkillCooldownHUDWidget>(this, SkillCooldownHUDClass);
+                if (SkillCooldownHUDWidget)
+                {
+                    SkillCooldownHUDWidget->AddToViewport(5);
+                    // 초기 1회 세팅
+                    SkillCooldownHUDWidget->SetSlotIconByIndex(0, DecoySkillIcon);
+                    SkillCooldownHUDWidget->SetSlotKeyByIndex(0, FText::FromString(TEXT("Q")));
+                    // 0.05초마다 HUD 갱신
+                    GetWorldTimerManager().SetTimer(
+                        SkillCooldownUpdateTimerHandle,
+                        this,
+                        &AArrowGamePlayerController::UpdateSkillCooldownHUD,
+                        0.05f,
+                        true
+                    );
+                }
+            }
         }
     }
     
@@ -46,6 +69,24 @@ void AArrowGamePlayerController::BeginPlay()
 
 }
 
+void AArrowGamePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    GetWorldTimerManager().ClearTimer(SkillCooldownUpdateTimerHandle);
+    Super::EndPlay(EndPlayReason);
+}
+
+void AArrowGamePlayerController::UpdateSkillCooldownHUD()
+{
+    if (!SkillCooldownHUDWidget) return;
+    ADokkaebiCharacter* Dokkaebi = Cast<ADokkaebiCharacter>(GetPawn());
+    if (!Dokkaebi) return;
+    // 아래 getter 2개는 DokkaebiCharacter에 추가해두는 걸 권장
+    const float Remaining = Dokkaebi->GetDecoyCooldownRemaining();
+    const float Duration  = Dokkaebi->GetDecoyCooldownDuration();
+    
+    SkillCooldownHUDWidget->UpdateSlotCooldownByIndex(0, Remaining, Duration);
+    
+}
 void AArrowGamePlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();

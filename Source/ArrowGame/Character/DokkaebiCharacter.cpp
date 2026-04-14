@@ -157,34 +157,81 @@ void ADokkaebiCharacter::Server_UseDecoySkill_Implementation(FVector SpawnLoc, F
 
 void ADokkaebiCharacter::ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator SpawnRot)
 {
-	if (!HasAuthority() || bIsDead || bIsStealthed)
+	if (!CanUseDecoySkillOnAuthority())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("DecoyDenied Auth=%d Dead=%d Stealth=%d"),
+			HasAuthority() ? 1 : 0,
+			bIsDead ? 1 : 0,
+			bIsStealthed ? 1 : 0);
+		
+		const float Now = GetWorld()->GetTimeSeconds();
+		UE_LOG(LogTemp, Warning, TEXT("DecoyDenied Auth=%d Dead=%d Stealth=%d Lock=%d Now=%.2f Next=%.2f Remain=%.2f"),
+			HasAuthority()?1:0, bIsDead?1:0, bIsStealthed?1:0, bDecoyInputLocked?1:0,
+			Now, NextSkillAvailableTime, FMath::Max(0.f, NextSkillAvailableTime - Now));
+		
 		return;
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("Dokkaebi: ExecuteDecoySkillOnAuthority (listen server / dedicated)"));
+	
+	UE_LOG(LogTemp, Warning, TEXT("DecoyAccepted"));
+	
+	// 즉시 락 + 쿨다운 예약
+	bDecoyInputLocked = true;
+	NextSkillAvailableTime = GetWorld()->GetTimeSeconds() + SkillCooldown;
+	
+	GetWorldTimerManager().ClearTimer(SkillInputUnlockTimerHandle);
+	GetWorldTimerManager().SetTimer(
+		SkillInputUnlockTimerHandle,
+		[this]() { bDecoyInputLocked = false; },
+		InputLockDuration,
+		false);
 
 	bIsStealthed = true;
 	OnRep_IsStealthed();
-
-	if (DecoyClass)
+	
+	const FVector Forward = SpawnRot.Vector();
+	const FVector SafeSpawnLoc = SpawnLoc + Forward * DecoySpawnForwardOffset + FVector(0,0,DecoySpawnUpOffset);
+	
+	if (!DecoyClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("DecoyClass is null"));
+	}else
 	{
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
-		GetWorld()->SpawnActor<ADokkaebiDecoy>(DecoyClass, SpawnLoc, SpawnRot, Params);
+		Params.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+		ADokkaebiDecoy* Decoy = GetWorld()->SpawnActor<ADokkaebiDecoy>(DecoyClass, SafeSpawnLoc, SpawnRot, Params);
+		if (!Decoy)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Decoy spawn failed at %s"), *SafeSpawnLoc.ToString());
+		}
 	}
-
 	GetWorldTimerManager().ClearTimer(StealthEndTimerHandle);
 	GetWorldTimerManager().SetTimer(
 		StealthEndTimerHandle,
-		[this]()
-		{
-			bIsStealthed = false;
-			OnRep_IsStealthed();
-		},
-		3.0f,
+		this,
+		&ADokkaebiCharacter::EndStealthOnAuthority,
+		StealthDuration,
 		false);
+}
+
+bool ADokkaebiCharacter::CanUseDecoySkillOnAuthority() const
+{
+	if (!HasAuthority()) return false;
+	if (bIsDead) return false;
+	if (bIsStealthed) return false;          // 은신 중 중복 사용 방지
+	if (bDecoyInputLocked) return false;     // 짧은 연타 방지
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (Now < NextSkillAvailableTime) return false; // 쿨다운 중
+	return true;
+}
+
+void ADokkaebiCharacter::EndStealthOnAuthority()
+{
+	if (!HasAuthority()) return;
+	bIsStealthed = false;
+	OnRep_IsStealthed();
 }
 
 void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
@@ -216,4 +263,25 @@ void ADokkaebiCharacter::OnRep_IsStealthed()
 		GetMesh()->SetHiddenInGame(bIsStealthed);
 		
 	}
+}
+
+float ADokkaebiCharacter::GetDecoyCooldownRemaining() const
+{
+	// 월드가 아직 없을 타이밍 보호
+	if (!GetWorld())
+	{
+		return 0.0f;
+	}
+	const float Now = GetWorld()->GetTimeSeconds();
+	return FMath::Max(0.0f, NextSkillAvailableTime - Now);
+}
+
+float ADokkaebiCharacter::GetDecoyCooldownDuration() const
+{
+	return FMath::Max(0.01f, SkillCooldown);
+}
+
+bool ADokkaebiCharacter::IsDecoyCoolingDown() const
+{
+	return GetDecoyCooldownRemaining() > 0.0f;
 }
