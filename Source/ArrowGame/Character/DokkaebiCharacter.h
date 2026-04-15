@@ -5,11 +5,66 @@
 #include "InputActionValue.h"
 #include "DokkaebiCharacter.generated.h"
 
+#pragma region ForwardDeclarations
 class UCameraComponent;
 class UInputAction;
 class UInputMappingContext;
 class USpringArmComponent;
+class UTexture2D;
 class ADokkaebiDecoy;
+#pragma endregion
+
+#pragma region SkillStructs
+
+USTRUCT(BlueprintType)
+struct FSkillSpec
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Skill")
+	FName SkillId = NAME_None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Skill")
+	float Cooldown = 8.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Skill")
+	float InputLockDuration = 0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Skill")
+	TObjectPtr<UInputAction> InputAction = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Skill|UI")
+	TObjectPtr<UTexture2D> Icon = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Skill|UI")
+	FText KeyText;
+};
+
+USTRUCT()
+struct FSkillRuntimeState
+{
+	GENERATED_BODY()
+	
+	UPROPERTY()
+	float NextAvailableTime = 0.f;
+	
+	UPROPERTY()
+	bool bInputLocked = false;
+};
+
+UENUM(BlueprintType)
+enum class EDokkaebiSkillIndex : uint8
+{
+	Decoy = 0,
+	SkillB = 1,
+	SkillC = 2,
+	SkillD = 3
+};
+
+
+#pragma endregion
+
+
 
 UCLASS()
 class ARROWGAME_API ADokkaebiCharacter : public ACharacterBase
@@ -19,80 +74,76 @@ class ARROWGAME_API ADokkaebiCharacter : public ACharacterBase
 public:
 	ADokkaebiCharacter();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	
-	
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	
-	
-#pragma region Decoy
-	
+#pragma region Skill_API
 public:
+
 	UFUNCTION(BlueprintPure, Category="Dokkaebi|Skill")
-	float GetDecoyCooldownRemaining() const;
+	float GetSkillCooldownRemainingByIndex(EDokkaebiSkillIndex SkillIndex) const;
 	
 	UFUNCTION(BlueprintPure, Category="Dokkaebi|Skill")
-	float GetDecoyCooldownDuration() const;
+	float GetSkillCooldownDurationByIndex(EDokkaebiSkillIndex SkillIndex) const;
 	
 	UFUNCTION(BlueprintPure, Category="Dokkaebi|Skill")
-	bool IsDecoyCoolingDown() const;
+	bool IsSkillCoolingDownByIndex(EDokkaebiSkillIndex SkillIndex) const;
 	
+	UPROPERTY(Replicated)
+	TArray<FSkillRuntimeState> SkillStates;
+	
+	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
+	TArray<FSkillSpec> SkillSpecs;
+	
+#pragma endregion
+
+#pragma region Decoy_Skill
 protected:
-	// 입력 시 실행될 로직
+	// Input entry point for decoy skill.
 	void Input_DecoySkillA(const FInputActionValue& Value);
-	
-	// 은신 상태 복제 변수
+
+	// Stealth state replicated to all relevant clients.
 	UPROPERTY(ReplicatedUsing = OnRep_IsStealthed)
 	bool bIsStealthed = false;
-
-	// 입력 연타 방지용 짧은 락 (서버 권한 상태)
-	bool bDecoyInputLocked = false;
-
-	// 서버 시간 기준 쿨다운 종료 시각
-	float NextSkillAvailableTime = 0.f;
 	
 	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
 	float StealthDuration = 3.0f;
 	
 	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
-	float SkillCooldown = 8.0f;
-	
-	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
-	float InputLockDuration = 0.2f;
-	
-	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
 	float DecoySpawnForwardOffset = 80.f;
-	
+
 	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
 	float DecoySpawnUpOffset = 10.f;
-	
+
 	UFUNCTION()
 	void OnRep_IsStealthed();
 
-	// 서버 스킬 실행 (클라 → 서버). 리스닝 서버 호스트는 Input 쪽에서 Authority로 직접 실행.
+	// Client -> server skill request RPC.
 	UFUNCTION(Server, Reliable)
 	void Server_UseDecoySkill(FVector SpawnLoc, FRotator SpawnRot);
 
-	/** 서버(또는 리스닝 서버 호스트)에서만 호출 — RPC와 동일한 본문 */
+	// Runs actual skill logic on authority only.
 	void ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator SpawnRot);
 
-	// 공통 종료 처리
+	// Shared end-stealth processing.
 	void EndStealthOnAuthority();
-	// 쿨다운/락/상태 검사
+
+	// Cooldown/lock/state validation.
 	bool CanUseDecoySkillOnAuthority() const;
-	
+
 	FTimerHandle StealthEndTimerHandle;
 	FTimerHandle SkillInputUnlockTimerHandle;
-	
 #pragma endregion
-	
+
+#pragma region Skill_Config
 	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill")
 	TSubclassOf<ADokkaebiDecoy> DecoyClass;
-	
+#pragma endregion
+
+#pragma region Input
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputMappingContext* DefaultMappingContext;
 
@@ -107,13 +158,17 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* DecoySkillAction;
-	
+#pragma endregion
+
+#pragma region Camera
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	USpringArmComponent* CameraBoom;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* FollowCamera;
+#pragma endregion
 
+#pragma region Movement
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	bool bCanMove = true;
 
@@ -122,6 +177,5 @@ protected:
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
-
-	
+#pragma endregion
 };

@@ -8,11 +8,13 @@
 #include "InputActionValue.h"
 #include "../Character/DokkaebiDecoy.h"
 #include "Net/UnrealNetwork.h"
+#include "GameFramework/GameStateBase.h"
 
 void ADokkaebiCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ADokkaebiCharacter, bIsStealthed);
+	DOREPLIFETIME_CONDITION(ADokkaebiCharacter, SkillStates, COND_OwnerOnly);
 }
 
 ADokkaebiCharacter::ADokkaebiCharacter()
@@ -42,12 +44,13 @@ ADokkaebiCharacter::ADokkaebiCharacter()
 void ADokkaebiCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 	{
 		MoveComp->MaxWalkSpeed = NormalWalkSpeed;
 	}
+	SkillStates.SetNum(SkillSpecs.Num());
 }
+
 
 void ADokkaebiCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
@@ -159,32 +162,35 @@ void ADokkaebiCharacter::ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator
 {
 	if (!CanUseDecoySkillOnAuthority())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("DecoyDenied Auth=%d Dead=%d Stealth=%d"),
-			HasAuthority() ? 1 : 0,
-			bIsDead ? 1 : 0,
-			bIsStealthed ? 1 : 0);
-		
-		const float Now = GetWorld()->GetTimeSeconds();
-		UE_LOG(LogTemp, Warning, TEXT("DecoyDenied Auth=%d Dead=%d Stealth=%d Lock=%d Now=%.2f Next=%.2f Remain=%.2f"),
-			HasAuthority()?1:0, bIsDead?1:0, bIsStealthed?1:0, bDecoyInputLocked?1:0,
-			Now, NextSkillAvailableTime, FMath::Max(0.f, NextSkillAvailableTime - Now));
-		
 		return;
 	}
 	
-	UE_LOG(LogTemp, Warning, TEXT("DecoyAccepted"));
+	constexpr int32 DecoyIndex = 0;
 	
-	// 즉시 락 + 쿨다운 예약
-	bDecoyInputLocked = true;
-	NextSkillAvailableTime = GetWorld()->GetTimeSeconds() + SkillCooldown;
+	if (!SkillStates.IsValidIndex(DecoyIndex) || !SkillSpecs.IsValidIndex(DecoyIndex)) return;
 	
+	FSkillRuntimeState& State = SkillStates[DecoyIndex];
+	const FSkillSpec& Spec = SkillSpecs[DecoyIndex];
+	
+	const AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	State.bInputLocked = true;
+	State.NextAvailableTime = NowServer + Spec.Cooldown;
+
 	GetWorldTimerManager().ClearTimer(SkillInputUnlockTimerHandle);
 	GetWorldTimerManager().SetTimer(
 		SkillInputUnlockTimerHandle,
-		[this]() { bDecoyInputLocked = false; },
-		InputLockDuration,
-		false);
-
+		[this, DecoyIndex]()
+		{
+			if (SkillStates.IsValidIndex(DecoyIndex))
+			{
+				SkillStates[DecoyIndex].bInputLocked = false;
+			}
+		},
+		Spec.InputLockDuration,
+		false
+	);
+	
 	bIsStealthed = true;
 	OnRep_IsStealthed();
 	
@@ -213,17 +219,23 @@ void ADokkaebiCharacter::ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator
 		this,
 		&ADokkaebiCharacter::EndStealthOnAuthority,
 		StealthDuration,
-		false);
+		false
+	);
 }
 
 bool ADokkaebiCharacter::CanUseDecoySkillOnAuthority() const
 {
+	constexpr int32 DecoyIndex = 0;
+	
 	if (!HasAuthority()) return false;
 	if (bIsDead) return false;
-	if (bIsStealthed) return false;          // 은신 중 중복 사용 방지
-	if (bDecoyInputLocked) return false;     // 짧은 연타 방지
+	if (bIsStealthed) return false;
+	if (!SkillStates.IsValidIndex(DecoyIndex)) return false;
+	
 	const float Now = GetWorld()->GetTimeSeconds();
-	if (Now < NextSkillAvailableTime) return false; // 쿨다운 중
+	if (SkillStates[DecoyIndex].bInputLocked) return false;
+	if (Now < SkillStates[DecoyIndex].NextAvailableTime) return false;
+	
 	return true;
 }
 
@@ -265,23 +277,27 @@ void ADokkaebiCharacter::OnRep_IsStealthed()
 	}
 }
 
-float ADokkaebiCharacter::GetDecoyCooldownRemaining() const
+float ADokkaebiCharacter::GetSkillCooldownRemainingByIndex(EDokkaebiSkillIndex SkillIndex) const
 {
-	// 월드가 아직 없을 타이밍 보호
-	if (!GetWorld())
-	{
-		return 0.0f;
-	}
-	const float Now = GetWorld()->GetTimeSeconds();
-	return FMath::Max(0.0f, NextSkillAvailableTime - Now);
+	if (!GetWorld()) return 0.f;
+
+	const int32 Index = static_cast<int32>(SkillIndex);
+	if (!SkillStates.IsValidIndex(Index)) return 0.f;
+
+	const AGameStateBase* GS = GetWorld()->GetGameState();
+	const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	
+	return FMath::Max(0.f, SkillStates[Index].NextAvailableTime - NowServer);
+}
+float ADokkaebiCharacter::GetSkillCooldownDurationByIndex(EDokkaebiSkillIndex SkillIndex) const
+{
+	const int32 Index = static_cast<int32>(SkillIndex);
+	if (!SkillSpecs.IsValidIndex(Index)) return 0.01f;
+	
+	return FMath::Max(0.01f, SkillSpecs[Index].Cooldown);
 }
 
-float ADokkaebiCharacter::GetDecoyCooldownDuration() const
+bool ADokkaebiCharacter::IsSkillCoolingDownByIndex(EDokkaebiSkillIndex SkillIndex) const
 {
-	return FMath::Max(0.01f, SkillCooldown);
-}
-
-bool ADokkaebiCharacter::IsDecoyCoolingDown() const
-{
-	return GetDecoyCooldownRemaining() > 0.0f;
+	return GetSkillCooldownRemainingByIndex(SkillIndex) > 0.f;
 }

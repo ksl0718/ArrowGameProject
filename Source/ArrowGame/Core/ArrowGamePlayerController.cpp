@@ -20,8 +20,7 @@ void AArrowGamePlayerController::BeginPlay()
     Super::BeginPlay();
 
     // 이 컨트롤러가 로컬(내 컴퓨터)일 때만 위젯 생성
-    if (IsLocalPlayerController())
-    {
+    
         if (IsLocalPlayerController())
         {
             if (ScoreboardClass)
@@ -56,7 +55,7 @@ void AArrowGamePlayerController::BeginPlay()
                 }
             }
         }
-    }
+    
     
     bShowMouseCursor = false;
     DefaultMouseCursor = EMouseCursor::None;
@@ -81,8 +80,8 @@ void AArrowGamePlayerController::UpdateSkillCooldownHUD()
     ADokkaebiCharacter* Dokkaebi = Cast<ADokkaebiCharacter>(GetPawn());
     if (!Dokkaebi) return;
     // 아래 getter 2개는 DokkaebiCharacter에 추가해두는 걸 권장
-    const float Remaining = Dokkaebi->GetDecoyCooldownRemaining();
-    const float Duration  = Dokkaebi->GetDecoyCooldownDuration();
+    const float Remaining = Dokkaebi->GetSkillCooldownRemainingByIndex(EDokkaebiSkillIndex::Decoy);
+    const float Duration  = Dokkaebi->GetSkillCooldownDurationByIndex(EDokkaebiSkillIndex::Decoy);
     
     SkillCooldownHUDWidget->UpdateSlotCooldownByIndex(0, Remaining, Duration);
     
