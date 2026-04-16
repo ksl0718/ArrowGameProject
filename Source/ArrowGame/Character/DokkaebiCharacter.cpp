@@ -192,6 +192,11 @@ void ADokkaebiCharacter::ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator
 	);
 	
 	bIsStealthed = true;
+	UE_LOG(LogTemp, Warning, TEXT("[SERVER] Stealth ON set. Auth=%d Local=%d NetMode=%d Time=%.2f"),
+    HasAuthority() ? 1 : 0,
+    IsLocallyControlled() ? 1 : 0,
+    (int32)GetNetMode(),
+    GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f);
 	OnRep_IsStealthed();
 	
 	const FVector Forward = SpawnRot.Vector();
@@ -243,14 +248,22 @@ void ADokkaebiCharacter::EndStealthOnAuthority()
 {
 	if (!HasAuthority()) return;
 	bIsStealthed = false;
+
+	UE_LOG(LogTemp, Warning, TEXT("[SERVER] Stealth OFF set. Auth=%d Local=%d NetMode=%d Time=%.2f"),
+        HasAuthority() ? 1 : 0,
+        IsLocallyControlled() ? 1 : 0,
+        (int32)GetNetMode(),
+        GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f);
+
 	OnRep_IsStealthed();
 }
 
 void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
 {
 	const FVector SpawnLoc = GetActorLocation();
-	const FRotator SpawnRot = GetControlRotation();
-
+	const FRotator ControlRot = GetControlRotation();
+	const FRotator SpawnRot(0.f, ControlRot.Yaw, 0.f);
+	
 	// 리스닝 서버 호스트는 이미 Authority — Server RPC만 호출하면 구현이 안 도는 경우가 있어 직접 실행.
 	if (HasAuthority())
 	{
@@ -266,8 +279,14 @@ void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
 
 void ADokkaebiCharacter::OnRep_IsStealthed()
 {
+	
+
 	if (IsLocallyControlled())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Stealth OnRep: bIsStealthed=%d, Local=%d"),
+		bIsStealthed ? 1 : 0,
+		IsLocallyControlled() ? 1 : 0);
+
 		GetMesh()->SetScalarParameterValueOnMaterials(TEXT("Opacity"),bIsStealthed ? 0.3f : 1.0f);
 	}
 	else
@@ -286,7 +305,7 @@ float ADokkaebiCharacter::GetSkillCooldownRemainingByIndex(EDokkaebiSkillIndex S
 
 	const AGameStateBase* GS = GetWorld()->GetGameState();
 	const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
-	
+
 	return FMath::Max(0.f, SkillStates[Index].NextAvailableTime - NowServer);
 }
 float ADokkaebiCharacter::GetSkillCooldownDurationByIndex(EDokkaebiSkillIndex SkillIndex) const
