@@ -74,6 +74,17 @@ void AArrowGamePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReaso
     Super::EndPlay(EndPlayReason);
 }
 
+void AArrowGamePlayerController::SetPawn(APawn* InPawn)
+{
+    Super::SetPawn(InPawn);
+
+    // Apply the cached state when pawn possession arrives late on clients.
+    if (IsLocalController() && InPawn)
+    {
+        SetPlayerEnabledState_Local(bCachedPlayerEnabled);
+    }
+}
+
 void AArrowGamePlayerController::UpdateSkillCooldownHUD()
 {
     if (!SkillCooldownHUDWidget) return;
@@ -101,7 +112,30 @@ void AArrowGamePlayerController::SetupInputComponent()
     }
 }
 
-void AArrowGamePlayerController::SetPlayerEnabledState(bool bPlayerEnabled) {
+void AArrowGamePlayerController::Client_SetPlayerEnabledState_Implementation(bool bPlayerEnabled)
+{
+    SetPlayerEnabledState_Local(bPlayerEnabled);
+}
+
+void AArrowGamePlayerController::SetPlayerEnabledState(bool bPlayerEnabled)
+{
+    if (HasAuthority())
+    {
+        // Keep remote/local owner in sync from server-side callers (e.g. GameMode).
+        Client_SetPlayerEnabledState(bPlayerEnabled);
+        if (IsLocalController())
+        {
+            SetPlayerEnabledState_Local(bPlayerEnabled);
+        }
+        return;
+    }
+    
+    SetPlayerEnabledState_Local(bPlayerEnabled);
+}
+
+void AArrowGamePlayerController::SetPlayerEnabledState_Local(bool bPlayerEnabled)
+{
+    bCachedPlayerEnabled = bPlayerEnabled;
 
     APawn* MyPawn = GetPawn();
     if (MyPawn) // [추가] 폰이 파괴된 상태일 수 있으므로 체크 필수

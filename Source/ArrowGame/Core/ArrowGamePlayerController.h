@@ -25,7 +25,10 @@ class ARROWGAME_API AArrowGamePlayerController : public APlayerController
 
 
 public:
-	void SetPlayerEnabledState(bool bPlayerEnalbed);
+	UFUNCTION(Client, Reliable)
+    void Client_SetPlayerEnabledState(bool bPlayerEnabled);
+	
+	void SetPlayerEnabledState(bool bPlayerEnabled);
 	
 	// 1. 에디터에서 할당할 입력 에셋들
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -81,6 +84,7 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void SetPawn(APawn* InPawn) override;
 	
 	void ShowScoreboard();
 	void HideScoreboard();
@@ -89,6 +93,8 @@ protected:
 	void UpdateSkillCooldownHUD();
 	
 private:
+	void SetPlayerEnabledState_Local(bool bPlayerEnabled);
+
 	UPROPERTY()
 	UUserWidget* LoadingWidget;
 
@@ -96,4 +102,5 @@ private:
 	UCountdownWidget* CountdownWidget;
 	
 	FTimerHandle SkillCooldownUpdateTimerHandle;
+	bool bCachedPlayerEnabled = true;
 };
