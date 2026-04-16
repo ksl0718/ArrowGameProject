@@ -116,7 +116,7 @@ protected:
 	float DecoySpawnForwardOffset = 80.f;
 
 	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
-	float DecoySpawnUpOffset = 10.f;
+	float DecoySpawnUpOffset = 40.f;
 
 	UFUNCTION()
 	void OnRep_IsStealthed();

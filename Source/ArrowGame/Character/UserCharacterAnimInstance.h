@@ -43,4 +43,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool bShouldMove = false;
 	
+
+	UPROPERTY(Transient)
+	FVector PrevWorldLocation = FVector::ZeroVector;
+	
+	UPROPERTY(Transient)
+	bool bPrevLocationInitialized = false;
 };

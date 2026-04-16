@@ -21,12 +21,18 @@ void ADokkaebiDecoy::BeginPlay()
 
 void ADokkaebiDecoy::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
-
-	// 컨트롤러 없는 분신은 AddMovementInput이 먹지 않음 → 서버에서 직접 이동
 	if (HasAuthority())
-	{
-		const FVector Delta = GetActorForwardVector() * DecoySpeed * DeltaTime;
-		AddActorWorldOffset(Delta, true);
-	}
+    {
+        FVector Forward = GetActorForwardVector();
+        Forward.Z = 0.f;
+        Forward = Forward.GetSafeNormal();
+        const FVector Delta = Forward * DecoySpeed * DeltaTime;
+        FHitResult Hit;
+        AddActorWorldOffset(Delta, true, &Hit);
+        if (Hit.bBlockingHit)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Decoy blocked by: %s"),
+                *GetNameSafe(Hit.GetActor()));
+        }
+    }
 }

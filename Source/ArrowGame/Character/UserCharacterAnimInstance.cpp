@@ -31,7 +31,25 @@ void UUserCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
     }
 
     const FVector Velocity = Character->GetVelocity();
-    GroundSpeed = Velocity.Size2D();
+    float ComputedSpeed = Velocity.Size2D();
+    // Velocity가 0으로 남는 경우(수동 이동 분신) 대비
+    if (ComputedSpeed <= KINDA_SMALL_NUMBER)
+    {
+        const FVector CurrentLoc = Character->GetActorLocation();
+        if (!bPrevLocationInitialized)
+        {
+            PrevWorldLocation = CurrentLoc;
+            bPrevLocationInitialized = true;
+        }
+        if (DeltaSeconds > KINDA_SMALL_NUMBER)
+        {
+            const FVector Delta = CurrentLoc - PrevWorldLocation;
+            ComputedSpeed = Delta.Size2D() / DeltaSeconds;
+        }
+        PrevWorldLocation = CurrentLoc;
+    }
+    GroundSpeed = ComputedSpeed;
+
     const FRotator ActorRotation = Character->GetActorRotation();
     Direction = UKismetAnimationLibrary::CalculateDirection(Velocity, ActorRotation);
 
@@ -97,12 +115,7 @@ void UUserCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
         }
     }
 
-    if (UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement())
-    {
-        const FVector Acceleration = MoveComp->GetCurrentAcceleration();
-        const bool bHasInput = !Acceleration.IsNearlyZero();
-        bShouldMove = (GroundSpeed > 3.0f && bHasInput);
-    }
+    bShouldMove = (GroundSpeed > 3.0f);
 }
 
 void UUserCharacterAnimInstance::SetCanMove(bool bNewCanMove)
