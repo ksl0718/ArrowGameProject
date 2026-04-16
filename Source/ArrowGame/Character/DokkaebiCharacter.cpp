@@ -288,6 +288,11 @@ void ADokkaebiCharacter::OnRep_IsStealthed()
 		IsLocallyControlled() ? 1 : 0);
 
 		GetMesh()->SetScalarParameterValueOnMaterials(TEXT("Opacity"),bIsStealthed ? 0.3f : 1.0f);
+
+		if (FollowCamera)
+    	{
+        FollowCamera->PostProcessBlendWeight = bIsStealthed ? 1.0f : 0.0f;
+    	}
 	}
 	else
 	{
