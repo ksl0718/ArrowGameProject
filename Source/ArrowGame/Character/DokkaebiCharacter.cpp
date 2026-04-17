@@ -41,6 +41,27 @@ ADokkaebiCharacter::ADokkaebiCharacter()
 	}
 }
 
+bool ADokkaebiCharacter::GetPrimarySkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const
+{
+	if (!SkillSpecs.IsValidIndex(0))
+	{
+		OutIcon = nullptr;
+		OutKeyText = FText::GetEmpty();
+		return false;
+	}
+
+	OutIcon = SkillSpecs[0].Icon;
+	OutKeyText = SkillSpecs[0].KeyText;
+	return true;
+}
+
+bool ADokkaebiCharacter::GetPrimarySkillCooldown(float& OutRemaining, float& OutDuration) const
+{
+	OutRemaining = GetSkillCooldownRemainingByIndex(EDokkaebiSkillIndex::Decoy);
+	OutDuration = GetSkillCooldownDurationByIndex(EDokkaebiSkillIndex::Decoy);
+	return true;
+}
+
 void ADokkaebiCharacter::BeginPlay()
 {
 	Super::BeginPlay();

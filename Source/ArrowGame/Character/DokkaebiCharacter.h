@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "CharacterBase.h"
+#include "SkillCooldownProvider.h"
 #include "InputActionValue.h"
 #include "DokkaebiCharacter.generated.h"
 
@@ -67,13 +68,15 @@ enum class EDokkaebiSkillIndex : uint8
 
 
 UCLASS()
-class ARROWGAME_API ADokkaebiCharacter : public ACharacterBase
+class ARROWGAME_API ADokkaebiCharacter : public ACharacterBase, public ISkillCooldownProvider
 {
 	GENERATED_BODY()
 
 public:
 	ADokkaebiCharacter();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual bool GetPrimarySkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const override;
+	virtual bool GetPrimarySkillCooldown(float& OutRemaining, float& OutDuration) const override;
 
 protected:
 	virtual void BeginPlay() override;

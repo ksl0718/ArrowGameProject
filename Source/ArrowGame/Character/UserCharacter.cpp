@@ -12,6 +12,7 @@
 #include "ArrowGame/Actor/BowItem.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameStateBase.h"
 
 AUserCharacter::AUserCharacter()
 {
@@ -43,6 +44,20 @@ AUserCharacter::AUserCharacter()
     InteractionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     InteractionSphere->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
     InteractionSphere->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Overlap);
+}
+
+bool AUserCharacter::GetPrimarySkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const
+{
+    OutIcon = RollSkillIcon;
+    OutKeyText = RollSkillKeyText;
+    return true;
+}
+
+bool AUserCharacter::GetPrimarySkillCooldown(float& OutRemaining, float& OutDuration) const
+{
+    OutRemaining = GetRollCooldownRemaining();
+    OutDuration = GetRollCooldownDuration();
+    return true;
 }
 
 void AUserCharacter::BeginPlay()
@@ -311,9 +326,14 @@ void AUserCharacter::Roll()
 {
     if (bIsRolling || bIsDead || !bCanMove) return;
     if (!RollMontage) return; 
+
+    if (GetRollCooldownRemaining() > 0.0f) return;
     
     bIsRolling = true;
     bCanMove = false;
+    const AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+    const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+    NextRollAvailableTime = NowServer + FMath::Max(0.01f, RollCooldownDuration);
 
     PlayMontage(RollMontage, 1.f);
     
@@ -357,6 +377,14 @@ void AUserCharacter::OnRollEnd(UAnimMontage* Montage, bool bInterrupted)
 	bIsRolling = false;
 	bCanMove = true;
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+}
+
+float AUserCharacter::GetRollCooldownRemaining() const
+{
+    if (!GetWorld()) return 0.0f;
+    const AGameStateBase* GS = GetWorld()->GetGameState();
+    const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+    return FMath::Max(0.0f, NextRollAvailableTime - NowServer);
 }
 
 //-----------화살 관련 -----------//

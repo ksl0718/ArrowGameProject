@@ -17,6 +17,7 @@ class UScoreboardWidget;
 class URoundTimerWidget;
 class USkillCooldownHUDWidget;
 class UTexture2D;
+class AArrowCharacter;
 
 UCLASS()
 class ARROWGAME_API AArrowGamePlayerController : public APlayerController
@@ -74,11 +75,10 @@ public:
 	
 	UPROPERTY(BlueprintReadOnly, Category = "UI|SkillCooldown")
 	USkillCooldownHUDWidget* SkillCooldownHUDWidget = nullptr;
-	
-	// 에디터에서 아이콘 넣기
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillCooldown")
-	
-	UTexture2D* DecoySkillIcon = nullptr;
+
+	// ===== Archer Arrow Icon UI =====
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Arrow")
+	TSubclassOf<UUserWidget> ArrowIconWidgetClass;
 	
 protected:
 	virtual void BeginPlay() override;
@@ -94,12 +94,19 @@ protected:
 	
 private:
 	void SetPlayerEnabledState_Local(bool bPlayerEnabled);
+	void ConfigureSkillHUDForCurrentPawn();
+	void ConfigureArrowIconForCurrentPawn();
+	bool TryGetCurrentSkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const;
+	bool TryGetCurrentSkillCooldown(float& OutRemaining, float& OutDuration) const;
 
 	UPROPERTY()
 	UUserWidget* LoadingWidget;
 
 	UPROPERTY()
 	UCountdownWidget* CountdownWidget;
+
+	UPROPERTY()
+	UUserWidget* ArrowIconWidget = nullptr;
 	
 	FTimerHandle SkillCooldownUpdateTimerHandle;
 	bool bCachedPlayerEnabled = true;

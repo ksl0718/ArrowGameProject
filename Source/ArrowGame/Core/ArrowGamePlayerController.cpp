@@ -10,7 +10,8 @@
 #include "../UI/ResultWidget.h"
 #include "../UI/RoundTimerWidget.h"
 #include "../UI/SkillCooldownHUDWidget.h"
-#include "../Character/DokkaebiCharacter.h"
+#include "../Character/ArrowCharacter.h"
+#include "../Character/SkillCooldownProvider.h"
 #include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
@@ -41,9 +42,7 @@ void AArrowGamePlayerController::BeginPlay()
                 if (SkillCooldownHUDWidget)
                 {
                     SkillCooldownHUDWidget->AddToViewport(5);
-                    // 초기 1회 세팅
-                    SkillCooldownHUDWidget->SetSlotIconByIndex(0, DecoySkillIcon);
-                    SkillCooldownHUDWidget->SetSlotKeyByIndex(0, FText::FromString(TEXT("Q")));
+                    ConfigureSkillHUDForCurrentPawn();
                     // 0.05초마다 HUD 갱신
                     GetWorldTimerManager().SetTimer(
                         SkillCooldownUpdateTimerHandle,
@@ -54,6 +53,8 @@ void AArrowGamePlayerController::BeginPlay()
                     );
                 }
             }
+
+            ConfigureArrowIconForCurrentPawn();
         }
     
     
@@ -71,6 +72,11 @@ void AArrowGamePlayerController::BeginPlay()
 void AArrowGamePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     GetWorldTimerManager().ClearTimer(SkillCooldownUpdateTimerHandle);
+    if (ArrowIconWidget)
+    {
+        ArrowIconWidget->RemoveFromParent();
+        ArrowIconWidget = nullptr;
+    }
     Super::EndPlay(EndPlayReason);
 }
 
@@ -78,24 +84,91 @@ void AArrowGamePlayerController::SetPawn(APawn* InPawn)
 {
     Super::SetPawn(InPawn);
 
+    if (IsLocalController())
+    {
+        ConfigureArrowIconForCurrentPawn();
+    }
+
     // Apply the cached state when pawn possession arrives late on clients.
     if (IsLocalController() && InPawn)
     {
         SetPlayerEnabledState_Local(bCachedPlayerEnabled);
+        ConfigureSkillHUDForCurrentPawn();
     }
 }
 
 void AArrowGamePlayerController::UpdateSkillCooldownHUD()
 {
     if (!SkillCooldownHUDWidget) return;
-    ADokkaebiCharacter* Dokkaebi = Cast<ADokkaebiCharacter>(GetPawn());
-    if (!Dokkaebi) return;
-    // 아래 getter 2개는 DokkaebiCharacter에 추가해두는 걸 권장
-    const float Remaining = Dokkaebi->GetSkillCooldownRemainingByIndex(EDokkaebiSkillIndex::Decoy);
-    const float Duration  = Dokkaebi->GetSkillCooldownDurationByIndex(EDokkaebiSkillIndex::Decoy);
-    
-    SkillCooldownHUDWidget->UpdateSlotCooldownByIndex(0, Remaining, Duration);
-    
+    float Remaining = 0.0f;
+    float Duration = 0.0f;
+    if (TryGetCurrentSkillCooldown(Remaining, Duration))
+    {
+        SkillCooldownHUDWidget->UpdateSlotCooldownByIndex(0, Remaining, Duration);
+    }
+}
+
+void AArrowGamePlayerController::ConfigureSkillHUDForCurrentPawn()
+{
+    if (!SkillCooldownHUDWidget) return;
+
+    UTexture2D* Icon = nullptr;
+    FText KeyText = FText::GetEmpty();
+    TryGetCurrentSkillHudMeta(Icon, KeyText);
+    SkillCooldownHUDWidget->SetSlotIconByIndex(0, Icon);
+    SkillCooldownHUDWidget->SetSlotKeyByIndex(0, KeyText);
+}
+
+void AArrowGamePlayerController::ConfigureArrowIconForCurrentPawn()
+{
+    if (!IsLocalController()) return;
+
+    const bool bIsArrowCharacter = Cast<AArrowCharacter>(GetPawn()) != nullptr;
+    if (!bIsArrowCharacter)
+    {
+        if (ArrowIconWidget)
+        {
+            ArrowIconWidget->RemoveFromParent();
+            ArrowIconWidget = nullptr;
+        }
+        return;
+    }
+
+    if (!ArrowIconWidget && ArrowIconWidgetClass)
+    {
+        ArrowIconWidget = CreateWidget<UUserWidget>(this, ArrowIconWidgetClass);
+    }
+
+    if (ArrowIconWidget && !ArrowIconWidget->IsInViewport())
+    {
+        ArrowIconWidget->AddToViewport(6);
+    }
+}
+
+bool AArrowGamePlayerController::TryGetCurrentSkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const
+{
+    OutIcon = nullptr;
+    OutKeyText = FText::GetEmpty();
+
+    if (const ISkillCooldownProvider* Provider = Cast<ISkillCooldownProvider>(GetPawn()))
+    {
+        return Provider->GetPrimarySkillHudMeta(OutIcon, OutKeyText);
+    }
+
+    return false;
+}
+
+bool AArrowGamePlayerController::TryGetCurrentSkillCooldown(float& OutRemaining, float& OutDuration) const
+{
+    OutRemaining = 0.0f;
+    OutDuration = 0.01f;
+
+    if (const ISkillCooldownProvider* Provider = Cast<ISkillCooldownProvider>(GetPawn()))
+    {
+        return Provider->GetPrimarySkillCooldown(OutRemaining, OutDuration);
+    }
+
+    return false;
 }
 void AArrowGamePlayerController::SetupInputComponent()
 {
