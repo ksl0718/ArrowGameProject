@@ -13,6 +13,7 @@ public:
 	ABowItem();
 
 	// 상호작용 시 호출
+	void PickUp(class AUserArcherCharacter* Picker);
 	void PickUp(class AUserCharacter* Picker);
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")

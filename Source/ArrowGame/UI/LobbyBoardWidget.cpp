@@ -155,7 +155,7 @@ void ULobbyBoardWidget::OnStartClicked()
 			// 1. 이동할 맵 경로 (예: /Game/Maps/BattleMap)
 			// 2. "?listen" 옵션은 서버로서 대기하겠다는 뜻으로 멀티플레이 이동 시 필수입니다.
 			FString MapPath = TEXT("/Game/ThirdPerson/Maps/ThirdPersonMap?listen");
-			
+			//FString MapPath = TEXT("/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024?listen");
 			// 3. ServerTravel은 모든 클라이언트를 동시에 이동시킵니다.
 			World->ServerTravel(MapPath);
 		}

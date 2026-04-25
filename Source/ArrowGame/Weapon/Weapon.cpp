@@ -3,6 +3,7 @@
 
 #include "Weapon.h"
 #include "../Character/ArrowCharacter.h"
+#include "../Character/ArcherCharacterBase.h"
 
 // Sets default values
 AWeapon::AWeapon()
@@ -17,6 +18,12 @@ void AWeapon::OnEquip(AArrowCharacter* NewOwner)
 {
     OwnerCharacter = NewOwner;
     SetOwner(NewOwner);
+}
+
+void AWeapon::OnEquipH(AArcherCharacterBase* NewOwner)
+{
+	OwnerArcherCharacter = NewOwner;
+	SetOwner(NewOwner);
 }
 
 void AWeapon::OnUnequip()

@@ -12,6 +12,12 @@
 
 class UCountdownWidget;
 class UResultWidget;
+class UUserWidget;
+class UScoreboardWidget;
+class URoundTimerWidget;
+class USkillCooldownHUDWidget;
+class UTexture2D;
+class AArrowCharacter;
 
 UCLASS()
 class ARROWGAME_API AArrowGamePlayerController : public APlayerController
@@ -20,7 +26,10 @@ class ARROWGAME_API AArrowGamePlayerController : public APlayerController
 
 
 public:
-	void SetPlayerEnabledState(bool bPlayerEnalbed);
+	UFUNCTION(Client, Reliable)
+    void Client_SetPlayerEnabledState(bool bPlayerEnabled);
+	
+	void SetPlayerEnabledState(bool bPlayerEnabled);
 	
 	// 1. 에디터에서 할당할 입력 에셋들
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -30,16 +39,16 @@ public:
 	class UInputAction* ScoreboardAction;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
-	TSubclassOf<class UScoreboardWidget> ScoreboardClass;
+	TSubclassOf<UScoreboardWidget> ScoreboardClass;
 	
 	UPROPERTY(BlueprintReadOnly, Category = "UI")
-	class UScoreboardWidget* ScoreboardWidget;
+	UScoreboardWidget* ScoreboardWidget;
 	
 	UPROPERTY(EditAnywhere, Category = "UI")
 	UResultWidget* ResultWidget;
 	
 	UPROPERTY(EditAnywhere, Category = "UI")
-	class URoundTimerWidget* RoundTimerWidget;
+	URoundTimerWidget* RoundTimerWidget;
 	
 	// 서버가 호출할 클라이언트 전용 함수
 	UFUNCTION(Client, Reliable)
@@ -58,21 +67,47 @@ public:
 	TSubclassOf<UCountdownWidget> CountdownWidgetClass;
 	
 	UPROPERTY(EditAnywhere, Category = "UI")
-	TSubclassOf<class URoundTimerWidget> RoundTimerWidgetClass;
+	TSubclassOf<URoundTimerWidget> RoundTimerWidgetClass;
 	
+	// ===== Skill Cooldown HUD =====
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillCooldown")
+	TSubclassOf<USkillCooldownHUDWidget> SkillCooldownHUDClass;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "UI|SkillCooldown")
+	USkillCooldownHUDWidget* SkillCooldownHUDWidget = nullptr;
+
+	// ===== Archer Arrow Icon UI =====
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Arrow")
+	TSubclassOf<UUserWidget> ArrowIconWidgetClass;
 	
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void SetPawn(APawn* InPawn) override;
 	
 	void ShowScoreboard();
 	void HideScoreboard();
 	
+	// 주기 갱신
+	void UpdateSkillCooldownHUD();
 	
 private:
+	void SetPlayerEnabledState_Local(bool bPlayerEnabled);
+	void ConfigureSkillHUDForCurrentPawn();
+	void ConfigureArrowIconForCurrentPawn();
+	bool TryGetCurrentSkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const;
+	bool TryGetCurrentSkillCooldown(float& OutRemaining, float& OutDuration) const;
+
 	UPROPERTY()
 	UUserWidget* LoadingWidget;
 
 	UPROPERTY()
 	UCountdownWidget* CountdownWidget;
+
+	UPROPERTY()
+	UUserWidget* ArrowIconWidget = nullptr;
+	
+	FTimerHandle SkillCooldownUpdateTimerHandle;
+	bool bCachedPlayerEnabled = true;
 };

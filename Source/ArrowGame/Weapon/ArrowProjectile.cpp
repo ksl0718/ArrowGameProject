@@ -13,6 +13,7 @@
 #include "NiagaraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "NiagaraFunctionLibrary.h"
+#include "../Character/ArcherCharacterBase.h"
 
 // Sets default values
 AArrowProjectile::AArrowProjectile()
@@ -305,6 +306,16 @@ void AArrowProjectile::MulticastActivateTrail_Implementation()
 }
 
 void AArrowProjectile::PickUp(AArrowCharacter* Picker)
+{
+	// 박혀있을 때, 그리고 서버에서만 실행
+	if (bStuck && HasAuthority() && Picker)
+	{
+		Picker->AddAmmo(ArrowType, 1); // 쏜 거 주웠으니 1개만 돌려줌
+		Destroy();
+	}
+}
+
+void AArrowProjectile::PickUp(AArcherCharacterBase* Picker)
 {
 	// 박혀있을 때, 그리고 서버에서만 실행
 	if (bStuck && HasAuthority() && Picker)

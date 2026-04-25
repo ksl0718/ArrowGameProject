@@ -3,6 +3,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/BoxComponent.h"
 #include "../Character/UserCharacter.h"
+#include "../Character/UserArcherCharacter.h"
 
 ABowItem::ABowItem()
 {
@@ -24,6 +25,18 @@ ABowItem::ABowItem()
 }
 
 void ABowItem::PickUp(AUserCharacter* Picker)
+{
+	if (Picker)
+	{
+		// 여기서 캐릭터의 장착 함수를 호출!
+		Picker->EquipNewBow(BowClass);
+        
+		// 장착시켰으니 아이템은 삭제
+		Destroy();
+	}
+}
+
+void ABowItem::PickUp(AUserArcherCharacter* Picker)
 {
 	if (Picker)
 	{

@@ -14,6 +14,7 @@ public:
 	AArrowItem();
 
 	// 캐릭터가 F키를 눌러 상호작용할 때 호출될 함수
+	void PickUp(class AArcherCharacterBase* Picker);
 	void PickUp(class AArrowCharacter* Picker);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")

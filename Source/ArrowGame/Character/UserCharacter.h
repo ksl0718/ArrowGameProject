@@ -4,24 +4,35 @@
 
 #include "CoreMinimal.h"
 #include "ArrowCharacter.h"
+#include "SkillCooldownProvider.h"
 #include "InputActionValue.h"
 #include "../Weapon/Bow.h"
 #include "UserCharacter.generated.h"
+
+class UTexture2D;
 
 
 /**
  * 
  */
 UCLASS()
-class ARROWGAME_API AUserCharacter : public AArrowCharacter
+class ARROWGAME_API AUserCharacter : public AArrowCharacter, public ISkillCooldownProvider
 {
 	GENERATED_BODY()
 public:
     AUserCharacter();
+	virtual bool GetPrimarySkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const override;
+	virtual bool GetPrimarySkillCooldown(float& OutRemaining, float& OutDuration) const override;
 	
 	bool IsDead() const { return bIsDead; }
     UPROPERTY(EditAnywhere, Category = "Movement")
     bool bCanMove = true;
+
+	UFUNCTION(BlueprintPure, Category = "User|Skill")
+	float GetRollCooldownRemaining() const;
+
+	UFUNCTION(BlueprintPure, Category = "User|Skill")
+	float GetRollCooldownDuration() const { return RollCooldownDuration; }
 	
 	void EquipNewBow(TSubclassOf<ABow> NewBowClass);
 protected:
@@ -59,6 +70,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* InteractAction;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* CrouchAction;
+	
     // ī�޶�
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class USpringArmComponent* CameraBoom;
@@ -79,13 +93,16 @@ protected:
     float AimInterpSpeed = 15.f;
 	
 	
-    // �̵� / �þ� / ���� / �߻� �Լ�
+	// 입력 핸들러
     void Move(const FInputActionValue& Value);
     void Look(const FInputActionValue& Value);
     void StartAiming();
     void StopAiming();
     void StartCharging();           // LMB ������ ��
     void ReleaseArrow();            // LMB ���� ��
+	
+	void OnCrouchStarted(const FInputActionValue& Value);
+	void OnCrouchEnded(const FInputActionValue& Value);
 	
 	void Input_CycleArrow(const FInputActionValue& Value); // 마우스휠 화살변경
 	void Input_Interact(const FInputActionValue& Value); // F키 (상호작용) 입력 처리
@@ -109,6 +126,17 @@ protected:
 	
 	UFUNCTION(Server, Reliable)
 	void Server_Interact(AActor* HitActor);
+
+	UPROPERTY(EditAnywhere, Category = "User|Skill")
+	float RollCooldownDuration = 4.0f;
+
+	UPROPERTY(EditAnywhere, Category = "User|Skill|UI")
+	UTexture2D* RollSkillIcon = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "User|Skill|UI")
+	FText RollSkillKeyText = FText::FromString(TEXT("LShift"));
+
+	float NextRollAvailableTime = 0.0f;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction")
 	class USphereComponent* InteractionSphere; // 아이템 감지용 구체 컴포넌트
