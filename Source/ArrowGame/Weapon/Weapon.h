@@ -19,6 +19,9 @@ public:
 	virtual void OnEquip(class AArrowCharacter* NewOwner);
 
 	UFUNCTION(BlueprintCallable)
+	virtual void OnEquipH(class AArcherCharacterBase* NewOwner);
+	
+	UFUNCTION(BlueprintCallable)
 	virtual void OnUnequip();
 
 	virtual void StartAim() {}
@@ -27,10 +30,13 @@ public:
 	virtual void EndDraw() {}
 
 	void SetOwnerCharacter(AArrowCharacter* NewOwner){ OwnerCharacter = NewOwner;};
+	void SetOwnerCharacter(AArcherCharacterBase* NewOwner){ OwnerArcherCharacter = NewOwner;};
 protected:
 
 	UPROPERTY(BlueprintReadOnly)
 	class AArrowCharacter* OwnerCharacter;
 	
+	UPROPERTY(BlueprintReadOnly)
+	class AArcherCharacterBase* OwnerArcherCharacter;
 	
 };

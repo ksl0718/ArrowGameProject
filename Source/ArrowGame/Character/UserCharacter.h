@@ -70,6 +70,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* InteractAction;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* CrouchAction;
+	
     // ī�޶�
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class USpringArmComponent* CameraBoom;
@@ -90,13 +93,16 @@ protected:
     float AimInterpSpeed = 15.f;
 	
 	
-    // �̵� / �þ� / ���� / �߻� �Լ�
+	// 입력 핸들러
     void Move(const FInputActionValue& Value);
     void Look(const FInputActionValue& Value);
     void StartAiming();
     void StopAiming();
     void StartCharging();           // LMB ������ ��
     void ReleaseArrow();            // LMB ���� ��
+	
+	void OnCrouchStarted(const FInputActionValue& Value);
+	void OnCrouchEnded(const FInputActionValue& Value);
 	
 	void Input_CycleArrow(const FInputActionValue& Value); // 마우스휠 화살변경
 	void Input_Interact(const FInputActionValue& Value); // F키 (상호작용) 입력 처리

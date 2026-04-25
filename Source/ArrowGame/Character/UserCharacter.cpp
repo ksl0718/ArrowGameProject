@@ -17,7 +17,9 @@
 AUserCharacter::AUserCharacter()
 {
     PrimaryActorTick.bCanEverTick = true;
-
+    
+    GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
+    
     // ī�޶� ��
     CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(RootComponent);
@@ -103,6 +105,10 @@ void AUserCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
         //�ȱ�
         EnhancedInput->BindAction(WalkAction, ETriggerEvent::Started, this, &AUserCharacter::OnWalkSlowStarted);
         EnhancedInput->BindAction(WalkAction, ETriggerEvent::Completed, this, &AUserCharacter::OnWalkSlowEnded);
+        
+        EnhancedInput->BindAction(CrouchAction, ETriggerEvent::Started, this, &AUserCharacter::OnCrouchStarted);
+        EnhancedInput->BindAction(CrouchAction, ETriggerEvent::Completed, this, &AUserCharacter::OnCrouchEnded);
+        EnhancedInput->BindAction(CrouchAction, ETriggerEvent::Canceled, this, &AUserCharacter::OnCrouchEnded);
         
         //���̺�
 		EnhancedInput->BindAction(RollAction, ETriggerEvent::Started, this, &AUserCharacter::Roll);
@@ -553,4 +559,14 @@ void AUserCharacter::EquipNewBow(TSubclassOf<ABow> NewBowClass)
     {
         UE_LOG(LogTemp, Log, TEXT("새로운 활 장착 실패"));
     }
+}
+
+void AUserCharacter::OnCrouchStarted(const FInputActionValue& Value)
+{
+    if (!bCanMove || IsDead()) return;
+    Crouch();
+}
+void AUserCharacter::OnCrouchEnded(const FInputActionValue& Value)
+{
+    UnCrouch();
 }
