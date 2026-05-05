@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -14,7 +14,6 @@ public:
 
 	// 상호작용 시 호출
 	void PickUp(class AUserArcherCharacter* Picker);
-	void PickUp(class AUserCharacter* Picker);
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	class USkeletalMeshComponent* ItemMesh;

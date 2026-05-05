@@ -17,7 +17,7 @@ class UScoreboardWidget;
 class URoundTimerWidget;
 class USkillCooldownHUDWidget;
 class UTexture2D;
-class AArrowCharacter;
+class AArcherCharacterBase;
 
 UCLASS()
 class ARROWGAME_API AArrowGamePlayerController : public APlayerController

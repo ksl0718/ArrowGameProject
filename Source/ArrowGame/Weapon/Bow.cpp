@@ -2,7 +2,7 @@
 
 
 #include "Bow.h"
-#include "../Character/ArrowCharacter.h"
+#include "../Character/ArcherCharacterBase.h"
 #include "ArrowProjectile.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Character.h"
@@ -47,10 +47,10 @@ void ABow::BeginPlay()
 void ABow::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-    if (OwnerCharacter == nullptr) return;
+    if (OwnerArcherCharacter == nullptr) return;
 	if (bIsCharging)
 	{
-	    if (!OwnerCharacter-> IsAiming()) // 조준 상태가 아닌 경우 drawing 상태 변경
+	    if (!OwnerArcherCharacter-> IsAiming()) // 조준 상태가 아닌 경우 drawing 상태 변경
 	    {
 	        bIsCharging = false;
 	        return;
@@ -61,7 +61,7 @@ void ABow::Tick(float DeltaTime)
 
 void ABow::StartAim()
 {
-    if (OwnerCharacter && !OwnerCharacter->IsAiming()) 
+    if (OwnerArcherCharacter && !OwnerArcherCharacter->IsAiming()) 
     {
         UE_LOG(LogTemp, Error, TEXT("StartAim Blocked: Player is NOT holding the button!"));
         return;
@@ -143,7 +143,7 @@ void ABow::UpdateArrowVisual()
 {
     UE_LOG(LogTemp, Log, TEXT("UpdateArrowVisual"));
     // 조건이 하나라도 안 맞으면 무조건 지운다는 마인드
-    if (!OwnerCharacter) return;
+    if (!OwnerArcherCharacter) return;
     
 
     // 2. [핵심] 화살이 보여야 하는 '모든' 상황을 정의합니다.
@@ -177,7 +177,7 @@ void ABow::UpdateArrowVisual()
 
 void ABow::StartDraw()
 {
-    if (bIsNocking || bIsReloading || !OwnerCharacter->IsAiming()) return;
+    if (bIsNocking || bIsReloading || !OwnerArcherCharacter->IsAiming()) return;
     
     if (DrawSound)
     {
@@ -212,17 +212,24 @@ void ABow::SpawnDrawArrow()
         return; 
     }
     
-    Mesh = OwnerCharacter->GetMesh();
-    if (!Mesh || !Mesh->DoesSocketExist(TEXT("Arrow_Socket")))
+    USkeletalMeshComponent* CharacterMesh = OwnerArcherCharacter ? OwnerArcherCharacter->GetMesh() : nullptr;
+    if (!CharacterMesh)
     {
+        UE_LOG(LogTemp, Warning, TEXT("Bow: Character mesh missing."));
+        return;
+    }
+    if (!CharacterMesh->DoesSocketExist(InitialArrowSpawnSocketName) || !CharacterMesh->DoesSocketExist(ArrowHandSocketName))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Bow: Character sockets missing. Spawn='%s' Hand='%s'"),
+            *InitialArrowSpawnSocketName.ToString(), *ArrowHandSocketName.ToString());
         return;
     }
 
     FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = OwnerCharacter;
-    SpawnParams.Instigator = OwnerCharacter;
+    SpawnParams.Owner = OwnerArcherCharacter;
+    SpawnParams.Instigator = OwnerArcherCharacter;
 
-    AArrowCharacter* OwnerChar = Cast<AArrowCharacter>(GetOwner());
+    AArcherCharacterBase* OwnerChar = Cast<AArcherCharacterBase>(GetOwner());
     if (!OwnerChar) return;
     
     TSubclassOf<AArrowProjectile> ClassToSpawn = OwnerChar->GetCurrentArrowClass();
@@ -231,8 +238,11 @@ void ABow::SpawnDrawArrow()
     if (!ClassToSpawn) ClassToSpawn = ArrowProjectileClass; 
 
     // 2. 받아온 클래스로 화살 스폰!
+    const FTransform InitialSpawnTM = CharacterMesh->GetSocketTransform(InitialArrowSpawnSocketName, RTS_World);
     PreparedArrow = GetWorld()->SpawnActor<AArrowProjectile>(
-        ClassToSpawn, 
+        ClassToSpawn,
+        InitialSpawnTM.GetLocation(),
+        InitialSpawnTM.Rotator(),
         SpawnParams
     );
     
@@ -252,40 +262,66 @@ void ABow::SpawnDrawArrow()
     }
 
     PreparedArrow->AttachToComponent(
-        Mesh,
+        CharacterMesh,
         FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-        TEXT("Arrow_Socket")
+        ArrowHandSocketName
+    );
+
+    GetWorldTimerManager().ClearTimer(NockToStringTimerHandle);
+    GetWorldTimerManager().SetTimer(
+        NockToStringTimerHandle,
+        this,
+        &ABow::AttachPreparedArrowToBowString,
+        FMath::Max(0.0f, NockToStringDelay),
+        false
     );
 }
 
 void ABow::DestroyDrawArrow()
 {
     UE_LOG(LogTemp, Log, TEXT("Try Destory"));
+    GetWorldTimerManager().ClearTimer(NockToStringTimerHandle);
+
     if (IsValid(PreparedArrow))
     {
         PreparedArrow->Destroy();
         PreparedArrow = nullptr;
         UE_LOG(LogTemp, Log, TEXT("Bow: PreparedArrow Destroyed on [%s]"), HasAuthority() ? TEXT("Server") : TEXT("Client"));
     }
-    if (OwnerCharacter && OwnerCharacter->GetMesh())
+    if (OwnerArcherCharacter && OwnerArcherCharacter->GetMesh())
     {
         TArray<AActor*> AttachedActors;
-        OwnerCharacter->GetAttachedActors(AttachedActors); // 캐릭터에 붙은 모든 액터 가져오기
+        OwnerArcherCharacter->GetAttachedActors(AttachedActors); // 캐릭터에 붙은 모든 액터 가져오기
 
         for (AActor* AttachedActor : AttachedActors)
         {
             // 내가 만든 화살 클래스이면서, 특정 소켓에 붙어있는 놈이라면 얄짤없이 삭제
             if (AttachedActor && AttachedActor->IsA(AArrowProjectile::StaticClass()))
             {
-                // 소켓 이름까지 확인하면 더 정확합니다.
-                if (AttachedActor->GetRootComponent() && AttachedActor->GetRootComponent()->GetAttachSocketName() == TEXT("Arrow_Socket"))
-                {
-                    UE_LOG(LogTemp, Error, TEXT("!!! GHOST ARROW FOUND AND DESTROYED !!!"));
-                    AttachedActor->Destroy();
-                }
+                UE_LOG(LogTemp, Error, TEXT("!!! GHOST ARROW FOUND AND DESTROYED !!!"));
+                AttachedActor->Destroy();
             }
         }
     }
+}
+
+void ABow::AttachPreparedArrowToBowString()
+{
+    if (!IsValid(PreparedArrow) || !Mesh)
+    {
+        return;
+    }
+    if (!Mesh->DoesSocketExist(BowStringSocketName))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Bow: Bow string socket missing: '%s'"), *BowStringSocketName.ToString());
+        return;
+    }
+
+    PreparedArrow->AttachToComponent(
+        Mesh,
+        FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+        BowStringSocketName
+    );
 }
 
 void ABow::ServerEndDraw_Implementation()
@@ -293,6 +329,11 @@ void ABow::ServerEndDraw_Implementation()
     if (!bIsCharging) return;
 
     float ChargePercent = FMath::Clamp(ChargeTime / MaxChargeTime, 0.f, 1.f);
+
+    if (OwnerArcherCharacter)
+    {
+        OwnerArcherCharacter->ServerPlayFireMontage();
+    }
     
     // 먼저 발사 처리 (PreparedArrow는 사용 안 함)
     FireArrow(ChargePercent);
@@ -352,7 +393,7 @@ void ABow::FinishNocking()
 
 void ABow::EndDraw()
 {
-    if (!OwnerCharacter || !OwnerCharacter->IsAiming())
+    if (!OwnerArcherCharacter || !OwnerArcherCharacter->IsAiming())
     {
         CancelAction();
         return;
@@ -383,9 +424,9 @@ void ABow::HandleCharge(float DeltaTime)
 
 void ABow::FireArrow(float ChargePercent)
 {
-    if (!OwnerCharacter)
+    if (!OwnerArcherCharacter)
     {
-        UE_LOG(LogTemp, Error, TEXT("Bow: OwnerCharacter is NULL"));
+        UE_LOG(LogTemp, Error, TEXT("Bow: OwnerArcherCharacter is NULL"));
         return;
     }
     
@@ -394,20 +435,18 @@ void ABow::FireArrow(float ChargePercent)
         UGameplayStatics::SpawnSoundAtLocation(this, FireSound, GetActorLocation());
     }
 
-    // 메시 체크
-    Mesh = OwnerCharacter->GetMesh();
-    if (!Mesh)
+    if (!Mesh || !Mesh->DoesSocketExist(BowStringSocketName))
     {
-        UE_LOG(LogTemp, Error, TEXT("Bow: Mesh is NULL"));
+        UE_LOG(LogTemp, Error, TEXT("Bow: Bow string socket invalid: '%s'"), *BowStringSocketName.ToString());
         return;
     }
 
     // ========== 발사 방향 계산 ==========
     
-    FVector SocketLoc = Mesh->GetSocketLocation(TEXT("Arrow_Socket"));
+    FVector SocketLoc = Mesh->GetSocketLocation(BowStringSocketName);
     
     FVector ShootDir;
-    AController* Controller = OwnerCharacter->GetController();
+    AController* Controller = OwnerArcherCharacter->GetController();
     if (Controller)
     {
         FVector CamLoc;
@@ -418,7 +457,8 @@ void ABow::FireArrow(float ChargePercent)
         
         FHitResult AimHit;
         FCollisionQueryParams Params;
-        Params.AddIgnoredActor(OwnerCharacter);
+        Params.AddIgnoredActor(OwnerArcherCharacter);
+        Params.AddIgnoredActor(this);
         
         // 카메라 시선 검사
         if (GetWorld()->LineTraceSingleByChannel(AimHit, CamLoc, TraceEnd, ECC_Visibility, Params))
@@ -431,18 +471,20 @@ void ABow::FireArrow(float ChargePercent)
             // 허공이라면 100m 앞을 향해 쏜다
             ShootDir = (TraceEnd - SocketLoc).GetSafeNormal();
         }
-    }else
+    }
+    else
     {
-        // AI 등의 경우 소켓 방향 사용
-        ShootDir = Mesh->GetSocketRotation(TEXT("Arrow_Socket")).Vector();
+        // AI/무컨트롤러 fallback은 활시위 소켓 방향 사용
+        ShootDir = Mesh->GetSocketRotation(BowStringSocketName).Vector();
     }
     
-    const float IdealDistance = 10.f; 
+    const float IdealDistance = 90.f; 
     FVector FinalSpawnLoc = SocketLoc + (ShootDir * IdealDistance);
     
     FHitResult WallHit;
     FCollisionQueryParams WallParams;
-    WallParams.AddIgnoredActor(OwnerCharacter);
+    WallParams.AddIgnoredActor(OwnerArcherCharacter);
+    WallParams.AddIgnoredActor(this);
     
     // 소켓 ~ 목표위치 사이에 벽이 있는지 검사
     if (GetWorld()->LineTraceSingleByChannel(WallHit, SocketLoc, FinalSpawnLoc, ECC_Visibility, WallParams))
@@ -453,8 +495,8 @@ void ABow::FireArrow(float ChargePercent)
 
     // 4. [화살 생성] Instigator 설정 필수
     FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = OwnerCharacter;
-    SpawnParams.Instigator = OwnerCharacter; 
+    SpawnParams.Owner = OwnerArcherCharacter;
+    SpawnParams.Instigator = OwnerArcherCharacter; 
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
     UE_LOG(LogTemp, Warning, TEXT("================== [FIRE ARROW DEBUG] =================="));
@@ -464,10 +506,10 @@ void ABow::FireArrow(float ChargePercent)
    // UE_LOG(LogTemp, Warning, TEXT("1. Spawn Distance from Socket: %f"), DistFromSocket);
 
     // 2. 캐릭터와의 거리 확인 (캡슐 반경보다 커야 안전)
-    if (OwnerCharacter && OwnerCharacter->GetCapsuleComponent())
+    if (OwnerArcherCharacter && OwnerArcherCharacter->GetCapsuleComponent())
     {
-        float CapsuleRadius = OwnerCharacter->GetCapsuleComponent()->GetScaledCapsuleRadius();
-        float DistFromCenter = FVector::Dist(OwnerCharacter->GetActorLocation(), FinalSpawnLoc);
+        float CapsuleRadius = OwnerArcherCharacter->GetCapsuleComponent()->GetScaledCapsuleRadius();
+        float DistFromCenter = FVector::Dist(OwnerArcherCharacter->GetActorLocation(), FinalSpawnLoc);
         
 
         if (DistFromCenter <= CapsuleRadius)
@@ -481,7 +523,7 @@ void ABow::FireArrow(float ChargePercent)
     }
     
     // 회전값: ShootDir(조준방향)을 그대로 사용 -> ArrowProjectile에서 Velocity가 0이어도 이 회전값을 씀
-    AArrowCharacter* OwnerChar = Cast<AArrowCharacter>(GetOwner());
+    AArcherCharacterBase* OwnerChar = Cast<AArcherCharacterBase>(GetOwner());
     TSubclassOf<AArrowProjectile> ClassToSpawn = ArrowProjectileClass; // 기본값
     
     if (OwnerChar && OwnerChar->GetCurrentArrowClass())
@@ -509,8 +551,12 @@ void ABow::FireArrow(float ChargePercent)
     //혹시 모를 충돌 방지를 위해 Owner 무시 설정
     if (FiredArrow->CollisionBox)
     {
-        FiredArrow->CollisionBox->IgnoreActorWhenMoving(OwnerCharacter, true);
-        FiredArrow->CollisionBox->MoveIgnoreActors.AddUnique(OwnerCharacter);
+        // Delay collision arm by one tick to avoid immediate self-hit/stick at spawn frame.
+        FiredArrow->CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        FiredArrow->CollisionBox->IgnoreActorWhenMoving(OwnerArcherCharacter, true);
+        FiredArrow->CollisionBox->MoveIgnoreActors.AddUnique(OwnerArcherCharacter);
+        FiredArrow->CollisionBox->IgnoreActorWhenMoving(this, true);
+        FiredArrow->CollisionBox->MoveIgnoreActors.AddUnique(this);
     }
 
     // 이펙트 활성화
@@ -530,14 +576,21 @@ void ABow::FireArrow(float ChargePercent)
         MoveComp->Velocity = ShootDir * Speed;
         MoveComp->Activate();
     }
+
+    TWeakObjectPtr<AArrowProjectile> WeakFiredArrow = FiredArrow;
+    GetWorldTimerManager().SetTimerForNextTick([WeakFiredArrow]()
+    {
+        if (!WeakFiredArrow.IsValid() || !WeakFiredArrow->CollisionBox) return;
+        WeakFiredArrow->CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    });
     
     // 2. [추가] 캐릭터도 화살을 물리적으로 무시 (이게 핵심입니다!)
     // 캐릭터의 캡슐이 화살을 밀어내지 않게 만듭니다.
     if (FiredArrow->CollisionBox)
     {
-        FiredArrow->CollisionBox->IgnoreActorWhenMoving(OwnerCharacter, true);
+        FiredArrow->CollisionBox->IgnoreActorWhenMoving(OwnerArcherCharacter, true);
     }
-    OwnerCharacter->MoveIgnoreActorAdd(FiredArrow);
+    OwnerArcherCharacter->MoveIgnoreActorAdd(FiredArrow);
     
     if (OwnerChar && HasAuthority())
     {

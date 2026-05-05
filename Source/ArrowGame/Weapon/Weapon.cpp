@@ -2,7 +2,6 @@
 
 
 #include "Weapon.h"
-#include "../Character/ArrowCharacter.h"
 #include "../Character/ArcherCharacterBase.h"
 
 // Sets default values
@@ -14,13 +13,7 @@ AWeapon::AWeapon()
 	bReplicates = true;
 }
 
-void AWeapon::OnEquip(AArrowCharacter* NewOwner)
-{
-    OwnerCharacter = NewOwner;
-    SetOwner(NewOwner);
-}
-
-void AWeapon::OnEquipH(AArcherCharacterBase* NewOwner)
+void AWeapon::OnEquip(AArcherCharacterBase* NewOwner)
 {
 	OwnerArcherCharacter = NewOwner;
 	SetOwner(NewOwner);
@@ -28,6 +21,6 @@ void AWeapon::OnEquipH(AArcherCharacterBase* NewOwner)
 
 void AWeapon::OnUnequip()
 {
-    OwnerCharacter = nullptr;
+    OwnerArcherCharacter = nullptr;
 }
 

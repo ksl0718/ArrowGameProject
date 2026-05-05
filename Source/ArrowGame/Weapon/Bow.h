@@ -54,6 +54,22 @@ public:
     AArrowProjectile* PreparedArrow = nullptr;
 
 protected:
+    /** Original BP flow: initial spawn socket on character mesh. */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Visual")
+    FName InitialArrowSpawnSocketName = FName(TEXT("thigh_twist_01_r"));
+
+    /** Original BP flow: first attach socket on character mesh (hand/finger). */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Visual")
+    FName ArrowHandSocketName = FName(TEXT("soc_index_03_r"));
+
+    /** Original BP flow: final attach socket on bow mesh string. */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Visual")
+    FName BowStringSocketName = FName(TEXT("Socket_Bow_String"));
+
+    /** Delay before moving nocked arrow from hand to bow string. */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Visual")
+    float NockToStringDelay = 0.2f;
+
     UFUNCTION(Server, Reliable)
     void ServerStartAim();
     
@@ -141,11 +157,13 @@ protected:
     
     FTimerHandle ReloadTimerHandle;
     FTimerHandle NockingTimerHandle;
+    FTimerHandle NockToStringTimerHandle;
 private:
     UPROPERTY(EditAnywhere, Category = "Mesh")
     class USkeletalMeshComponent* Mesh;
     
     void HandleCharge(float DeltaTime);
+    void AttachPreparedArrowToBowString();
     
     void FireArrow(float Power);
 

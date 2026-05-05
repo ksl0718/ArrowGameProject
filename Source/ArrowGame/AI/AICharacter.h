@@ -3,15 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "../Character/ArrowCharacter.h"
-#include "ArrowGame/Character/ArrowCharacter.h"
+#include "../Character/ArcherCharacterBase.h"
 #include "AICharacter.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class ARROWGAME_API AAICharacter : public AArrowCharacter
+class ARROWGAME_API AAICharacter : public AArcherCharacterBase
 {
 	GENERATED_BODY()
 public:

@@ -65,10 +65,28 @@ AArcherCharacterBase::AArcherCharacterBase()
     
 }
 
+void AArcherCharacterBase::ConfigureMeshForCharacterMovement()
+{
+    if (bIsDead)
+    {
+        return;
+    }
+
+    USkeletalMeshComponent* Mesh = GetMesh();
+    if (!Mesh)
+    {
+        return;
+    }
+
+    Mesh->SetSimulatePhysics(false);
+    Mesh->SetCollisionProfileName(TEXT("CharacterMesh"));
+}
+
 void AArcherCharacterBase::BeginPlay()
 {
     Super::BeginPlay();
 
+    ConfigureMeshForCharacterMovement();
     CacheArcherVisualComponents();
     
     if (HasAuthority())
@@ -252,6 +270,15 @@ bool AArcherCharacterBase::HasEquippedBow() const
     return EquippedWeapon != nullptr && EquippedWeapon->IsA(ABow::StaticClass());
 }
 
+USceneComponent* AArcherCharacterBase::GetArrowAttachComponent() const
+{
+    if (SM_ArrowsMesh)
+    {
+        return SM_ArrowsMesh.Get();
+    }
+    return GetMesh();
+}
+
 void AArcherCharacterBase::OnRep_EquippedWeapon()
 {
     if (!EquippedWeapon)
@@ -261,7 +288,7 @@ void AArcherCharacterBase::OnRep_EquippedWeapon()
 
     CacheArcherVisualComponents();
 
-    EquippedWeapon->OnEquipH(this);
+    EquippedWeapon->OnEquip(this);
 
     const FAttachmentTransformRules Snap(FAttachmentTransformRules::SnapToTargetNotIncludingScale);
     USkeletalMeshComponent* const Skel = GetMesh();
@@ -303,6 +330,19 @@ void AArcherCharacterBase::MulticastPlayCancelMontage_Implementation()
     else
     {
         UE_LOG(LogTemp, Error, TEXT("CancelMontage is NULL! Check Blueprint."));
+    }
+}
+
+void AArcherCharacterBase::ServerPlayFireMontage_Implementation()
+{
+    MulticastPlayFireMontage();
+}
+
+void AArcherCharacterBase::MulticastPlayFireMontage_Implementation()
+{
+    if (FireMontage)
+    {
+        PlayAnimMontage(FireMontage);
     }
 }
 

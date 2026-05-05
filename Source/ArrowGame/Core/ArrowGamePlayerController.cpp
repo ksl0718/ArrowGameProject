@@ -10,7 +10,7 @@
 #include "../UI/ResultWidget.h"
 #include "../UI/RoundTimerWidget.h"
 #include "../UI/SkillCooldownHUDWidget.h"
-#include "../Character/ArrowCharacter.h"
+#include "../Character/ArcherCharacterBase.h"
 #include "../Character/SkillCooldownProvider.h"
 #include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
@@ -123,7 +123,7 @@ void AArrowGamePlayerController::ConfigureArrowIconForCurrentPawn()
 {
     if (!IsLocalController()) return;
 
-    const bool bIsArrowCharacter = Cast<AArrowCharacter>(GetPawn()) != nullptr;
+    const bool bIsArrowCharacter = Cast<AArcherCharacterBase>(GetPawn()) != nullptr;
     if (!bIsArrowCharacter)
     {
         if (ArrowIconWidget)
