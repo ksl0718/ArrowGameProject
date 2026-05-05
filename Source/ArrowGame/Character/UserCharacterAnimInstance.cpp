@@ -2,8 +2,7 @@
 
 
 #include "UserCharacterAnimInstance.h"
-#include "../Character/UserCharacter.h"
-#include "../Character/ArrowCharacter.h"
+#include "../Character/UserArcherCharacter.h"
 #include "../Character/CharacterBase.h"
 #include "../Weapon/Weapon.h"
 #include "../Weapon/Bow.h"
@@ -69,7 +68,7 @@ void UUserCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
     const FRotator ActorRotation = Character->GetActorRotation();
     Direction = UKismetAnimationLibrary::CalculateDirection(Velocity, ActorRotation);
 
-    if (AUserCharacter* Archer = Cast<AUserCharacter>(Pawn))
+    if (AUserArcherCharacter* Archer = Cast<AUserArcherCharacter>(Pawn))
     {
         bIsAiming = Archer->IsAiming();
 
@@ -139,7 +138,7 @@ void UUserCharacterAnimInstance::SetCanMove(bool bNewCanMove)
     APawn* Pawn = TryGetPawnOwner();
     if (Pawn)
     {
-        AUserCharacter* Character = Cast<AUserCharacter>(Pawn);
+        AUserArcherCharacter* Character = Cast<AUserArcherCharacter>(Pawn);
         if (Character)
         {
             Character->bCanMove = bNewCanMove;

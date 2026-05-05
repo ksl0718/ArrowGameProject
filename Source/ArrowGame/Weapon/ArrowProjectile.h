@@ -87,7 +87,6 @@ public:
 	void InitVelocity(const FVector& Velocity);
 
 	// 캐릭터가 주울 때 부를 함수
-	void PickUp(class AArrowCharacter* Picker);
 	void PickUp(class AArcherCharacterBase* Picker);
     
 	// 박혀있는 상태인지 확인

@@ -1,7 +1,6 @@
-﻿#include "ArrowItem.h"
+#include "ArrowItem.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/BoxComponent.h"
-#include "../Character/ArrowCharacter.h"
 #include "../Character/ArcherCharacterBase.h"
 
 AArrowItem::AArrowItem()
@@ -20,15 +19,6 @@ AArrowItem::AArrowItem()
 	ItemMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ItemMesh"));
 	ItemMesh->SetupAttachment(RootComponent);
 	ItemMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-}
-
-void AArrowItem::PickUp(AArrowCharacter* Picker)
-{
-	if (HasAuthority() && Picker)
-	{
-		Picker->AddAmmo(ArrowType, Amount); // 주머니에 추가
-		Destroy(); // 맵에서 삭제
-	}
 }
 
 void AArrowItem::PickUp(AArcherCharacterBase* Picker)

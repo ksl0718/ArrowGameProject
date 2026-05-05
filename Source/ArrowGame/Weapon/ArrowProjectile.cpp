@@ -9,7 +9,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Particles/ParticleSystemComponent.h"
-#include "../Character/ArrowCharacter.h"
 #include "NiagaraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "NiagaraFunctionLibrary.h"
@@ -302,16 +301,6 @@ void AArrowProjectile::MulticastActivateTrail_Implementation()
 	if (TrailNiagara)
 	{
 		TrailNiagara->Activate(true);
-	}
-}
-
-void AArrowProjectile::PickUp(AArrowCharacter* Picker)
-{
-	// 박혀있을 때, 그리고 서버에서만 실행
-	if (bStuck && HasAuthority() && Picker)
-	{
-		Picker->AddAmmo(ArrowType, 1); // 쏜 거 주웠으니 1개만 돌려줌
-		Destroy();
 	}
 }
 

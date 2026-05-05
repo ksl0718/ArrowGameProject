@@ -547,12 +547,7 @@ void AUserArcherCharacter::EquipNewBow(TSubclassOf<ABow> NewBowClass)
     ABow* NewBow = GetWorld()->SpawnActor<ABow>(NewBowClass, GetActorLocation(), GetActorRotation(), SpawnParams);
     if (NewBow)
     {
-        EquippedWeapon = NewBow;
-        
-        const FAttachmentTransformRules AttachRules(EAttachmentRule::SnapToTarget, true);
-        NewBow->SetOwnerCharacter(this);
-        NewBow->SetOwner(this);
-        NewBow -> AttachToComponent(GetMesh(), AttachRules, TEXT("Bow_socket"));
+        EquipWeapon(NewBow);
         
         UE_LOG(LogTemp, Log, TEXT("새로운 활 장착 완료: %s"), *NewBow->GetName());
     }

@@ -50,6 +50,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	class AWeapon* GetEquippedWeapon() const { return EquippedWeapon; }
 
+	/** Visual anchor for nocked/fired arrow origin in new skeleton setup. */
+	UFUNCTION(BlueprintPure, Category = "Archer|Visual")
+	USceneComponent* GetArrowAttachComponent() const;
+
 	void SetAiming(bool bNewAiming);
 
 	float GetSyncPitch() const { return SyncPitch; }
@@ -78,6 +82,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Weapon|Bow")
 	bool HasEquippedBow() const;
 
+	UFUNCTION(Server, Reliable)
+	void ServerPlayFireMontage();
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -110,6 +117,11 @@ protected:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayCancelMontage();
+
+	
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayFireMontage();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float NormalSpeed = 400.f;
@@ -152,6 +164,9 @@ protected:
 
 private:
 	void CacheArcherVisualComponents();
+
+	/** Capsule-only movement while alive; avoids mesh physics fighting props/floors (Mannequin-style). */
+	void ConfigureMeshForCharacterMovement();
 
 	UActorComponent* FindOwnedComponentByInstanceName(FName InstanceName) const;
 };

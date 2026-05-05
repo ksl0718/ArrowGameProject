@@ -4,7 +4,7 @@
 #include "HealthComponent.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
-#include "../Character/ArrowCharacter.h"
+#include "../Character/ArcherCharacterBase.h"
 #include "../Core/GameModes/ArrowGameGameMode.h"
 #include "Net/UnrealNetwork.h"
 
@@ -94,7 +94,7 @@ void UHealthComponent::OnRep_Health()
 	// 값이 변해서 이 함수가 불리면, UI에게 알림
 	OnHealthChanged.Broadcast(Health, MaxHealth);
 	
-	AArrowCharacter* ArrowChar = Cast<AArrowCharacter>(GetOwner());
+	AArcherCharacterBase* ArrowChar = Cast<AArcherCharacterBase>(GetOwner());
 	if (ArrowChar)
 	{
 		// 🔥 [핵심 추가] 체력이 0보다 크고, 몽타주가 있고, "구르는 중이 아닐 때만(!!!)" 재생
