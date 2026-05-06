@@ -10,6 +10,7 @@
 #include "UserArcherCharacter.generated.h"
 
 class UTexture2D;
+class UBowReticleWidget;
 
 
 /**
@@ -137,6 +138,15 @@ protected:
 	FText RollSkillKeyText = FText::FromString(TEXT("LShift"));
 
 	float NextRollAvailableTime = 0.0f;
+
+	UPROPERTY(EditAnywhere, Category = "UI|Reticle")
+	TSubclassOf<UBowReticleWidget> ReticleWidgetClass;
+
+	UPROPERTY()
+	UBowReticleWidget* ReticleWidget = nullptr;
+
+	void ShowReticle();
+	void HideReticle();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction")
 	class USphereComponent* InteractionSphere; // 아이템 감지용 구체 컴포넌트

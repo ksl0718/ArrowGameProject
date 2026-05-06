@@ -72,14 +72,14 @@ void AArcherCharacterBase::ConfigureMeshForCharacterMovement()
         return;
     }
 
-    USkeletalMeshComponent* Mesh = GetMesh();
-    if (!Mesh)
+    USkeletalMeshComponent* MeshComp = GetMesh();
+    if (!MeshComp)
     {
         return;
     }
 
-    Mesh->SetSimulatePhysics(false);
-    Mesh->SetCollisionProfileName(TEXT("CharacterMesh"));
+    MeshComp->SetSimulatePhysics(false);
+    MeshComp->SetCollisionProfileName(TEXT("CharacterMesh"));
 }
 
 void AArcherCharacterBase::BeginPlay()
