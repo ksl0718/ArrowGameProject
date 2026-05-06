@@ -49,4 +49,7 @@ private:
 	UMaterialInstanceDynamic* ReticleDMI = nullptr;
 
 	ABow* GetBow() const;
+	bool CheckEnemyAimed() const;
+
+	bool bEnemyAimed = false;
 };
