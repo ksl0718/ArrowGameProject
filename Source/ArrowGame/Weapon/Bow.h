@@ -48,6 +48,7 @@ public:
     FORCEINLINE bool IsNocking() const { return bIsNocking; }
     FORCEINLINE float GetChargeTime() const { return ChargeTime; }
     FORCEINLINE float GetMaxChargeTime() const { return MaxChargeTime; }
+    FORCEINLINE float GetTiredThreshold() const { return TiredThreshold; }
     
     UPROPERTY(BlueprintReadOnly, Category = "Bow|State", Replicated)
     EBowState BowState = EBowState::Idle;

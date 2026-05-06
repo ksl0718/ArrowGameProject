@@ -11,6 +11,8 @@
 
 class UTexture2D;
 class UBowReticleWidget;
+class UCameraShakeBase;
+
 
 
 /**
@@ -147,6 +149,12 @@ protected:
 
 	void ShowReticle();
 	void HideReticle();
+	void StopTiredShake();
+
+	UPROPERTY(EditAnywhere, Category = "Camera|Shake")
+	TSubclassOf<UCameraShakeBase> TiredCameraShakeClass;
+
+	bool bTiredShakeActive = false;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction")
 	class USphereComponent* InteractionSphere; // 아이템 감지용 구체 컴포넌트

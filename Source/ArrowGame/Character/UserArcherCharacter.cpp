@@ -221,12 +221,24 @@ void AUserArcherCharacter::ReleaseArrow()
     Bow->EndDraw();
 }
 
+void AUserArcherCharacter::StopTiredShake()
+{
+    if (!bTiredShakeActive || !TiredCameraShakeClass) return;
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    {
+        if (PC->PlayerCameraManager)
+            PC->PlayerCameraManager->StopAllInstancesOfCameraShake(TiredCameraShakeClass, true);
+    }
+    bTiredShakeActive = false;
+}
+
 void AUserArcherCharacter::StopAiming()
 {
     UE_LOG(LogTemp, Log, TEXT("Aim Stop"));
     bIsAiming = false;
     SetAiming(false);
     HideReticle();
+    StopTiredShake();
 
     if (EquippedWeapon)
     {
@@ -247,7 +259,28 @@ void AUserArcherCharacter::StopAiming()
 void AUserArcherCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    
+
+    if (IsLocallyControlled())
+    {
+        ABow* Bow = Cast<ABow>(EquippedWeapon);
+        bool bShouldShake = TiredCameraShakeClass && Bow && Bow->IsCharging() && Bow->GetChargeTime() > Bow->GetTiredThreshold();
+
+        if (bShouldShake != bTiredShakeActive)
+        {
+            if (APlayerController* PC = Cast<APlayerController>(GetController()))
+            {
+                if (PC->PlayerCameraManager)
+                {
+                    if (bShouldShake)
+                        PC->PlayerCameraManager->StartCameraShake(TiredCameraShakeClass);
+                    else
+                        PC->PlayerCameraManager->StopAllInstancesOfCameraShake(TiredCameraShakeClass, true);
+                }
+            }
+            bTiredShakeActive = bShouldShake;
+        }
+    }
+
     bool bAiming = IsAiming();
     
     float TargetFOV = bAiming ? AimFOV : NormalFOV;
