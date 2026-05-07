@@ -13,6 +13,8 @@ class UInputMappingContext;
 class USpringArmComponent;
 class UTexture2D;
 class ADokkaebiDecoy;
+class ADokkaebiCurseProjectile;
+
 #pragma endregion
 
 #pragma region SkillStructs
@@ -141,6 +143,19 @@ protected:
 	FTimerHandle SkillInputUnlockTimerHandle;
 #pragma endregion
 
+#pragma region Curse_Skill
+protected:
+	
+	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
+	TSubclassOf<ADokkaebiCurseProjectile> CurseProjectileClass;
+	
+	UFUNCTION(Server, Reliable)
+	void Server_FireCurseProjectile(FVector SpawnLoc, FRotator SpawnRot);
+	
+	void FireCurseProjectile();
+	
+#pragma endregion
+	
 #pragma region Skill_Config
 	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill")
 	TSubclassOf<ADokkaebiDecoy> DecoyClass;
@@ -161,6 +176,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* DecoySkillAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* CurseSkillAction;
+	
 #pragma endregion
 
 #pragma region Camera

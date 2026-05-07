@@ -38,6 +38,16 @@ public:
 	float GetRollCooldownDuration() const { return RollCooldownDuration; }
 	
 	void EquipNewBow(TSubclassOf<ABow> NewBowClass);
+	
+	UFUNCTION(BlueprintCallable, Category="Curse")
+	void ApplyCurseControl(float Duration);
+	
+	UFUNCTION(BlueprintCallable, Category="Curse")
+	void EndCurseControl();
+	
+	UFUNCTION(BlueprintPure, Category="Curse")
+	bool IsCursedControl() const { return bIsCursedControl; }
+	
 protected:
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
@@ -174,5 +184,9 @@ protected:
 	// 하이라이트 제어 헬퍼
 	void UpdateHighlight(AActor* Target, bool bEnable);
 	
+	UPROPERTY(Replicated)
+	bool bIsCursedControl = false;
+	
+	FTimerHandle CurseEndTimerHandle;
 	
 };

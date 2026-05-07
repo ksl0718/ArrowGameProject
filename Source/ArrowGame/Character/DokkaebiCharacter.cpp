@@ -9,6 +9,7 @@
 #include "../Character/DokkaebiDecoy.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/GameStateBase.h"
+#include "../Character/DokkaebiCurseProjectile.h"
 
 void ADokkaebiCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -117,6 +118,11 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		if (DecoySkillAction)
 		{
 			EnhancedInput->BindAction(DecoySkillAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::Input_DecoySkillA);
+		}
+		
+		if (CurseSkillAction)
+		{
+			EnhancedInput->BindAction(CurseSkillAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::FireCurseProjectile);
 		}
 	}
 
@@ -345,4 +351,41 @@ float ADokkaebiCharacter::GetSkillCooldownDurationByIndex(EDokkaebiSkillIndex Sk
 bool ADokkaebiCharacter::IsSkillCoolingDownByIndex(EDokkaebiSkillIndex SkillIndex) const
 {
 	return GetSkillCooldownRemainingByIndex(SkillIndex) > 0.f;
+}
+
+void ADokkaebiCharacter::FireCurseProjectile()
+{
+	const FVector SpawnLoc = GetActorLocation() + GetActorForwardVector() * 100.f + FVector(0,0,50.f);
+	const FRotator SpawnRot = GetControlRotation();
+	if (HasAuthority())
+	{
+		Server_FireCurseProjectile(SpawnLoc, SpawnRot); // 리스닝 서버 안전 처리
+	}
+	else
+	{
+		Server_FireCurseProjectile(SpawnLoc, SpawnRot);
+	}
+}
+
+void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector SpawnLoc, FRotator SpawnRot)
+{
+	if (!CurseProjectileClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CurseProjectileClass is null"));
+		return;
+	}
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	Params.Instigator = this;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	ADokkaebiCurseProjectile* Proj = GetWorld()->SpawnActor<ADokkaebiCurseProjectile>(
+		CurseProjectileClass,
+		SpawnLoc,
+		FRotator(0.f, SpawnRot.Yaw, 0.f),
+		Params
+	);
+	if (Proj)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Dokkaebi] Curse projectile fired"));
+	}
 }

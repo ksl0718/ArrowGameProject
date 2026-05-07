@@ -16,6 +16,13 @@
 #include "Components/SphereComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
+#include "Net/UnrealNetwork.h" 
+
+void AUserArcherCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AUserArcherCharacter, bIsCursedControl); // 네가 Replicated로 선언한 변수들
+}
 
 AUserArcherCharacter::AUserArcherCharacter()
 {
@@ -621,4 +628,40 @@ void AUserArcherCharacter::HideReticle()
     {
         ReticleWidget->RemoveFromParent();
     }
+}
+
+void AUserArcherCharacter::ApplyCurseControl(float Duration)
+{
+    if (!HasAuthority())
+    {
+        return;
+    }
+    
+    bIsCursedControl = true;
+    UE_LOG(LogTemp, Warning, TEXT("[Curse] Start %.2fs"), Duration);
+    
+    GetWorldTimerManager().ClearTimer(CurseEndTimerHandle);
+    GetWorldTimerManager().SetTimer(
+        CurseEndTimerHandle,
+        this,
+        &AUserArcherCharacter::EndCurseControl,
+        FMath::Max(0.1f, Duration),
+        false
+    );
+}
+
+void AUserArcherCharacter::EndCurseControl()
+{
+    if (!HasAuthority())
+    {
+        return;
+    }
+    
+    if (!bIsCursedControl)
+    {
+        return;
+    }
+    
+    bIsCursedControl = false;
+    UE_LOG(LogTemp, Warning, TEXT("[Curse] End"));
 }
