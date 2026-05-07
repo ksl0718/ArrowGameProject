@@ -49,6 +49,7 @@ public:
     FORCEINLINE float GetChargeTime() const { return ChargeTime; }
     FORCEINLINE float GetMaxChargeTime() const { return MaxChargeTime; }
     FORCEINLINE float GetTiredThreshold() const { return TiredThreshold; }
+    FORCEINLINE bool IsPendingDraw() const { return bPendingDraw; }
     
     UPROPERTY(BlueprintReadOnly, Category = "Bow|State", Replicated)
     EBowState BowState = EBowState::Idle;
@@ -158,6 +159,8 @@ protected:
     
     void FinishNocking();
     
+    bool bPendingDraw = false;
+
     FTimerHandle ReloadTimerHandle;
     FTimerHandle NockingTimerHandle;
     FTimerHandle NockToStringTimerHandle;

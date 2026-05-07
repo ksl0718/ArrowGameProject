@@ -177,7 +177,13 @@ void ABow::UpdateArrowVisual()
 
 void ABow::StartDraw()
 {
-    if (bIsNocking || bIsReloading || !OwnerArcherCharacter->IsAiming()) return;
+    if (bIsReloading || !OwnerArcherCharacter->IsAiming()) return;
+
+    if (bIsNocking)
+    {
+        bPendingDraw = true;
+        return;
+    }
     
     if (DrawSound)
     {
@@ -388,7 +394,12 @@ void ABow::FinishReloading()
 void ABow::FinishNocking()
 {
     UE_LOG(LogTemp, Error, TEXT("FinishNocking"));
-    bIsNocking = false; // [장전 완료] 이제 Draw(당기기)가 가능해짐
+    bIsNocking = false;
+    if (bPendingDraw)
+    {
+        bPendingDraw = false;
+        StartDraw();
+    }
 }
 
 void ABow::EndDraw()
@@ -608,9 +619,8 @@ void ABow::CancelAction()
     UE_LOG(LogTemp, Warning, TEXT("================== [CancelAction] =================="));
     
     GetWorldTimerManager().ClearTimer(NockingTimerHandle);
-    
-    // [수정] 권한 체크 밖으로 뺍니다. 클라이언트도 즉시 자기 변수를 꺼야 
-    // 아래 UpdateArrowVisual에서 "지워야 한다"고 판단합니다.
+
+    bPendingDraw = false;
     bIsNocking = false;
     bIsVisualAiming = false;
     bIsCharging = false;
