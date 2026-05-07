@@ -11,6 +11,8 @@
 #include "../Weapon/Bow.h"
 #include "../Actor/ArrowItem.h"
 #include "ArrowGame/Actor/BowItem.h"
+#include "ArrowGame/UI/BowReticleWidget.h"
+#include "Blueprint/UserWidget.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
@@ -160,15 +162,16 @@ void AUserArcherCharacter::StartAiming()
     
     bIsAiming = true;
     SetAiming(true);
-    
+    ShowReticle();
+
     ABow* Bow = Cast<ABow>(EquippedWeapon);
-    
-    if (Bow && (Bow->IsReloading() || Bow->IsNocking())) 
+
+    if (Bow && (Bow->IsReloading() || Bow->IsNocking()))
     {
         // 재장전 중이면 조준 시도 자체를 무시합니다.
-        return; 
+        return;
     }
-    
+
     UE_LOG(LogTemp, Log, TEXT("AimStart"));
     if (Bow)
     {
@@ -218,12 +221,25 @@ void AUserArcherCharacter::ReleaseArrow()
     Bow->EndDraw();
 }
 
+void AUserArcherCharacter::StopTiredShake()
+{
+    if (!bTiredShakeActive || !TiredCameraShakeClass) return;
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    {
+        if (PC->PlayerCameraManager)
+            PC->PlayerCameraManager->StopAllInstancesOfCameraShake(TiredCameraShakeClass, true);
+    }
+    bTiredShakeActive = false;
+}
+
 void AUserArcherCharacter::StopAiming()
 {
     UE_LOG(LogTemp, Log, TEXT("Aim Stop"));
     bIsAiming = false;
     SetAiming(false);
-    
+    HideReticle();
+    StopTiredShake();
+
     if (EquippedWeapon)
     {
         ABow* Bow = Cast<ABow>(EquippedWeapon);
@@ -237,14 +253,34 @@ void AUserArcherCharacter::StopAiming()
         }
     }
     GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
-    
 }
 
 
 void AUserArcherCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    
+
+    if (IsLocallyControlled())
+    {
+        ABow* Bow = Cast<ABow>(EquippedWeapon);
+        bool bShouldShake = TiredCameraShakeClass && Bow && Bow->IsCharging() && Bow->GetChargeTime() > Bow->GetTiredThreshold();
+
+        if (bShouldShake != bTiredShakeActive)
+        {
+            if (APlayerController* PC = Cast<APlayerController>(GetController()))
+            {
+                if (PC->PlayerCameraManager)
+                {
+                    if (bShouldShake)
+                        PC->PlayerCameraManager->StartCameraShake(TiredCameraShakeClass);
+                    else
+                        PC->PlayerCameraManager->StopAllInstancesOfCameraShake(TiredCameraShakeClass, true);
+                }
+            }
+            bTiredShakeActive = bShouldShake;
+        }
+    }
+
     bool bAiming = IsAiming();
     
     float TargetFOV = bAiming ? AimFOV : NormalFOV;
@@ -565,4 +601,31 @@ void AUserArcherCharacter::OnCrouchStarted(const FInputActionValue& Value)
 void AUserArcherCharacter::OnCrouchEnded(const FInputActionValue& Value)
 {
     UnCrouch();
+}
+
+void AUserArcherCharacter::ShowReticle()
+{
+    if (!IsLocallyControlled() || !ReticleWidgetClass) return;
+
+    if (!ReticleWidget)
+    {
+        ReticleWidget = CreateWidget<UBowReticleWidget>(GetWorld(), ReticleWidgetClass);
+        if (ReticleWidget)
+        {
+            ReticleWidget->InitReticle(this);
+        }
+    }
+
+    if (ReticleWidget && !ReticleWidget->IsInViewport())
+    {
+        ReticleWidget->AddToViewport();
+    }
+}
+
+void AUserArcherCharacter::HideReticle()
+{
+    if (ReticleWidget)
+    {
+        ReticleWidget->RemoveFromParent();
+    }
 }
