@@ -166,12 +166,6 @@ void AUserArcherCharacter::StartAiming()
 
     ABow* Bow = Cast<ABow>(EquippedWeapon);
 
-    if (Bow && (Bow->IsReloading() || Bow->IsNocking()))
-    {
-        // 재장전 중이면 조준 시도 자체를 무시합니다.
-        return;
-    }
-
     UE_LOG(LogTemp, Log, TEXT("AimStart"));
     if (Bow)
     {
@@ -197,8 +191,7 @@ void AUserArcherCharacter::StartCharging()
 
     if (Bow)
     {
-        if (Bow->IsNocking() || Bow->IsReloading()) return;
-        Bow -> StartDraw();
+        Bow->StartDraw();
     }
     
     //UE_LOG(LogTemp, Log, TEXT("Charging started."));
