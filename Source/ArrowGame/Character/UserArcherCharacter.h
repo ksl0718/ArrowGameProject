@@ -110,8 +110,8 @@ protected:
 	void Input_CycleArrow(const FInputActionValue& Value); // 마우스휠 화살변경
 	void Input_Interact(const FInputActionValue& Value); // F키 (상호작용) 입력 처리
 	
-    void OnWalkSlowStarted(const FInputActionValue& Value);
-    void OnWalkSlowEnded(const FInputActionValue& Value);
+    void OnSprintStarted(const FInputActionValue& Value);
+    void OnSprintEnded(const FInputActionValue& Value);
 	
 	UFUNCTION(Server, Reliable)
 	void ServerSetMaxWalkSpeed(float NewSpeed);
@@ -155,6 +155,9 @@ protected:
 	TSubclassOf<UCameraShakeBase> TiredCameraShakeClass;
 
 	bool bTiredShakeActive = false;
+
+	FTimerHandle RollSafetyTimerHandle;
+	void OnRollSafetyTimeout();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction")
 	class USphereComponent* InteractionSphere; // 아이템 감지용 구체 컴포넌트
