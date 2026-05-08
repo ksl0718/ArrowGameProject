@@ -49,6 +49,9 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category="Curse")
 	bool IsCursedControl() const { return bIsCursedControl; }
+
+	UFUNCTION(BlueprintPure, Category="Curse")
+	bool IsInputBlockedByCurse() const { return bIsCursedControl; }
 	
 protected:
     virtual void BeginPlay() override;
@@ -185,8 +188,13 @@ protected:
 
 	// 하이라이트 제어 헬퍼
 	void UpdateHighlight(AActor* Target, bool bEnable);
+
+	UFUNCTION()
+	void OnRep_IsCursedControl();
+
+	void ApplyCursedInputLock(bool bLocked);
 	
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_IsCursedControl)
 	bool bIsCursedControl = false;
 	
 	FTimerHandle CurseEndTimerHandle;

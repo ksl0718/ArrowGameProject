@@ -145,6 +145,7 @@ void AUserArcherCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 void AUserArcherCharacter::Move(const FInputActionValue& Value)
 {
+    if (IsInputBlockedByCurse()) return;
     if (!bCanMove) return;
 
     const FVector2D MovementVector = Value.Get<FVector2D>();
@@ -163,6 +164,7 @@ void AUserArcherCharacter::Move(const FInputActionValue& Value)
 
 void AUserArcherCharacter::Look(const FInputActionValue& Value)
 {
+    if (IsInputBlockedByCurse()) return;
     const FVector2D LookAxis = Value.Get<FVector2D>();
     AddControllerYawInput(LookAxis.X);
     AddControllerPitchInput(LookAxis.Y);
@@ -170,6 +172,7 @@ void AUserArcherCharacter::Look(const FInputActionValue& Value)
 
 void AUserArcherCharacter::StartAiming()
  {
+    if (IsInputBlockedByCurse()) return;
     if (!bCanMove || IsDead()) return;
     
     if (GetAmmoCount(CurrentArrowType) <= 0)
@@ -202,6 +205,7 @@ void AUserArcherCharacter::StartAiming()
 
 void AUserArcherCharacter::StartCharging()
 {
+    if (IsInputBlockedByCurse()) return;
 
     if (!EquippedWeapon) return;
 
@@ -219,6 +223,7 @@ void AUserArcherCharacter::StartCharging()
 
 void AUserArcherCharacter::ReleaseArrow()
 {
+    if (IsInputBlockedByCurse()) return;
     if (!EquippedWeapon) return;
 
     ABow* Bow = Cast<ABow>(EquippedWeapon);
@@ -347,6 +352,7 @@ void AUserArcherCharacter::Tick(float DeltaTime)
 //----------Walk(걷기) 관련 함수-----------------//
 void AUserArcherCharacter::OnWalkSlowStarted(const FInputActionValue& Value)
 {
+    if (IsInputBlockedByCurse()) return;
     // 1. 내 화면(로컬)에서는 답답하지 않게 즉시 속도를 줄임
     GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
 
@@ -359,6 +365,7 @@ void AUserArcherCharacter::OnWalkSlowStarted(const FInputActionValue& Value)
 
 void AUserArcherCharacter::OnWalkSlowEnded(const FInputActionValue& Value)
 {
+    if (IsInputBlockedByCurse()) return;
     // 1. 내 화면(로컬)에서 즉시 원래 속도로 복구
     GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
 
@@ -380,6 +387,7 @@ void AUserArcherCharacter::ServerSetMaxWalkSpeed_Implementation(float NewSpeed)
 //----------Roll(구르기) 관련 함수-----------------//
 void AUserArcherCharacter::Roll()
 {
+    if (IsInputBlockedByCurse()) return;
     if (bIsRolling || bIsDead || !bCanMove) return;
     if (!RollMontage) return; 
 
@@ -447,6 +455,7 @@ float AUserArcherCharacter::GetRollCooldownRemaining() const
 
 void AUserArcherCharacter::Input_CycleArrow(const FInputActionValue& Value)
 {
+    if (IsInputBlockedByCurse()) return;
     float ScrollValue = Value.Get<float>();
     if (ScrollValue == 0.f) return;
 
@@ -534,6 +543,7 @@ void AUserArcherCharacter::UpdateHighlight(AActor* Target, bool bEnable)
 
 void AUserArcherCharacter::Input_Interact(const FInputActionValue& Value)
 {
+    if (IsInputBlockedByCurse()) return;
     // 1. 이미 실시간(Overlap)으로 찾은 '가장 가까운 타겟'이 있는지 확인합니다.
     if (CurrentTargetActor)
     {
@@ -608,11 +618,13 @@ void AUserArcherCharacter::EquipNewBow(TSubclassOf<ABow> NewBowClass)
 
 void AUserArcherCharacter::OnCrouchStarted(const FInputActionValue& Value)
 {
+    if (IsInputBlockedByCurse()) return;
     if (!bCanMove || IsDead()) return;
     Crouch();
 }
 void AUserArcherCharacter::OnCrouchEnded(const FInputActionValue& Value)
 {
+    if (IsInputBlockedByCurse()) return;
     UnCrouch();
 }
 
@@ -651,6 +663,8 @@ void AUserArcherCharacter::ApplyCurseControl(float Duration)
     }
     
     bIsCursedControl = true;
+    ApplyCursedInputLock(true);
+    StopAiming();
     UE_LOG(LogTemp, Warning, TEXT("[Curse] Start %.2fs"), Duration);
     
     GetWorldTimerManager().ClearTimer(CurseEndTimerHandle);
@@ -676,5 +690,28 @@ void AUserArcherCharacter::EndCurseControl()
     }
     
     bIsCursedControl = false;
+    ApplyCursedInputLock(false);
     UE_LOG(LogTemp, Warning, TEXT("[Curse] End"));
+}
+
+void AUserArcherCharacter::OnRep_IsCursedControl()
+{
+    ApplyCursedInputLock(bIsCursedControl);
+
+    if (bIsCursedControl)
+    {
+        StopAiming();
+    }
+}
+
+void AUserArcherCharacter::ApplyCursedInputLock(bool bLocked)
+{
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    {
+        if (PC->IsLocalController())
+        {
+            PC->SetIgnoreMoveInput(bLocked);
+            PC->SetIgnoreLookInput(bLocked);
+        }
+    }
 }
