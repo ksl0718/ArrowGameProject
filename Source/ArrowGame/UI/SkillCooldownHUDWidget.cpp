@@ -1,26 +1,48 @@
 #include "SkillCooldownHUDWidget.h"
-#include "../UI/SkillCooldownSlotWidget.h"
-#include "Blueprint/UserWidget.h"
+#include "SkillCooldownSlotWidget.h"
+#include "Components/HorizontalBox.h"
+#include "Components/HorizontalBoxSlot.h"
 
 void USkillCooldownHUDWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-
+	
 	SlotWidgets.Reset();
-
-	if (Slot_SkillDecoy)
+	if (HB_SkillSlots)
 	{
-		SlotWidgets.Add(Slot_SkillDecoy);
+		HB_SkillSlots->ClearChildren();
 	}
 }
 
-void USkillCooldownHUDWidget::RegisterSlotWidget(USkillCooldownSlotWidget* InSlotWidget)
+
+void USkillCooldownHUDWidget::RebuildSlots(int32 SlotCount)
 {
-	if (InSlotWidget)
+	SlotWidgets.Reset();
+	
+	if (!HB_SkillSlots || !SlotWidgetClass)
 	{
-		SlotWidgets.AddUnique(InSlotWidget);
+		return;
+	}
+	
+	HB_SkillSlots->ClearChildren();
+	
+	const int32 SafeCount = FMath::Max(0, SlotCount);
+	for (int32 i = 0; i < SafeCount; ++i)
+	{
+		USkillCooldownSlotWidget* NewSlot =
+			CreateWidget<USkillCooldownSlotWidget>(GetWorld(), SlotWidgetClass);
+		if (!NewSlot)
+		{
+			continue;
+		}
+		if (UHorizontalBoxSlot* AddedSlot = HB_SkillSlots->AddChildToHorizontalBox(NewSlot))
+		{
+			AddedSlot->SetPadding(FMargin(4.f, 0.f));
+		}
+		SlotWidgets.Add(NewSlot);
 	}
 }
+
 
 void USkillCooldownHUDWidget::UpdateSlotCooldownByIndex(int32 SlotIndex, float RemainingTime, float CooldownDuration)
 {
@@ -29,6 +51,7 @@ void USkillCooldownHUDWidget::UpdateSlotCooldownByIndex(int32 SlotIndex, float R
 		CooldownSlot->UpdateCooldown(RemainingTime, CooldownDuration);
 	}
 }
+
 void USkillCooldownHUDWidget::SetSlotIconByIndex(int32 SlotIndex, UTexture2D* InIconTexture)
 {
 	if (USkillCooldownSlotWidget* CooldownSlot = GetSlotWidgetByIndex(SlotIndex))
@@ -36,6 +59,7 @@ void USkillCooldownHUDWidget::SetSlotIconByIndex(int32 SlotIndex, UTexture2D* In
 		CooldownSlot->SetSkillIcon(InIconTexture);
 	}
 }
+
 void USkillCooldownHUDWidget::SetSlotKeyByIndex(int32 SlotIndex, const FText& InKeyText)
 {
 	if (USkillCooldownSlotWidget* CooldownSlot = GetSlotWidgetByIndex(SlotIndex))

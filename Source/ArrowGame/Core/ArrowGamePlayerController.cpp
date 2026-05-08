@@ -100,23 +100,46 @@ void AArrowGamePlayerController::SetPawn(APawn* InPawn)
 void AArrowGamePlayerController::UpdateSkillCooldownHUD()
 {
     if (!SkillCooldownHUDWidget) return;
-    float Remaining = 0.0f;
-    float Duration = 0.0f;
-    if (TryGetCurrentSkillCooldown(Remaining, Duration))
+    
+    const ISkillCooldownProvider* Provider = Cast<ISkillCooldownProvider>(GetPawn());
+    if (!Provider) return;
+    
+    const int32 SlotCount = FMath::Max(0, Provider->GetSkillSlotCount());
+    
+    for (int32 i = 0; i < SlotCount; ++i)
     {
-        SkillCooldownHUDWidget->UpdateSlotCooldownByIndex(0, Remaining, Duration);
+        
+        float Remaining = 0.f;
+        float Duration = 0.01f;
+        
+        if (Provider->GetSkillCooldownByIndex(i, Remaining, Duration))
+        {
+            SkillCooldownHUDWidget->UpdateSlotCooldownByIndex(i, Remaining, Duration);
+        }
     }
 }
 
 void AArrowGamePlayerController::ConfigureSkillHUDForCurrentPawn()
 {
     if (!SkillCooldownHUDWidget) return;
-
-    UTexture2D* Icon = nullptr;
-    FText KeyText = FText::GetEmpty();
-    TryGetCurrentSkillHudMeta(Icon, KeyText);
-    SkillCooldownHUDWidget->SetSlotIconByIndex(0, Icon);
-    SkillCooldownHUDWidget->SetSlotKeyByIndex(0, KeyText);
+    
+    const ISkillCooldownProvider* Provider = Cast<ISkillCooldownProvider>(GetPawn());
+    if (!Provider) return;
+    
+    const int32 SlotCount = FMath::Max(0,Provider->GetSkillSlotCount());
+    SkillCooldownHUDWidget->RebuildSlots(SlotCount);
+    
+    for (int32 i = 0; i < SlotCount; i++)
+    {
+        UTexture2D* Icon = nullptr;
+        FText KeyText = FText::GetEmpty();
+        
+        if (Provider->GetSkillHudMetaByIndex(i, Icon, KeyText))
+        {
+            SkillCooldownHUDWidget->SetSlotIconByIndex(i, Icon);
+            SkillCooldownHUDWidget->SetSlotKeyByIndex(i, KeyText);
+        }
+    }
 }
 
 void AArrowGamePlayerController::ConfigureArrowIconForCurrentPawn()
@@ -145,31 +168,30 @@ void AArrowGamePlayerController::ConfigureArrowIconForCurrentPawn()
     }
 }
 
-bool AArrowGamePlayerController::TryGetCurrentSkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const
+bool AArrowGamePlayerController::TryGetCurrentSkillHudMeta(int32 SlotIndex, UTexture2D*& OutIcon, FText& OutKeyText) const
 {
     OutIcon = nullptr;
     OutKeyText = FText::GetEmpty();
 
     if (const ISkillCooldownProvider* Provider = Cast<ISkillCooldownProvider>(GetPawn()))
     {
-        return Provider->GetPrimarySkillHudMeta(OutIcon, OutKeyText);
+        return Provider->GetSkillHudMetaByIndex(SlotIndex, OutIcon, OutKeyText);
     }
-
     return false;
 }
 
-bool AArrowGamePlayerController::TryGetCurrentSkillCooldown(float& OutRemaining, float& OutDuration) const
+bool AArrowGamePlayerController::TryGetCurrentSkillCooldown(int32 SlotIndex, float& OutRemaining, float& OutDuration) const
 {
     OutRemaining = 0.0f;
     OutDuration = 0.01f;
 
     if (const ISkillCooldownProvider* Provider = Cast<ISkillCooldownProvider>(GetPawn()))
     {
-        return Provider->GetPrimarySkillCooldown(OutRemaining, OutDuration);
+        return Provider->GetSkillCooldownByIndex(SlotIndex, OutRemaining, OutDuration);
     }
-
     return false;
 }
+
 void AArrowGamePlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();

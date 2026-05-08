@@ -94,10 +94,12 @@ protected:
 	
 private:
 	void SetPlayerEnabledState_Local(bool bPlayerEnabled);
+	
 	void ConfigureSkillHUDForCurrentPawn();
 	void ConfigureArrowIconForCurrentPawn();
-	bool TryGetCurrentSkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const;
-	bool TryGetCurrentSkillCooldown(float& OutRemaining, float& OutDuration) const;
+	
+	bool TryGetCurrentSkillHudMeta(int32 SlotIndex, UTexture2D*& OutIcon, FText& OutKeyText) const;
+	bool TryGetCurrentSkillCooldown(int32 SlotIndex, float& OutRemaining, float& OutDuration) const;
 
 	UPROPERTY()
 	UUserWidget* LoadingWidget;

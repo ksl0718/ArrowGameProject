@@ -24,8 +24,10 @@ class ARROWGAME_API AUserArcherCharacter : public AArcherCharacterBase, public I
 	GENERATED_BODY()
 public:
     AUserArcherCharacter();
-	virtual bool GetPrimarySkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const override;
-	virtual bool GetPrimarySkillCooldown(float& OutRemaining, float& OutDuration) const override;
+	
+	virtual int32 GetSkillSlotCount() const override;
+	virtual bool GetSkillHudMetaByIndex(int32 SlotIndex, UTexture2D*& OutIcon, FText& OutKeyText) const override;
+	virtual bool GetSkillCooldownByIndex(int32 SlotIndex, float& OutRemaining, float& OutDuration) const override;
 	
 	bool IsDead() const { return bIsDead; }
     UPROPERTY(EditAnywhere, Category = "Movement")

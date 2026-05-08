@@ -58,15 +58,28 @@ AUserArcherCharacter::AUserArcherCharacter()
     InteractionSphere->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Overlap);
 }
 
-bool AUserArcherCharacter::GetPrimarySkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const
+int32 AUserArcherCharacter::GetSkillSlotCount() const
 {
+    return 1;
+}
+
+
+bool AUserArcherCharacter::GetSkillHudMetaByIndex(int32 SlotIndex, UTexture2D*& OutIcon, FText& OutKeyText) const
+{
+    OutIcon = nullptr;
+    OutKeyText = FText::GetEmpty();
+    
+    if (SlotIndex != 0) return false;
     OutIcon = RollSkillIcon;
     OutKeyText = RollSkillKeyText;
     return true;
 }
-
-bool AUserArcherCharacter::GetPrimarySkillCooldown(float& OutRemaining, float& OutDuration) const
+bool AUserArcherCharacter::GetSkillCooldownByIndex(int32 SlotIndex, float& OutRemaining, float& OutDuration) const
 {
+    OutRemaining = 0.f;
+    OutDuration = 0.01f;
+    
+    if (SlotIndex != 0) return false;
     OutRemaining = GetRollCooldownRemaining();
     OutDuration = GetRollCooldownDuration();
     return true;
