@@ -33,12 +33,17 @@ void UBowReticleWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTim
 
 	ReticleDMI->SetScalarParameterValue(TEXT("ChargeAlpha"), GetChargeAlpha());
 
-	bool bNewEnemyAimed = CheckEnemyAimed();
-	if (bNewEnemyAimed != bEnemyAimed)
+	EnemyCheckAccumulator += InDeltaTime;
+	if (EnemyCheckAccumulator >= EnemyCheckInterval)
 	{
-		bEnemyAimed = bNewEnemyAimed;
-		FLinearColor Color = bEnemyAimed ? FLinearColor::Red : FLinearColor(0.f, 1.f, 0.f);
-		ReticleDMI->SetVectorParameterValue(TEXT("ReticleColor"), Color);
+		EnemyCheckAccumulator = 0.f;
+		bool bNewEnemyAimed = CheckEnemyAimed();
+		if (bNewEnemyAimed != bEnemyAimed)
+		{
+			bEnemyAimed = bNewEnemyAimed;
+			FLinearColor Color = bEnemyAimed ? FLinearColor::Red : FLinearColor(0.f, 1.f, 0.f);
+			ReticleDMI->SetVectorParameterValue(TEXT("ReticleColor"), Color);
+		}
 	}
 }
 

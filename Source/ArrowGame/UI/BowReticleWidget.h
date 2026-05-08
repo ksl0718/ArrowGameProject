@@ -52,4 +52,6 @@ private:
 	bool CheckEnemyAimed() const;
 
 	bool bEnemyAimed = false;
+	float EnemyCheckAccumulator = 0.f;
+	static constexpr float EnemyCheckInterval = 0.1f;
 };
