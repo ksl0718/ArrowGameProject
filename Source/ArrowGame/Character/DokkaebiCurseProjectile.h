@@ -1,7 +1,8 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "DokkaebiCharacter.h"
 #include "DokkaebiCurseProjectile.generated.h"
 
 class USphereComponent;
@@ -15,16 +16,21 @@ class ARROWGAME_API ADokkaebiCurseProjectile : public AActor
 public:
 	ADokkaebiCurseProjectile();
 	
+	void SetCurseCaster(ADokkaebiCharacter* InCaster);
 	
 protected:
 	virtual void BeginPlay() override;
-	
+
+	void TryApplyCurseToVictim(AActor* Candidate);
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ADokkaebiCharacter> CurseCaster;
+
+	bool bCurseApplied = false;
+
 	UFUNCTION()
-	void OnHit(UPrimitiveComponent* HitComp,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		FVector NormalImpulse,
-		const FHitResult& Hit);
+	void OnPawnOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	USphereComponent* Collision;

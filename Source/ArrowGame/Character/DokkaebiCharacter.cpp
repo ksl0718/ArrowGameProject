@@ -368,6 +368,10 @@ void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector Spawn
 	);
 	if (Proj)
 	{
+		Proj->SetCurseCaster(this);
+		// (선택) 이미 Params로 넣었어도 한 번 더 명시해도 무방
+		Proj->SetInstigator(this);
+		Proj->SetOwner(this);
 		UE_LOG(LogTemp, Warning, TEXT("[Dokkaebi] Curse projectile fired"));
 	}
 }

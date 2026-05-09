@@ -17,11 +17,14 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h" 
+#include "ArrowGame/Character/DokkaebiCharacter.h"
+#include "TimerManager.h"
 
 void AUserArcherCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME(AUserArcherCharacter, bIsCursedControl); // 네가 Replicated로 선언한 변수들
+    DOREPLIFETIME(AUserArcherCharacter, bIsCursedControl);
+    DOREPLIFETIME_CONDITION(AUserArcherCharacter, CursedDokkaebi, COND_OwnerOnly);
 }
 
 AUserArcherCharacter::AUserArcherCharacter()
@@ -164,7 +167,7 @@ void AUserArcherCharacter::Move(const FInputActionValue& Value)
 
 void AUserArcherCharacter::Look(const FInputActionValue& Value)
 {
-    if (IsInputBlockedByCurse()) return;
+    // 저주 중에도 시야(마우스)는 돌릴 수 있게 둔다. 이동만 IsInputBlockedByCurse로 막는다.
     const FVector2D LookAxis = Value.Get<FVector2D>();
     AddControllerYawInput(LookAxis.X);
     AddControllerPitchInput(LookAxis.Y);
@@ -277,6 +280,23 @@ void AUserArcherCharacter::StopAiming()
 void AUserArcherCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+
+    // 저주 도망은 서버 권한에서 매 프레임 넣어야 걷기와 비슷한 가속이 난다.
+    // 타이머(예: 0.1초)만 쓰면 초당 몇 번만 입력이 들어가서 극도로 느리게 느껴진다.
+    if (HasAuthority() && bIsCursedControl && !bIsDead)
+    {
+        CursedBrainTick();
+    }
+
+    // 전용 서버 등: 원격 플레이어 이동은 ServerMove가 지배하므로, 도망 입력은 소유 클라에서만 넣어야 서버 시뮬과 맞음
+    if (bIsCursedControl && !bIsDead && !HasAuthority() && IsLocallyControlled())
+    {
+        FVector FleeDir;
+        if (TryGetCursedFleeWorldDirection2D(FleeDir))
+        {
+            AddMovementInput(FleeDir, CursedFleeInputScale, true);
+        }
+    }
 
     if (IsLocallyControlled())
     {
@@ -655,15 +675,37 @@ void AUserArcherCharacter::HideReticle()
     }
 }
 
-void AUserArcherCharacter::ApplyCurseControl(float Duration)
+void AUserArcherCharacter::ApplyCurseControl(float Duration, ADokkaebiCharacter* CurseSource)
 {
     if (!HasAuthority())
     {
         return;
     }
-    
+
+    if (!IsValid(CurseSource))
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Curse] ApplyCurseControl aborted: CurseSource is null"));
+        return;
+    }
+
     bIsCursedControl = true;
-    ApplyCursedInputLock(true);
+    CursedDokkaebi = CurseSource;
+    CurseMoveDebugLastLogTime = -1.0e9f;
+
+    // 원격 클라 소유 궁수: 서버 AddMovementInput이 예측/보정에 묻히지 않게 (에디터 단일 설정으로는 한계)
+    ForceNetUpdate();
+    FlushNetDormancy();
+    if (UCharacterMovementComponent* Move = GetCharacterMovement())
+    {
+        Move->bIgnoreClientMovementErrorChecksAndCorrection = true;
+        // 도망 가속이 먹으려면 걷기/낙하 모드와 양의 보행 속도가 필요할 때가 많음
+        if (Move->MovementMode != MOVE_Walking && Move->MovementMode != MOVE_Falling)
+        {
+            Move->SetMovementMode(MOVE_Walking);
+        }
+        Move->MaxWalkSpeed = FMath::Max(1.f, FMath::Max(Move->MaxWalkSpeed, NormalSpeed));
+    }
+
     StopAiming();
     UE_LOG(LogTemp, Warning, TEXT("[Curse] Start %.2fs"), Duration);
     
@@ -688,15 +730,26 @@ void AUserArcherCharacter::EndCurseControl()
     {
         return;
     }
-    
+
+    if (UCharacterMovementComponent* Move = GetCharacterMovement())
+    {
+        Move->bIgnoreClientMovementErrorChecksAndCorrection = false;
+    }
+
     bIsCursedControl = false;
-    ApplyCursedInputLock(false);
+    CursedDokkaebi = nullptr;
+    
     UE_LOG(LogTemp, Warning, TEXT("[Curse] End"));
 }
 
 void AUserArcherCharacter::OnRep_IsCursedControl()
 {
-    ApplyCursedInputLock(bIsCursedControl);
+    // ApplyCurseControl/EndCurseControl의 UE_LOG는 HasAuthority()라 서버 로그에만 찍힘.
+    // 클라 창에서 저주 수신 여부는 여기로 확인.
+    UE_LOG(LogTemp, Warning, TEXT("[Curse] OnRep bIsCursedControl=%d HasAuthority=%d NetMode=%d"),
+        bIsCursedControl ? 1 : 0,
+        HasAuthority() ? 1 : 0,
+        (int32)GetNetMode());
 
     if (bIsCursedControl)
     {
@@ -704,14 +757,84 @@ void AUserArcherCharacter::OnRep_IsCursedControl()
     }
 }
 
-void AUserArcherCharacter::ApplyCursedInputLock(bool bLocked)
+bool AUserArcherCharacter::TryGetCursedFleeWorldDirection2D(FVector& OutDir) const
 {
-    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    if (!bIsCursedControl)
     {
-        if (PC->IsLocalController())
+        return false;
+    }
+
+    ADokkaebiCharacter* Dok = CursedDokkaebi;
+    if (!IsValid(Dok))
+    {
+        return false;
+    }
+
+    const FVector MyLoc = GetActorLocation();
+    const FVector DokLoc = Dok->GetActorLocation();
+
+    if (CursedFleeMaxDistance > 0.f)
+    {
+        const float Dist = FVector::Dist(MyLoc, DokLoc);
+        if (Dist > CursedFleeMaxDistance)
         {
-            PC->SetIgnoreMoveInput(bLocked);
-            PC->SetIgnoreLookInput(bLocked);
+            return false;
+        }
+    }
+
+    FVector Flee = MyLoc - DokLoc;
+    Flee.Z = 0.f;
+    OutDir = Flee.GetSafeNormal();
+    return !OutDir.IsNearlyZero();
+}
+
+void AUserArcherCharacter::CursedBrainTick()
+{
+    if (!HasAuthority() || !bIsCursedControl || bIsDead)
+    {
+        return;
+    }
+
+    FVector Dir;
+    if (!TryGetCursedFleeWorldDirection2D(Dir))
+    {
+        return;
+    }
+
+    // 원격 클라가 조종하는 궁수: 서버에서 AddMovementInput 해도 ServerMove(클라 정지 입력)에 밀림 → 소유 클라 Tick에서만 입력.
+    if (!IsLocallyControlled())
+    {
+        return;
+    }
+
+    // 리슨 서버에서 본인 궁수만 여기서 입력(클라 미러는 !HasAuthority()라 안 돔).
+    AddMovementInput(Dir, CursedFleeInputScale, true);
+
+    if (const UWorld* W = GetWorld())
+    {
+        const float Now = W->GetTimeSeconds();
+        if (Now - CurseMoveDebugLastLogTime >= 0.25f)
+        {
+            CurseMoveDebugLastLogTime = Now;
+            // 같은 틱에서 바로 읽으면 Vel/Acc가 아직 갱신 전일 수 있어, 다음 틱에 한 번 더 찍음
+            GetWorldTimerManager().SetTimerForNextTick([this]()
+            {
+                if (!IsValid(this) || !HasAuthority() || !bIsCursedControl)
+                {
+                    return;
+                }
+                UCharacterMovementComponent* M = GetCharacterMovement();
+                const FVector V = GetVelocity();
+                const FVector Acc = M ? M->GetCurrentAcceleration() : FVector::ZeroVector;
+                UE_LOG(LogTemp, Warning,
+                    TEXT("[Curse] BrainTick+1 %s Vel2D=%.1f Acc2D=%.1f Mode=%d MaxWalk=%.0f Scale=%.2f"),
+                    *GetName(),
+                    V.Size2D(),
+                    Acc.Size2D(),
+                    M ? (int32)M->MovementMode : -1,
+                    M ? M->MaxWalkSpeed : -1.f,
+                    CursedFleeInputScale);
+            });
         }
     }
 }
