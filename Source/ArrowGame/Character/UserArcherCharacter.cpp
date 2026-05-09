@@ -129,8 +129,8 @@ void AUserArcherCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
         EnhancedInput->BindAction(ShootAction, ETriggerEvent::Completed, this, &AUserArcherCharacter::ReleaseArrow);
 
         //�ȱ�
-        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Started, this, &AUserArcherCharacter::OnWalkSlowStarted);
-        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Completed, this, &AUserArcherCharacter::OnWalkSlowEnded);
+        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Started, this, &AUserArcherCharacter::OnSprintStarted);
+        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Completed, this, &AUserArcherCharacter::OnSprintEnded);
         
         EnhancedInput->BindAction(CrouchAction, ETriggerEvent::Started, this, &AUserArcherCharacter::OnCrouchStarted);
         EnhancedInput->BindAction(CrouchAction, ETriggerEvent::Completed, this, &AUserArcherCharacter::OnCrouchEnded);
@@ -369,27 +369,31 @@ void AUserArcherCharacter::Tick(float DeltaTime)
 }
 
 
-//----------Walk(걷기) 관련 함수-----------------//
-void AUserArcherCharacter::OnWalkSlowStarted(const FInputActionValue& Value)
+//----------Sprint(달리기) 관련 함수-----------------//
+void AUserArcherCharacter::OnSprintStarted(const FInputActionValue& Value)
 {
+
     if (IsInputBlockedByCurse()) return;
     // 1. 내 화면(로컬)에서는 답답하지 않게 즉시 속도를 줄임
-    GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
 
     // 2. 🔥 내가 클라이언트라면, 서버한테도 내 속도를 깎아달라고 요청!
+
+    if (IsAiming()) return;
+    GetCharacterMovement()->MaxWalkSpeed = RunSpeed;
+  
     if (!HasAuthority())
     {
-        ServerSetMaxWalkSpeed(WalkSpeed);
+        ServerSetMaxWalkSpeed(RunSpeed);
     }
 }
 
-void AUserArcherCharacter::OnWalkSlowEnded(const FInputActionValue& Value)
+void AUserArcherCharacter::OnSprintEnded(const FInputActionValue& Value)
 {
+
     if (IsInputBlockedByCurse()) return;
     // 1. 내 화면(로컬)에서 즉시 원래 속도로 복구
-    GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
 
-    // 2.서버한테도 내 속도 원래대로 돌려달라고 요청!
+    GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
     if (!HasAuthority())
     {
         ServerSetMaxWalkSpeed(NormalSpeed);
@@ -409,7 +413,7 @@ void AUserArcherCharacter::Roll()
 {
     if (IsInputBlockedByCurse()) return;
     if (bIsRolling || bIsDead || !bCanMove) return;
-    if (!RollMontage) return; 
+    if (!RollMontage) return;
 
     if (GetRollCooldownRemaining() > 0.0f) return;
     
@@ -420,7 +424,7 @@ void AUserArcherCharacter::Roll()
     NextRollAvailableTime = NowServer + FMath::Max(0.01f, RollCooldownDuration);
 
     PlayMontage(RollMontage, 1.f);
-    
+
     UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
     if (AnimInstance)
     {
@@ -428,6 +432,10 @@ void AUserArcherCharacter::Roll()
         EndDelegate.BindUObject(this, &AUserArcherCharacter::OnRollEnd);
         AnimInstance->Montage_SetEndDelegate(EndDelegate, RollMontage);
     }
+
+    // OnRollEnd가 안 불리는 경우를 대비한 안전 타이머
+    float SafetyTime = RollMontage->GetPlayLength() + 0.5f;
+    GetWorldTimerManager().SetTimer(RollSafetyTimerHandle, this, &AUserArcherCharacter::OnRollSafetyTimeout, SafetyTime, false);
     
     ServerPlayRoll();
 }
@@ -458,9 +466,21 @@ void AUserArcherCharacter::MulticastPlayRoll_Implementation()
 
 void AUserArcherCharacter::OnRollEnd(UAnimMontage* Montage, bool bInterrupted)
 {
+    GetWorldTimerManager().ClearTimer(RollSafetyTimerHandle);
 	bIsRolling = false;
 	bCanMove = true;
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+}
+
+void AUserArcherCharacter::OnRollSafetyTimeout()
+{
+    if (bIsRolling)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Roll safety timeout: force resetting roll state"));
+        bIsRolling = false;
+        bCanMove = true;
+        GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+    }
 }
 
 float AUserArcherCharacter::GetRollCooldownRemaining() const

@@ -178,6 +178,7 @@ protected:
 	void OnWalkSlowStarted(const FInputActionValue& Value);
 	void OnWalkSlowEnded(const FInputActionValue& Value);
 
+
 	UFUNCTION(Server, Reliable)
 	void ServerSetMaxWalkSpeed(float NewSpeed);
 
@@ -218,7 +219,17 @@ protected:
 	void StopTiredShake();
 #pragma endregion
 
+
 #pragma region Interaction
+
+	UPROPERTY(EditAnywhere, Category = "Camera|Shake")
+	TSubclassOf<UCameraShakeBase> TiredCameraShakeClass;
+
+	bool bTiredShakeActive = false;
+
+	FTimerHandle RollSafetyTimerHandle;
+	void OnRollSafetyTimeout();
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction")
 	class USphereComponent* InteractionSphere;
 
