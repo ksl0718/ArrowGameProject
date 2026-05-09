@@ -441,24 +441,20 @@ void AUserArcherCharacter::Input_CycleArrow(const FInputActionValue& Value)
     float ScrollValue = Value.Get<float>();
     if (ScrollValue == 0.f) return;
 
-    // 현재 Enum 값을 정수로 변환
     int32 CurrentIndex = static_cast<int32>(CurrentArrowType);
     int32 MaxIndex = static_cast<int32>(EArrowType::Max);
+    int32 Direction = (ScrollValue > 0.f) ? 1 : -1;
 
-    // 휠 방향에 따라 다음/이전 무기 계산 (나머지 연산자로 뱅글뱅글 돌게 만듦)
-    if (ScrollValue > 0.f)
+    for (int32 i = 1; i < MaxIndex; i++)
     {
-        CurrentIndex = (CurrentIndex + 1) % MaxIndex;
+        int32 NextIndex = (CurrentIndex + Direction * i + MaxIndex * MaxIndex) % MaxIndex;
+        EArrowType NextType = static_cast<EArrowType>(NextIndex);
+        if (GetAmmoCount(NextType) > 0)
+        {
+            ServerChangeArrowType(NextType);
+            return;
+        }
     }
-    else
-    {
-        CurrentIndex = (CurrentIndex - 1 + MaxIndex) % MaxIndex;
-    }
-    
-    EArrowType NewType = static_cast<EArrowType>(CurrentIndex);
-
-    // 🚀 서버에 화살 교체 요청! (아까 만들어둔 함수 재활용)
-    ServerChangeArrowType(NewType);
 }
 
 //----------화살 줍기 관련-------//
