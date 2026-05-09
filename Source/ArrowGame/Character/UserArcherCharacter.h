@@ -222,11 +222,6 @@ protected:
 
 #pragma region Interaction
 
-	UPROPERTY(EditAnywhere, Category = "Camera|Shake")
-	TSubclassOf<UCameraShakeBase> TiredCameraShakeClass;
-
-	bool bTiredShakeActive = false;
-
 	FTimerHandle RollSafetyTimerHandle;
 	void OnRollSafetyTimeout();
 

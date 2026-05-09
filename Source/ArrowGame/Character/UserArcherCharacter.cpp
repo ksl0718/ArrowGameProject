@@ -129,8 +129,8 @@ void AUserArcherCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
         EnhancedInput->BindAction(ShootAction, ETriggerEvent::Completed, this, &AUserArcherCharacter::ReleaseArrow);
 
         //�ȱ�
-        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Started, this, &AUserArcherCharacter::OnSprintStarted);
-        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Completed, this, &AUserArcherCharacter::OnSprintEnded);
+        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Started, this, &AUserArcherCharacter::OnWalkSlowStarted);
+        EnhancedInput->BindAction(WalkAction, ETriggerEvent::Completed, this, &AUserArcherCharacter::OnWalkSlowEnded);
         
         EnhancedInput->BindAction(CrouchAction, ETriggerEvent::Started, this, &AUserArcherCharacter::OnCrouchStarted);
         EnhancedInput->BindAction(CrouchAction, ETriggerEvent::Completed, this, &AUserArcherCharacter::OnCrouchEnded);
@@ -370,7 +370,7 @@ void AUserArcherCharacter::Tick(float DeltaTime)
 
 
 //----------Sprint(달리기) 관련 함수-----------------//
-void AUserArcherCharacter::OnSprintStarted(const FInputActionValue& Value)
+void AUserArcherCharacter::OnWalkSlowStarted(const FInputActionValue& Value)
 {
 
     if (IsInputBlockedByCurse()) return;
@@ -387,7 +387,7 @@ void AUserArcherCharacter::OnSprintStarted(const FInputActionValue& Value)
     }
 }
 
-void AUserArcherCharacter::OnSprintEnded(const FInputActionValue& Value)
+void AUserArcherCharacter::OnWalkSlowEnded(const FInputActionValue& Value)
 {
 
     if (IsInputBlockedByCurse()) return;
