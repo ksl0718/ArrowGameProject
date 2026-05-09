@@ -2,6 +2,7 @@
 
 
 #include "ArrowProjectile.h"
+#include "Net/UnrealNetwork.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/DamageType.h"
@@ -13,6 +14,21 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "../Character/ArcherCharacterBase.h"
+#include "../Core/ArrowPlayerState.h"
+
+void AArrowProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AArrowProjectile, bStuck);
+}
+
+void AArrowProjectile::OnRep_bStuck()
+{
+	if (bStuck)
+	{
+		StopAndDisable();
+	}
+}
 
 // Sets default values
 AArrowProjectile::AArrowProjectile()
@@ -175,31 +191,31 @@ void AArrowProjectile::OnHit(
 	if (!OtherActor || OtherActor == this || OtherActor == GetInstigator()) return;
 
 	NotifyImpact(Hit);
-	
-	if (OtherActor->IsA(APawn::StaticClass())) 
+
+	if (IsActorBeingDestroyed()) return;
+
+	if (OtherActor->IsA(APawn::StaticClass()))
 	{
-		if (HasAuthority()) // 서버에서만 처리
+		if (HasAuthority())
 		{
 			CollisionBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
-			UGameplayStatics::ApplyDamage(
-				OtherActor,
-				Damage,
-				GetInstigatorController(),
-				this,
-				UDamageType::StaticClass()
-			);
-
-			// [핵심] 맞자마자 화살 삭제! (박히는 로직 안 탐)
-			Destroy(); 
+			if (bShouldApplyDirectDamage)
+			{
+				UGameplayStatics::ApplyDamage(
+					OtherActor,
+					Damage,
+					GetInstigatorController(),
+					this,
+					UDamageType::StaticClass()
+				);
+			}
+			Destroy();
 		}
-		else 
+		else
 		{
-			// 클라이언트에서는 즉시 숨겨서 반응성을 높임 (선택사항)
 			SetActorHiddenInGame(true);
 		}
-        
-		// 여기서 함수 종료 (아래 꽂히는 로직 실행 안 함)
-		return; 
+		return;
 	}
 	
 	HitPhysicsObject(OtherComp, Hit, GetOwner());
@@ -312,4 +328,15 @@ void AArrowProjectile::PickUp(AArcherCharacterBase* Picker)
 		Picker->AddAmmo(ArrowType, 1); // 쏜 거 주웠으니 1개만 돌려줌
 		Destroy();
 	}
+}
+
+bool AArrowProjectile::IsEnemy(APawn* Instigator, AActor* Target)
+{
+	if (!Instigator || !Target) return false;
+	APawn* TargetPawn = Cast<APawn>(Target);
+	if (!TargetPawn) return false;
+	AArrowPlayerState* InsPS = Instigator->GetPlayerState<AArrowPlayerState>();
+	AArrowPlayerState* TgtPS = TargetPawn->GetPlayerState<AArrowPlayerState>();
+	if (!InsPS || !TgtPS) return false;
+	return InsPS->IsDokkaebi() != TgtPS->IsDokkaebi();
 }

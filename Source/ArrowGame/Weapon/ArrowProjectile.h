@@ -58,9 +58,13 @@ protected:
 	UPROPERTY(EditAnywhere)
 	float Damage = 50.f;
 
+	UPROPERTY(ReplicatedUsing = OnRep_bStuck)
 	bool bStuck = false;
-	
-	FVector PrevLocation; 
+
+	UFUNCTION()
+	void OnRep_bStuck();
+
+	FVector PrevLocation;
 	
 	void StopAndDisable();  // ȭ�� ���߰� �浹 ���� ���� ó��
 	void StickIntoCharacter(APawn* HitPawn, UPrimitiveComponent* OtherComp, const FHitResult& Hit);
@@ -71,7 +75,10 @@ protected:
 	bool bShouldApplyDirectDamage = true;
 	
 	virtual void NotifyImpact(const FHitResult& Hit);
-public:	
+
+	static bool IsEnemy(APawn* Instigator, AActor* Target);
+
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	
