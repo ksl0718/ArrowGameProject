@@ -9,6 +9,7 @@
 #include "../Character/DokkaebiDecoy.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/GameStateBase.h"
+#include "../Character/DokkaebiCurseProjectile.h"
 
 void ADokkaebiCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -41,24 +42,32 @@ ADokkaebiCharacter::ADokkaebiCharacter()
 	}
 }
 
-bool ADokkaebiCharacter::GetPrimarySkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const
+int32 ADokkaebiCharacter::GetSkillSlotCount() const
 {
-	if (!SkillSpecs.IsValidIndex(0))
+	return SkillSpecs.Num();
+	
+}
+
+bool ADokkaebiCharacter::GetSkillHudMetaByIndex(int32 SlotIndex, UTexture2D*& OutIcon, FText& OutKeyText) const
+{
+	if (!SkillSpecs.IsValidIndex(SlotIndex))
 	{
 		OutIcon = nullptr;
 		OutKeyText = FText::GetEmpty();
 		return false;
 	}
-
-	OutIcon = SkillSpecs[0].Icon;
-	OutKeyText = SkillSpecs[0].KeyText;
+	OutIcon = SkillSpecs[SlotIndex].Icon;
+	OutKeyText = SkillSpecs[SlotIndex].KeyText;
 	return true;
 }
 
-bool ADokkaebiCharacter::GetPrimarySkillCooldown(float& OutRemaining, float& OutDuration) const
+bool ADokkaebiCharacter::GetSkillCooldownByIndex(int32 SlotIndex, float& OutRemaining, float& OutDuration) const
 {
-	OutRemaining = GetSkillCooldownRemainingByIndex(EDokkaebiSkillIndex::Decoy);
-	OutDuration = GetSkillCooldownDurationByIndex(EDokkaebiSkillIndex::Decoy);
+	OutRemaining = 0.f;
+	OutDuration = 0.01f;
+	const EDokkaebiSkillIndex SkillIndex = static_cast<EDokkaebiSkillIndex>(SlotIndex);
+	OutRemaining = GetSkillCooldownRemainingByIndex(SkillIndex);
+	OutDuration = GetSkillCooldownDurationByIndex(SkillIndex);
 	return true;
 }
 
@@ -117,6 +126,11 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		if (DecoySkillAction)
 		{
 			EnhancedInput->BindAction(DecoySkillAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::Input_DecoySkillA);
+		}
+		
+		if (CurseSkillAction)
+		{
+			EnhancedInput->BindAction(CurseSkillAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::FireCurseProjectile);
 		}
 	}
 
@@ -187,30 +201,11 @@ void ADokkaebiCharacter::ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator
 	}
 	
 	constexpr int32 DecoyIndex = 0;
-	
-	if (!SkillStates.IsValidIndex(DecoyIndex) || !SkillSpecs.IsValidIndex(DecoyIndex)) return;
-	
-	FSkillRuntimeState& State = SkillStates[DecoyIndex];
-	const FSkillSpec& Spec = SkillSpecs[DecoyIndex];
-	
-	const AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
-	const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
-	State.bInputLocked = true;
-	State.NextAvailableTime = NowServer + Spec.Cooldown;
 
-	GetWorldTimerManager().ClearTimer(SkillInputUnlockTimerHandle);
-	GetWorldTimerManager().SetTimer(
-		SkillInputUnlockTimerHandle,
-		[this, DecoyIndex]()
-		{
-			if (SkillStates.IsValidIndex(DecoyIndex))
-			{
-				SkillStates[DecoyIndex].bInputLocked = false;
-			}
-		},
-		Spec.InputLockDuration,
-		false
-	);
+	if (!TryCommitSkillUseOnAuthority(DecoyIndex))
+	{
+		return;
+	}
 	
 	bIsStealthed = true;
 	UE_LOG(LogTemp, Warning, TEXT("[SERVER] Stealth ON set. Auth=%d Local=%d NetMode=%d Time=%.2f"),
@@ -253,16 +248,9 @@ bool ADokkaebiCharacter::CanUseDecoySkillOnAuthority() const
 {
 	constexpr int32 DecoyIndex = 0;
 	
-	if (!HasAuthority()) return false;
-	if (bIsDead) return false;
 	if (bIsStealthed) return false;
-	if (!SkillStates.IsValidIndex(DecoyIndex)) return false;
-	
-	const float Now = GetWorld()->GetTimeSeconds();
-	if (SkillStates[DecoyIndex].bInputLocked) return false;
-	if (Now < SkillStates[DecoyIndex].NextAvailableTime) return false;
-	
-	return true;
+
+	return CanUseSkillOnAuthority(DecoyIndex);
 }
 
 void ADokkaebiCharacter::EndStealthOnAuthority()
@@ -345,4 +333,98 @@ float ADokkaebiCharacter::GetSkillCooldownDurationByIndex(EDokkaebiSkillIndex Sk
 bool ADokkaebiCharacter::IsSkillCoolingDownByIndex(EDokkaebiSkillIndex SkillIndex) const
 {
 	return GetSkillCooldownRemainingByIndex(SkillIndex) > 0.f;
+}
+
+void ADokkaebiCharacter::FireCurseProjectile()
+{
+	const FVector SpawnLoc = GetActorLocation() + GetActorForwardVector() * 100.f + FVector(0,0,50.f);
+	const FRotator SpawnRot = GetControlRotation();
+
+	Server_FireCurseProjectile(SpawnLoc, SpawnRot);
+}
+
+void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector SpawnLoc, FRotator SpawnRot)
+{
+	constexpr int32 CurseIndex = 1;
+	if (!TryCommitSkillUseOnAuthority(CurseIndex))
+	{
+		return;
+	}
+
+	if (!CurseProjectileClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CurseProjectileClass is null"));
+		return;
+	}
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	Params.Instigator = this;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	ADokkaebiCurseProjectile* Proj = GetWorld()->SpawnActor<ADokkaebiCurseProjectile>(
+		CurseProjectileClass,
+		SpawnLoc,
+		FRotator(0.f, SpawnRot.Yaw, 0.f),
+		Params
+	);
+	if (Proj)
+	{
+		Proj->SetCurseCaster(this);
+		// (선택) 이미 Params로 넣었어도 한 번 더 명시해도 무방
+		Proj->SetInstigator(this);
+		Proj->SetOwner(this);
+		UE_LOG(LogTemp, Warning, TEXT("[Dokkaebi] Curse projectile fired"));
+	}
+}
+
+bool ADokkaebiCharacter::CanUseSkillOnAuthority(int32 SkillIndex) const
+{
+	if (!HasAuthority()) return false;
+	if (bIsDead) return false;
+	if (!SkillStates.IsValidIndex(SkillIndex)) return false;
+	if (!SkillSpecs.IsValidIndex(SkillIndex)) return false;
+	
+	const AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	
+	const FSkillRuntimeState& State = SkillStates[SkillIndex];
+	if (State.bInputLocked) return false;
+	if (NowServer < State.NextAvailableTime) return false;
+	
+	return true;
+}
+bool ADokkaebiCharacter::TryCommitSkillUseOnAuthority(int32 SkillIndex)
+{
+	if (!CanUseSkillOnAuthority(SkillIndex)) return false;
+	
+	FSkillRuntimeState& State = SkillStates[SkillIndex];
+	const FSkillSpec& Spec = SkillSpecs[SkillIndex];
+	
+	const AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	
+	State.NextAvailableTime = NowServer + FMath::Max(0.01f, Spec.Cooldown);
+	State.bInputLocked = true;
+	
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(
+		TempHandle,
+		[this, SkillIndex]()
+		{
+			if (SkillStates.IsValidIndex(SkillIndex))
+			{
+				SkillStates[SkillIndex].bInputLocked = false;
+			}
+		},
+		FMath::Max(0.01f, Spec.InputLockDuration),
+		false
+	);
+	return true;
+}
+
+void ADokkaebiCharacter::UnlockSkillInput(int32 SkillIndex)
+{
+	if (SkillStates.IsValidIndex(SkillIndex))
+	{
+		SkillStates[SkillIndex].bInputLocked = false;
+	}
 }

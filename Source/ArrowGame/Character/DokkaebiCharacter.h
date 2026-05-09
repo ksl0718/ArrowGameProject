@@ -13,6 +13,8 @@ class UInputMappingContext;
 class USpringArmComponent;
 class UTexture2D;
 class ADokkaebiDecoy;
+class ADokkaebiCurseProjectile;
+
 #pragma endregion
 
 #pragma region SkillStructs
@@ -75,8 +77,10 @@ class ARROWGAME_API ADokkaebiCharacter : public ACharacterBase, public ISkillCoo
 public:
 	ADokkaebiCharacter();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual bool GetPrimarySkillHudMeta(UTexture2D*& OutIcon, FText& OutKeyText) const override;
-	virtual bool GetPrimarySkillCooldown(float& OutRemaining, float& OutDuration) const override;
+	
+	virtual int32 GetSkillSlotCount() const override;
+	virtual bool GetSkillHudMetaByIndex(int32 SlotIndex, UTexture2D*& OutIcon, FText& OutKeyText) const override;
+	virtual bool GetSkillCooldownByIndex(int32 SlotIndex, float& OutRemaining, float& OutDuration) const override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -94,6 +98,10 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category="Dokkaebi|Skill")
 	bool IsSkillCoolingDownByIndex(EDokkaebiSkillIndex SkillIndex) const;
+	
+	bool CanUseSkillOnAuthority(int32 SkillIndex) const;
+	bool TryCommitSkillUseOnAuthority(int32 SkillIndex);
+	void UnlockSkillInput(int32 SkillIndex);
 	
 	UPROPERTY(Replicated)
 	TArray<FSkillRuntimeState> SkillStates;
@@ -141,6 +149,19 @@ protected:
 	FTimerHandle SkillInputUnlockTimerHandle;
 #pragma endregion
 
+#pragma region Curse_Skill
+protected:
+	
+	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
+	TSubclassOf<ADokkaebiCurseProjectile> CurseProjectileClass;
+	
+	UFUNCTION(Server, Reliable)
+	void Server_FireCurseProjectile(FVector SpawnLoc, FRotator SpawnRot);
+	
+	void FireCurseProjectile();
+	
+#pragma endregion
+	
 #pragma region Skill_Config
 	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill")
 	TSubclassOf<ADokkaebiDecoy> DecoyClass;
@@ -161,6 +182,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* DecoySkillAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* CurseSkillAction;
+	
 #pragma endregion
 
 #pragma region Camera
