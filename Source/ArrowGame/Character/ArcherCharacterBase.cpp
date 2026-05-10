@@ -352,23 +352,30 @@ void AArcherCharacterBase::MulticastPlayFireMontage_Implementation()
 // ----- 탄약 관리 (Getter & Setter) ----- //
 int32 AArcherCharacterBase::GetAmmoCount(EArrowType Type) const
 {
+    if (Type == EArrowType::Normal)
+        return INT32_MAX;
+
     int32 Index = static_cast<int32>(Type);
     if (ArrowAmmoCounts.IsValidIndex(Index))
-    {
         return ArrowAmmoCounts[Index];
-    }
     return 0;
 }
 
 void AArcherCharacterBase::ConsumeAmmo(EArrowType Type, int32 Amount)
 {
-    if (!HasAuthority()) return; // 소비는 서버에서만!
+    if (!HasAuthority()) return;
+    if (Type == EArrowType::Normal) return;
 
     int32 Index = static_cast<int32>(Type);
     if (ArrowAmmoCounts.IsValidIndex(Index))
-    {
         ArrowAmmoCounts[Index] = FMath::Max(0, ArrowAmmoCounts[Index] - Amount);
-    }
+}
+
+FText AArcherCharacterBase::GetCurrentAmmoDisplayText() const
+{
+    if (CurrentArrowType == EArrowType::Normal)
+        return FText::FromString(TEXT("∞"));
+    return FText::AsNumber(GetAmmoCount(CurrentArrowType));
 }
 
 void AArcherCharacterBase::AddAmmo(EArrowType Type, int32 Amount)

@@ -76,6 +76,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Ammo")
 	EArrowType GetCurrentArrowType() const { return CurrentArrowType; }
 
+	UFUNCTION(BlueprintPure, Category = "Ammo|UI")
+	FText GetCurrentAmmoDisplayText() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Ammo")
 	TSubclassOf<class AArrowProjectile> GetCurrentArrowClass() const;
 

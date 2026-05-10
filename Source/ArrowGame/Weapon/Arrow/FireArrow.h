@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "ArrowGame/Weapon/ArrowProjectile.h"
@@ -13,24 +13,26 @@ public:
 	AFireArrow();
 
 protected:
-
 	virtual void NotifyImpact(const FHitResult& Hit) override;
-	
-	void SpawnFireFX();
-	
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastSpawnFireFX(FVector Location);
+
 	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
-	float ExplosionRadius = 300.f;
-	
-	// 불화살만의 전용 변수들
-	UPROPERTY(EditAnywhere, Category = "Fire")
-	float BurnDamage = 5.f;
-	
-	UPROPERTY(EditAnywhere, Category = "Fire")
+	float BurnRadius = 300.f;
+
+	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
+	float BurnDamage = 10.f;
+
+	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
 	float BurnInterval = 0.5f;
 
-	UPROPERTY(EditAnywhere, Category = "Fire")
-	float BurnDuration = 3.f;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fire")
+	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
+	float BurnDuration = 5.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fire | FX")
 	class UNiagaraSystem* FireFX;
+
+	UPROPERTY(EditAnywhere, Category = "Fire | FX")
+	class USoundBase* FireImpactSound;
 };
