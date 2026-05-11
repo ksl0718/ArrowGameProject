@@ -84,11 +84,16 @@ public:
 	virtual bool GetSkillHudMetaByIndex(int32 SlotIndex, UTexture2D*& OutIcon, FText& OutKeyText) const override;
 	virtual bool GetSkillCooldownByIndex(int32 SlotIndex, float& OutRemaining, float& OutDuration) const override;
 
+	virtual void PlayHitReaction() override;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
+	UAnimMontage* HitMontage;
 
 #pragma region Skill_API // HUD 쿨다운용; NextAvailableTime은 서버 월드 시간 기준
 public:

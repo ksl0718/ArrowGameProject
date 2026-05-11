@@ -304,6 +304,14 @@ void AArcherCharacterBase::OnRep_EquippedWeapon()
     }
 }
 
+void AArcherCharacterBase::PlayHitReaction()
+{
+    if (HitMontage && !IsRolling())
+    {
+        PlayMontage(HitMontage);
+    }
+}
+
 void AArcherCharacterBase::PlayMontage(UAnimMontage* Montage, float PlayRate)
 {
     if (!Montage || !GetMesh()) return;

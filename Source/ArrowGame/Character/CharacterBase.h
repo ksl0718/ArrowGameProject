@@ -31,6 +31,12 @@ protected:
 	virtual void HandleDeathAdditional() {}
 
 public:
+	// 피격 시 서브클래스별 반응 (몽타주 등). HealthComponent에서 호출.
+	virtual void PlayHitReaction() {}
+
+protected:
+
+public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UHealthComponent* HealthComp;
 

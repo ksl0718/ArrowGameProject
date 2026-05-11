@@ -81,6 +81,16 @@ bool ADokkaebiCharacter::GetSkillCooldownByIndex(int32 SlotIndex, float& OutRema
 	return true;
 }
 
+void ADokkaebiCharacter::PlayHitReaction()
+{
+	if (!HitMontage || bIsDead) return;
+
+	if (UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		AnimInstance->Montage_Play(HitMontage);
+	}
+}
+
 void ADokkaebiCharacter::BeginPlay()
 {
 	Super::BeginPlay();
