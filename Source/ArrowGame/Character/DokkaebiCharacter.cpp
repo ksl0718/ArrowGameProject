@@ -573,6 +573,28 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 	{
 		SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::Hidden);
 		SpiritSightMarkerWidget->SetSpiritMarkerDrawInfos(TArray<FSpiritSightMarkerDrawInfo>());
+		
+		if (AGameStateBase* OffGS = GetWorld()->GetGameState())
+		{
+			AArrowPlayerState* OffMyPS = GetPlayerState<AArrowPlayerState>();
+			for (APlayerState* PS : OffGS->PlayerArray)
+			{
+				AArrowPlayerState* APS = Cast<AArrowPlayerState>(PS);
+				if (!APS || !OffMyPS || APS == OffMyPS) continue;
+				if (OffMyPS->IsDokkaebi() == APS->IsDokkaebi()) continue;
+				if (APawn* P = APS->GetPawn())
+				{
+					if (ACharacter* C = Cast<ACharacter>(P))
+					{
+						if (USkeletalMeshComponent* M = C->GetMesh())
+						{
+							M->SetRenderCustomDepth(false);
+						}
+					}
+				}
+			}
+		}
+		
 		return;
 	}
 	// 아래: IsDokkaebi 다름 = 적, 화면에 보이면 스크린 좌표만 넘김 (벽 가림은 UI가 무시)
@@ -607,6 +629,7 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 	TArray<FSpiritSightMarkerDrawInfo> MarkerInfos;
 	for (APlayerState* PS : GS->PlayerArray)
 	{
+		
 		AArrowPlayerState* APS = Cast<AArrowPlayerState>(PS);
 		if (!APS || APS == MyPS)
 		{
@@ -623,6 +646,18 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 			continue;
 		}
 
+		if (ACharacter* OtherChar = Cast<ACharacter>(OtherPawn))
+		{
+			if (USkeletalMeshComponent* EnemyMesh = OtherChar->GetMesh())
+			{
+				if (!EnemyMesh->bRenderCustomDepth)
+				{
+					EnemyMesh->SetRenderCustomDepth(true);
+					EnemyMesh->SetCustomDepthStencilValue(200); // 궁수 쪽(1)과 겹치지 않게
+				}
+			}
+		}
+		
 		if (ACharacterBase* OtherChar = Cast<ACharacterBase>(OtherPawn))
 		{
 			if (OtherChar->bIsDead)
