@@ -453,55 +453,38 @@ void ABow::FireArrow(float ChargePercent)
     }
 
     // ========== 발사 방향 계산 ==========
-    
+
     FVector SocketLoc = Mesh->GetSocketLocation(BowStringSocketName);
-    
+
     FVector ShootDir;
+    FVector FinalSpawnLoc;
     AController* Controller = OwnerArcherCharacter->GetController();
     if (Controller)
     {
         FVector CamLoc;
         FRotator CamRot;
         Controller->GetPlayerViewPoint(CamLoc, CamRot);
-        // 카메라가 보는 방향으로 100m 레이저 발사
-        FVector TraceEnd = CamLoc + (CamRot.Vector() * 10000.f);
-        
-        FHitResult AimHit;
-        FCollisionQueryParams Params;
-        Params.AddIgnoredActor(OwnerArcherCharacter);
-        Params.AddIgnoredActor(this);
-        
-        // 카메라 시선 검사
-        if (GetWorld()->LineTraceSingleByChannel(AimHit, CamLoc, TraceEnd, ECC_Visibility, Params))
+
+        ShootDir = CamRot.Vector();
+
+        // 스폰 위치를 카메라 중심선 위로 — 소켓 좌우 오프셋 제거
+        const float IdealDistance = 90.f;
+        FinalSpawnLoc = CamLoc + ShootDir * IdealDistance;
+
+        // 카메라~스폰 사이 벽 체크
+        FHitResult WallHit;
+        FCollisionQueryParams WallParams;
+        WallParams.AddIgnoredActor(OwnerArcherCharacter);
+        WallParams.AddIgnoredActor(this);
+        if (GetWorld()->LineTraceSingleByChannel(WallHit, CamLoc, FinalSpawnLoc, ECC_Visibility, WallParams))
         {
-            // 무언가 보고 있다면 그 지점을 향해 쏜다
-            ShootDir = (AimHit.Location - SocketLoc).GetSafeNormal();
-        }
-        else
-        {
-            // 허공이라면 100m 앞을 향해 쏜다
-            ShootDir = (TraceEnd - SocketLoc).GetSafeNormal();
+            FinalSpawnLoc = WallHit.Location - (ShootDir * 1.f);
         }
     }
     else
     {
-        // AI/무컨트롤러 fallback은 활시위 소켓 방향 사용
         ShootDir = Mesh->GetSocketRotation(BowStringSocketName).Vector();
-    }
-    
-    const float IdealDistance = 90.f; 
-    FVector FinalSpawnLoc = SocketLoc + (ShootDir * IdealDistance);
-    
-    FHitResult WallHit;
-    FCollisionQueryParams WallParams;
-    WallParams.AddIgnoredActor(OwnerArcherCharacter);
-    WallParams.AddIgnoredActor(this);
-    
-    // 소켓 ~ 목표위치 사이에 벽이 있는지 검사
-    if (GetWorld()->LineTraceSingleByChannel(WallHit, SocketLoc, FinalSpawnLoc, ECC_Visibility, WallParams))
-    {
-        // 벽이 있으면 벽 바로 앞(1cm)으로 당김
-        FinalSpawnLoc = WallHit.Location - (ShootDir * 1.0f);
+        FinalSpawnLoc = SocketLoc + ShootDir * 90.f;
     }
 
     // 4. [화살 생성] Instigator 설정 필수
@@ -510,29 +493,6 @@ void ABow::FireArrow(float ChargePercent)
     SpawnParams.Instigator = OwnerArcherCharacter; 
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-    UE_LOG(LogTemp, Warning, TEXT("================== [FIRE ARROW DEBUG] =================="));
-
-    // 1. 소켓 위치와 최종 스폰 위치 비교
-    //float DistFromSocket = FVector::Dist(SocketLoc, FinalSpawnLoc);
-   // UE_LOG(LogTemp, Warning, TEXT("1. Spawn Distance from Socket: %f"), DistFromSocket);
-
-    // 2. 캐릭터와의 거리 확인 (캡슐 반경보다 커야 안전)
-    if (OwnerArcherCharacter && OwnerArcherCharacter->GetCapsuleComponent())
-    {
-        float CapsuleRadius = OwnerArcherCharacter->GetCapsuleComponent()->GetScaledCapsuleRadius();
-        float DistFromCenter = FVector::Dist(OwnerArcherCharacter->GetActorLocation(), FinalSpawnLoc);
-        
-
-        if (DistFromCenter <= CapsuleRadius)
-        {
-            DrawDebugSphere(GetWorld(), FinalSpawnLoc, 10.f, 12, FColor::Red, false, 3.f);
-        }
-        else
-        {
-            DrawDebugSphere(GetWorld(), FinalSpawnLoc, 10.f, 12, FColor::Green, false, 3.f);
-        }
-    }
-    
     // 회전값: ShootDir(조준방향)을 그대로 사용 -> ArrowProjectile에서 Velocity가 0이어도 이 회전값을 씀
     AArcherCharacterBase* OwnerChar = Cast<AArcherCharacterBase>(GetOwner());
     TSubclassOf<AArrowProjectile> ClassToSpawn = ArrowProjectileClass; // 기본값
