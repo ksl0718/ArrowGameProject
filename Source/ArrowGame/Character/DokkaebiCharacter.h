@@ -16,7 +16,8 @@ class UTexture2D;
 class ADokkaebiDecoy;
 class ADokkaebiCurseProjectile;
 class UUserWidget;
-
+class UPostProcessComponent;
+class UMaterialInterface;
 #pragma endregion
 
 #pragma region SkillStructs
@@ -205,6 +206,13 @@ protected:
 	void EnsureSpiritSightMarkerWidget();
 	
 	bool IsSpiritSightActive_ServerTime() const;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Dokkaebi|Skill|SpiritSight")
+	UPostProcessComponent* SpiritSightPPComp;
+	
+	/** 에디터에서 M_SpiritSightPP 머티리얼 지정 */
+	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill|SpiritSight")
+	TObjectPtr<UMaterialInterface> SpiritSightPPMaterial;
 	
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> SpiritSightAction;

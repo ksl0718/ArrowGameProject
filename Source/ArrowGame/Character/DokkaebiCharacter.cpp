@@ -15,6 +15,7 @@
 #include "../UI/SpiritSightMarkerWidget.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Components/PostProcessComponent.h"
 
 // --- 복제: 은신 전 클라, 스킬 상태·투시 종료 시각은 시전자(Owner)만 ---
 
@@ -41,6 +42,12 @@ ADokkaebiCharacter::ADokkaebiCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	SpiritSightPPComp = CreateDefaultSubobject<UPostProcessComponent>(TEXT("SpiritSightPP"));
+	SpiritSightPPComp->SetupAttachment(RootComponent);
+	SpiritSightPPComp->bEnabled = true;
+	SpiritSightPPComp->BlendWeight = 0.f;  // 기본은 꺼짐
+	SpiritSightPPComp->bUnbound = true;
+	
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
@@ -98,6 +105,13 @@ void ADokkaebiCharacter::BeginPlay()
 	{
 		MoveComp->MaxWalkSpeed = NormalWalkSpeed;
 	}
+	
+	if (SpiritSightPPMaterial)
+	{
+		SpiritSightPPComp->Settings.WeightedBlendables.Array.Add(
+			FWeightedBlendable(1.f, SpiritSightPPMaterial));
+	}
+	
 	SkillStates.SetNum(SkillSpecs.Num());
 
 	EnsureSpiritSightMarkerWidget();
@@ -550,6 +564,11 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 		return;
 	}
 
+	if (SpiritSightPPComp)
+	{
+		SpiritSightPPComp->BlendWeight = IsSpiritSightActive_ServerTime() ? 1.f : 0.f;
+	}
+	
 	if (!IsSpiritSightActive_ServerTime())
 	{
 		SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::Hidden);
