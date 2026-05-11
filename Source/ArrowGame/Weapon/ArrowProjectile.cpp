@@ -333,10 +333,13 @@ void AArrowProjectile::PickUp(AArcherCharacterBase* Picker)
 bool AArrowProjectile::IsEnemy(APawn* Instigator, AActor* Target)
 {
 	if (!Instigator || !Target) return false;
+	
 	APawn* TargetPawn = Cast<APawn>(Target);
 	if (!TargetPawn) return false;
+	
 	AArrowPlayerState* InsPS = Instigator->GetPlayerState<AArrowPlayerState>();
 	AArrowPlayerState* TgtPS = TargetPawn->GetPlayerState<AArrowPlayerState>();
+	
 	if (!InsPS || !TgtPS) return false;
 	return InsPS->IsDokkaebi() != TgtPS->IsDokkaebi();
 }
