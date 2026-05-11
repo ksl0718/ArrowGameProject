@@ -117,7 +117,7 @@ void AUserArcherCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
     {
         EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AUserArcherCharacter::Move);
         EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AUserArcherCharacter::Look);
-        EnhancedInput->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
+        EnhancedInput->BindAction(JumpAction, ETriggerEvent::Started, this, &AUserArcherCharacter::OnJumpInput);
 
         //���� ��� -  (RMB)
         EnhancedInput->BindAction(AimAction, ETriggerEvent::Started, this, &AUserArcherCharacter::StartAiming);
@@ -171,6 +171,12 @@ void AUserArcherCharacter::Look(const FInputActionValue& Value)
     const FVector2D LookAxis = Value.Get<FVector2D>();
     AddControllerYawInput(LookAxis.X);
     AddControllerPitchInput(LookAxis.Y);
+}
+
+void AUserArcherCharacter::OnJumpInput()
+{
+    if (IsAiming()) return;
+    Jump();
 }
 
 void AUserArcherCharacter::StartAiming()
@@ -412,6 +418,7 @@ void AUserArcherCharacter::ServerSetMaxWalkSpeed_Implementation(float NewSpeed)
 void AUserArcherCharacter::Roll()
 {
     if (IsInputBlockedByCurse()) return;
+    if (IsAiming()) return;
     if (bIsRolling || bIsDead || !bCanMove) return;
     if (!RollMontage) return;
 
@@ -496,6 +503,7 @@ float AUserArcherCharacter::GetRollCooldownRemaining() const
 void AUserArcherCharacter::Input_CycleArrow(const FInputActionValue& Value)
 {
     if (IsInputBlockedByCurse()) return;
+    if (IsAiming()) return;
     float ScrollValue = Value.Get<float>();
     if (ScrollValue == 0.f) return;
 
@@ -580,6 +588,7 @@ void AUserArcherCharacter::UpdateHighlight(AActor* Target, bool bEnable)
 void AUserArcherCharacter::Input_Interact(const FInputActionValue& Value)
 {
     if (IsInputBlockedByCurse()) return;
+    if (IsAiming()) return;
     // 1. 이미 실시간(Overlap)으로 찾은 '가장 가까운 타겟'이 있는지 확인합니다.
     if (CurrentTargetActor)
     {
@@ -655,6 +664,7 @@ void AUserArcherCharacter::EquipNewBow(TSubclassOf<ABow> NewBowClass)
 void AUserArcherCharacter::OnCrouchStarted(const FInputActionValue& Value)
 {
     if (IsInputBlockedByCurse()) return;
+    if (IsAiming()) return;
     if (!bCanMove || IsDead()) return;
     Crouch();
 }
