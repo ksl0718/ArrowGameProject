@@ -15,8 +15,8 @@ public:
 protected:
 	virtual void NotifyImpact(const FHitResult& Hit) override;
 
-	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastSpawnFireFX(FVector Location);
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastSpawnFireFX(FVector Location, AActor* AttachTarget);
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
 	float BurnRadius = 300.f;
