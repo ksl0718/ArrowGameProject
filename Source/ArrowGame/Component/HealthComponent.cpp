@@ -4,7 +4,7 @@
 #include "HealthComponent.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
-#include "../Character/ArcherCharacterBase.h"
+#include "../Character/CharacterBase.h"
 #include "../Core/GameModes/ArrowGameGameMode.h"
 #include "Net/UnrealNetwork.h"
 
@@ -94,19 +94,11 @@ void UHealthComponent::OnRep_Health()
 	// 값이 변해서 이 함수가 불리면, UI에게 알림
 	OnHealthChanged.Broadcast(Health, MaxHealth);
 	
-	AArcherCharacterBase* ArrowChar = Cast<AArcherCharacterBase>(GetOwner());
-	if (ArrowChar)
+	if (Health > 0.f)
 	{
-		// 🔥 [핵심 추가] 체력이 0보다 크고, 몽타주가 있고, "구르는 중이 아닐 때만(!!!)" 재생
-		if (Health > 0.f && ArrowChar->HitMontage && !ArrowChar->IsRolling())
+		if (ACharacterBase* CharBase = Cast<ACharacterBase>(GetOwner()))
 		{
-			ArrowChar->PlayMontage(ArrowChar->HitMontage);
-		}
-		else if (ArrowChar->IsRolling())
-		{
-			// (선택 사항) 구르는 중이라 모션은 안 틀지만, 맞았다는 타격감을 위해 
-			// 핏물 튀기는 파티클(VFX)이나 윽! 하는 사운드만 여기서 따로 틀어줘도 아주 좋습니다.
-			UE_LOG(LogTemp, Log, TEXT("구르는 중에 맞아서 피격 모션을 생략합니다."));
+			CharBase->PlayHitReaction();
 		}
 	}
 }

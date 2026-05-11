@@ -5,21 +5,31 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
+#include "ArrowGame/Core/ArrowPlayerState.h"
 #include "InputActionValue.h"
 #include "../Character/DokkaebiDecoy.h"
 #include "Net/UnrealNetwork.h"
-#include "GameFramework/GameStateBase.h"
 #include "../Character/DokkaebiCurseProjectile.h"
+#include "../UI/SpiritSightMarkerWidget.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "Camera/PlayerCameraManager.h"
+
+// --- 복제: 은신 전 클라, 스킬 상태·투시 종료 시각은 시전자(Owner)만 ---
 
 void ADokkaebiCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ADokkaebiCharacter, bIsStealthed);
 	DOREPLIFETIME_CONDITION(ADokkaebiCharacter, SkillStates, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ADokkaebiCharacter, SpiritSightEndServerTime, COND_OwnerOnly);
 }
 
 ADokkaebiCharacter::ADokkaebiCharacter()
 {
+	PrimaryActorTick.bCanEverTick = true; // 투시 마커 Tick 갱신용
+	
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 250.f;
@@ -71,6 +81,16 @@ bool ADokkaebiCharacter::GetSkillCooldownByIndex(int32 SlotIndex, float& OutRema
 	return true;
 }
 
+void ADokkaebiCharacter::PlayHitReaction()
+{
+	if (!HitMontage || bIsDead) return;
+
+	if (UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		AnimInstance->Montage_Play(HitMontage);
+	}
+}
+
 void ADokkaebiCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -79,11 +99,26 @@ void ADokkaebiCharacter::BeginPlay()
 		MoveComp->MaxWalkSpeed = NormalWalkSpeed;
 	}
 	SkillStates.SetNum(SkillSpecs.Num());
+
+	EnsureSpiritSightMarkerWidget();
 }
 
 
+void ADokkaebiCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	if (!IsLocallyControlled()) return;
+	UpdateSpiritSightMarkers(DeltaTime); // 다른 클라는 마커 불필요
+}
+
 void ADokkaebiCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (SpiritSightMarkerWidget)
+	{
+		SpiritSightMarkerWidget->RemoveFromParent();
+		SpiritSightMarkerWidget = nullptr;
+	}
+
 	if (DefaultMappingContext)
 	{
 		if (APlayerController* PC = Cast<APlayerController>(Controller))
@@ -132,6 +167,12 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		{
 			EnhancedInput->BindAction(CurseSkillAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::FireCurseProjectile);
 		}
+		
+		if (SpiritSightAction)
+		{
+			EnhancedInput->BindAction(SpiritSightAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::Input_SpiritSight);
+		}
+		
 	}
 
 	// BeginPlay 때는 아직 Possess 전이라 Controller가 없을 수 있음(호스트에서 특히).
@@ -151,6 +192,35 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					}
 				}
 			}
+		}
+	}
+
+	EnsureSpiritSightMarkerWidget(); // BeginPlay엔 Controller 없을 수 있어 Setup에서도 재시도
+}
+
+// 로컬 플레이어만: PC 생긴 뒤 뷰포트에 마커 레이어 올림
+void ADokkaebiCharacter::EnsureSpiritSightMarkerWidget()
+{
+	if (!IsLocallyControlled() || !SpiritSightMarkerWidgetClass || SpiritSightMarkerWidget)
+	{
+		return;
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		SpiritSightMarkerWidget = CreateWidget<USpiritSightMarkerWidget>(PC, SpiritSightMarkerWidgetClass);
+		if (SpiritSightMarkerWidget)
+		{
+			if (SpiritSightMarkerEntryClass)
+			{
+				SpiritSightMarkerWidget->MarkerEntryWidgetClass = SpiritSightMarkerEntryClass;
+			}
+			SpiritSightMarkerWidget->AddToViewport(10);
+			// 뷰포트 전체를 안 쓰면 캔버스가 접혀서 마커가 왼쪽 위에만 보임
+			SpiritSightMarkerWidget->SetAnchorsInViewport(FAnchors(0.f, 0.f, 1.f, 1.f));
+			SpiritSightMarkerWidget->SetAlignmentInViewport(FVector2D(0.f, 0.f));
+			// SetOffsetsInViewport 는 엔진 버전에 없을 수 있음 — 앵커 풀스크린만으로 보통 충분
+			SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
 }
@@ -288,8 +358,7 @@ void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
 
 void ADokkaebiCharacter::OnRep_IsStealthed()
 {
-	
-
+	// 본인: 반투명+포스트 / 타인: 메시 숨김
 	if (IsLocallyControlled())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Stealth OnRep: bIsStealthed=%d, Local=%d"),
@@ -340,7 +409,7 @@ void ADokkaebiCharacter::FireCurseProjectile()
 	const FVector SpawnLoc = GetActorLocation() + GetActorForwardVector() * 100.f + FVector(0,0,50.f);
 	const FRotator SpawnRot = GetControlRotation();
 
-	Server_FireCurseProjectile(SpawnLoc, SpawnRot);
+	Server_FireCurseProjectile(SpawnLoc, SpawnRot); // 실제 스폰·쿨다운은 서버
 }
 
 void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector SpawnLoc, FRotator SpawnRot)
@@ -392,6 +461,7 @@ bool ADokkaebiCharacter::CanUseSkillOnAuthority(int32 SkillIndex) const
 	
 	return true;
 }
+// 쿨다운·입력 락 갱신 — 스킬별 실제 효과는 호출부에서
 bool ADokkaebiCharacter::TryCommitSkillUseOnAuthority(int32 SkillIndex)
 {
 	if (!CanUseSkillOnAuthority(SkillIndex)) return false;
@@ -427,4 +497,135 @@ void ADokkaebiCharacter::UnlockSkillInput(int32 SkillIndex)
 	{
 		SkillStates[SkillIndex].bInputLocked = false;
 	}
+}
+
+void ADokkaebiCharacter::OnRep_SpiritSightEnd()
+{
+	EnsureSpiritSightMarkerWidget(); // 복제 직후 위젯 없으면 생성
+}
+
+bool ADokkaebiCharacter::IsSpiritSightActive_ServerTime() const
+{
+	if (!GetWorld()) return false;
+	const AGameStateBase* GS = GetWorld()->GetGameState();
+	const float Now = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	return SpiritSightEndServerTime > 0.f && Now < SpiritSightEndServerTime;
+}
+
+void ADokkaebiCharacter::Input_SpiritSight(const FInputActionValue& Value)
+{
+	// Listen 호스트는 RPC 없이 권한 함수만 태움 (미끼와 동일)
+	if (HasAuthority())
+	{
+		ExecuteSpiritSightOnAuthority();
+	}
+	else
+	{
+		Server_UseSpiritSight();
+	}
+}
+
+void ADokkaebiCharacter::Server_UseSpiritSight_Implementation()
+{
+	ExecuteSpiritSightOnAuthority();
+}
+
+void ADokkaebiCharacter::ExecuteSpiritSightOnAuthority()
+{
+	constexpr int32 SpiritSightIndex = 2; // SkillSpecs[2] 쿨다운
+	if (!TryCommitSkillUseOnAuthority(SpiritSightIndex))
+	{
+		return;
+	}
+
+	const AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	SpiritSightEndServerTime = NowServer + FMath::Max(0.1f, SpiritSightDuration);
+}
+
+void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
+{
+	if (!SpiritSightMarkerWidget)
+	{
+		return;
+	}
+
+	if (!IsSpiritSightActive_ServerTime())
+	{
+		SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::Hidden);
+		SpiritSightMarkerWidget->SetSpiritMarkerDrawInfos(TArray<FSpiritSightMarkerDrawInfo>());
+		return;
+	}
+	// 아래: IsDokkaebi 다름 = 적, 화면에 보이면 스크린 좌표만 넘김 (벽 가림은 UI가 무시)
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		return;
+	}
+
+	AArrowPlayerState* MyPS = GetPlayerState<AArrowPlayerState>();
+	if (!MyPS)
+	{
+		return;
+	}
+
+	AGameStateBase* GS = GetWorld()->GetGameState();
+	if (!GS)
+	{
+		return;
+	}
+
+	FVector RefLoc = GetActorLocation();
+	if (APlayerCameraManager* PCM = PC->PlayerCameraManager)
+	{
+		RefLoc = PCM->GetCameraLocation();
+	}
+
+	const float DNear = FMath::Min(SpiritSightScaleNearCm, SpiritSightScaleFarCm);
+	const float DFar = FMath::Max(SpiritSightScaleNearCm, SpiritSightScaleFarCm);
+
+	TArray<FSpiritSightMarkerDrawInfo> MarkerInfos;
+	for (APlayerState* PS : GS->PlayerArray)
+	{
+		AArrowPlayerState* APS = Cast<AArrowPlayerState>(PS);
+		if (!APS || APS == MyPS)
+		{
+			continue;
+		}
+		if (MyPS->IsDokkaebi() == APS->IsDokkaebi())
+		{
+			continue;
+		}
+
+		APawn* OtherPawn = APS->GetPawn();
+		if (!OtherPawn || OtherPawn->IsActorBeingDestroyed())
+		{
+			continue;
+		}
+
+		if (ACharacterBase* OtherChar = Cast<ACharacterBase>(OtherPawn))
+		{
+			if (OtherChar->bIsDead)
+			{
+				continue;
+			}
+		}
+
+		const FVector WorldLoc = OtherPawn->GetActorLocation() + FVector(0, 0, 80.f);
+		FVector2D WidgetSpace;
+		if (UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(PC, WorldLoc, WidgetSpace, true))
+		{
+			const float DistCm = FVector::Dist(RefLoc, WorldLoc);
+			const float Scale = FMath::GetMappedRangeValueClamped(FVector2D(DNear, DFar), FVector2D(SpiritSightScaleAtNear, SpiritSightScaleAtFar), DistCm);
+
+			FSpiritSightMarkerDrawInfo Info;
+			Info.ScreenPosition = WidgetSpace;
+			Info.UniformScale = Scale;
+			MarkerInfos.Add(Info);
+		}
+	}
+
+	SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
+	SpiritSightMarkerWidget->SetSpiritMarkerDrawInfos(MarkerInfos);
 }

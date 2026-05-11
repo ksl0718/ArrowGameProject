@@ -32,6 +32,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void PlayMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
+	virtual void PlayHitReaction() override;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
 	class UAnimMontage* FireMontage;
 
