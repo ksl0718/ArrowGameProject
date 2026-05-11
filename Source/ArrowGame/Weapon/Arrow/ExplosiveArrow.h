@@ -15,7 +15,7 @@ public:
 protected:
 	virtual void NotifyImpact(const FHitResult& Hit) override;
 
-	UFUNCTION(NetMulticast, Unreliable)
+	UFUNCTION(NetMulticast, Reliable)
 	void MulticastSpawnExplosionFX(FVector Location);
 
 	UPROPERTY(EditAnywhere, Category = "Explosion | Settings")

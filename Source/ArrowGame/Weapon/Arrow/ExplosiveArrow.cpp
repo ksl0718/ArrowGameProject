@@ -6,16 +6,17 @@
 AExplosiveArrow::AExplosiveArrow()
 {
 	bShouldApplyDirectDamage = false;
+	bAlwaysRelevant = true;
 }
 
 void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)
 {
 	if (!HasAuthority()) return;
 
-	MulticastSpawnExplosionFX(GetActorLocation());
+	FVector Origin = Hit.ImpactPoint;
+	MulticastSpawnExplosionFX(Origin);
 
 	TArray<FHitResult> OutHits;
-	FVector Origin = GetActorLocation();
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(ExplosionRadius);
 
 	GetWorld()->SweepMultiByChannel(OutHits, Origin, Origin, FQuat::Identity, ECC_Pawn, Sphere);
@@ -28,7 +29,9 @@ void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)
 		UGameplayStatics::ApplyDamage(HitActor, ExplosionDamage, GetInstigatorController(), this, UDamageType::StaticClass());
 	}
 
-	Destroy();
+	if (CollisionBox) CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SetActorHiddenInGame(true);
+	SetLifeSpan(1.f);
 }
 
 void AExplosiveArrow::MulticastSpawnExplosionFX_Implementation(FVector Location)
