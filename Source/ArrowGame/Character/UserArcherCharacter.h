@@ -164,6 +164,7 @@ protected:
 #pragma region Input_Handlers
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void OnJumpInput();
 	void StartAiming();
 	void StopAiming();
 	void StartCharging();
