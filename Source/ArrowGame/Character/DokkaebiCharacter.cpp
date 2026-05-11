@@ -15,6 +15,7 @@
 #include "../UI/SpiritSightMarkerWidget.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Components/PostProcessComponent.h"
 
 // --- 복제: 은신 전 클라, 스킬 상태·투시 종료 시각은 시전자(Owner)만 ---
 
@@ -41,6 +42,12 @@ ADokkaebiCharacter::ADokkaebiCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	SpiritSightPPComp = CreateDefaultSubobject<UPostProcessComponent>(TEXT("SpiritSightPP"));
+	SpiritSightPPComp->SetupAttachment(RootComponent);
+	SpiritSightPPComp->bEnabled = true;
+	SpiritSightPPComp->BlendWeight = 0.f;  // 기본은 꺼짐
+	SpiritSightPPComp->bUnbound = true;
+	
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
@@ -98,6 +105,13 @@ void ADokkaebiCharacter::BeginPlay()
 	{
 		MoveComp->MaxWalkSpeed = NormalWalkSpeed;
 	}
+	
+	if (SpiritSightPPMaterial)
+	{
+		SpiritSightPPComp->Settings.WeightedBlendables.Array.Add(
+			FWeightedBlendable(1.f, SpiritSightPPMaterial));
+	}
+	
 	SkillStates.SetNum(SkillSpecs.Num());
 
 	EnsureSpiritSightMarkerWidget();
@@ -550,10 +564,37 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 		return;
 	}
 
+	if (SpiritSightPPComp)
+	{
+		SpiritSightPPComp->BlendWeight = IsSpiritSightActive_ServerTime() ? 1.f : 0.f;
+	}
+	
 	if (!IsSpiritSightActive_ServerTime())
 	{
 		SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::Hidden);
 		SpiritSightMarkerWidget->SetSpiritMarkerDrawInfos(TArray<FSpiritSightMarkerDrawInfo>());
+		
+		if (AGameStateBase* OffGS = GetWorld()->GetGameState())
+		{
+			AArrowPlayerState* OffMyPS = GetPlayerState<AArrowPlayerState>();
+			for (APlayerState* PS : OffGS->PlayerArray)
+			{
+				AArrowPlayerState* APS = Cast<AArrowPlayerState>(PS);
+				if (!APS || !OffMyPS || APS == OffMyPS) continue;
+				if (OffMyPS->IsDokkaebi() == APS->IsDokkaebi()) continue;
+				if (APawn* P = APS->GetPawn())
+				{
+					if (ACharacter* C = Cast<ACharacter>(P))
+					{
+						if (USkeletalMeshComponent* M = C->GetMesh())
+						{
+							M->SetRenderCustomDepth(false);
+						}
+					}
+				}
+			}
+		}
+		
 		return;
 	}
 	// 아래: IsDokkaebi 다름 = 적, 화면에 보이면 스크린 좌표만 넘김 (벽 가림은 UI가 무시)
@@ -588,6 +629,7 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 	TArray<FSpiritSightMarkerDrawInfo> MarkerInfos;
 	for (APlayerState* PS : GS->PlayerArray)
 	{
+		
 		AArrowPlayerState* APS = Cast<AArrowPlayerState>(PS);
 		if (!APS || APS == MyPS)
 		{
@@ -604,6 +646,18 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 			continue;
 		}
 
+		if (ACharacter* OtherChar = Cast<ACharacter>(OtherPawn))
+		{
+			if (USkeletalMeshComponent* EnemyMesh = OtherChar->GetMesh())
+			{
+				if (!EnemyMesh->bRenderCustomDepth)
+				{
+					EnemyMesh->SetRenderCustomDepth(true);
+					EnemyMesh->SetCustomDepthStencilValue(200); // 궁수 쪽(1)과 겹치지 않게
+				}
+			}
+		}
+		
 		if (ACharacterBase* OtherChar = Cast<ACharacterBase>(OtherPawn))
 		{
 			if (OtherChar->bIsDead)
