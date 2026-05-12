@@ -328,3 +328,8 @@ void AArrowGamePlayerController::Client_ShowRoundResult_Implementation( bool bIs
         UE_LOG(LogTemp, Warning, TEXT("GameOver %4s %s"), *PlayerName,  bIsWin ? TEXT("WIN") : TEXT("LOSE"));
     }, MoveToLobbyInSeconds, false); */
 }
+
+void AArrowGamePlayerController::Client_ShowHitMarker_Implementation()
+{
+	ShowHitMarker();
+}

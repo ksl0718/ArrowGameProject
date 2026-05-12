@@ -15,6 +15,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "../Character/ArcherCharacterBase.h"
 #include "../Core/ArrowPlayerState.h"
+#include "../Core/ArrowGamePlayerController.h"
 
 void AArrowProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -209,6 +210,13 @@ void AArrowProjectile::OnHit(
 					this,
 					UDamageType::StaticClass()
 				);
+			}
+			if (IsEnemy(GetInstigator(), OtherActor))
+			{
+				if (AArrowGamePlayerController* PC = Cast<AArrowGamePlayerController>(GetInstigatorController()))
+				{
+					PC->Client_ShowHitMarker();
+				}
 			}
 			// 즉시 Destroy 대신 지연 — 피격 FX 멀티캐스트 RPC가 클라에 도달할 시간 확보
 			SetLifeSpan(1.f);

@@ -59,6 +59,12 @@ public:
 
 	UFUNCTION(Client, Reliable)
 	void Client_ShowRoundResult(bool bIsWin, float MoveToLobbyInSeconds);
+
+	UFUNCTION(Client, Reliable)
+	void Client_ShowHitMarker();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "UI")
+	void ShowHitMarker();
 	
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<UUserWidget> LoadingWidgetClass;
