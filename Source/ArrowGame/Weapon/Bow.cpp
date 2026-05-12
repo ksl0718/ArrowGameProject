@@ -457,7 +457,7 @@ void ABow::FireArrow(float ChargePercent)
     FVector SocketLoc = Mesh->GetSocketLocation(BowStringSocketName);
 
     FVector ShootDir;
-    FVector FinalSpawnLoc;
+    FVector FinalSpawnLoc = SocketLoc;
     AController* Controller = OwnerArcherCharacter->GetController();
     if (Controller)
     {
@@ -465,26 +465,23 @@ void ABow::FireArrow(float ChargePercent)
         FRotator CamRot;
         Controller->GetPlayerViewPoint(CamLoc, CamRot);
 
-        ShootDir = CamRot.Vector();
-
-        // 스폰 위치를 카메라 중심선 위로 — 소켓 좌우 오프셋 제거
-        const float IdealDistance = 90.f;
-        FinalSpawnLoc = CamLoc + ShootDir * IdealDistance;
-
-        // 카메라~스폰 사이 벽 체크
-        FHitResult WallHit;
-        FCollisionQueryParams WallParams;
-        WallParams.AddIgnoredActor(OwnerArcherCharacter);
-        WallParams.AddIgnoredActor(this);
-        if (GetWorld()->LineTraceSingleByChannel(WallHit, CamLoc, FinalSpawnLoc, ECC_Visibility, WallParams))
+        // 카메라 에임 타겟 라인트레이스 (100m)
+        FVector AimTarget = CamLoc + CamRot.Vector() * 10000.f;
+        FHitResult AimHit;
+        FCollisionQueryParams AimParams;
+        AimParams.AddIgnoredActor(OwnerArcherCharacter);
+        AimParams.AddIgnoredActor(this);
+        if (GetWorld()->LineTraceSingleByChannel(AimHit, CamLoc, AimTarget, ECC_Visibility, AimParams))
         {
-            FinalSpawnLoc = WallHit.Location - (ShootDir * 1.f);
+            AimTarget = AimHit.Location;
         }
+
+        // 스폰은 활 소켓, 방향은 소켓 -> 에임 타겟
+        ShootDir = (AimTarget - SocketLoc).GetSafeNormal();
     }
     else
     {
         ShootDir = Mesh->GetSocketRotation(BowStringSocketName).Vector();
-        FinalSpawnLoc = SocketLoc + ShootDir * 90.f;
     }
 
     // 4. [화살 생성] Instigator 설정 필수
