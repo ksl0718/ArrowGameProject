@@ -213,6 +213,10 @@ protected:
 	/** 에디터에서 M_SpiritSightPP 머티리얼 지정 */
 	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill|SpiritSight")
 	TObjectPtr<UMaterialInterface> SpiritSightPPMaterial;
+
+	/** 적 실루엣용 Translucent+DisableDepthTest 머티리얼 (M_SpiritSightOverlay) */
+	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill|SpiritSight")
+	TObjectPtr<UMaterialInterface> SpiritSightOverlayMaterial;
 	
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> SpiritSightAction;

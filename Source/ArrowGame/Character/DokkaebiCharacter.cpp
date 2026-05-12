@@ -574,6 +574,7 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 		SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::Hidden);
 		SpiritSightMarkerWidget->SetSpiritMarkerDrawInfos(TArray<FSpiritSightMarkerDrawInfo>());
 		
+		// 투시 종료: 적 오버레이 머티리얼 해제
 		if (AGameStateBase* OffGS = GetWorld()->GetGameState())
 		{
 			AArrowPlayerState* OffMyPS = GetPlayerState<AArrowPlayerState>();
@@ -588,7 +589,7 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 					{
 						if (USkeletalMeshComponent* M = C->GetMesh())
 						{
-							M->SetRenderCustomDepth(false);
+							M->SetOverlayMaterial(nullptr);
 						}
 					}
 				}
@@ -646,14 +647,17 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 			continue;
 		}
 
-		if (ACharacter* OtherChar = Cast<ACharacter>(OtherPawn))
+		// 투시 중: 적 메시에 실루엣 오버레이 (Disable Depth Test라 벽 뒤에서도 보임)
+		if (SpiritSightOverlayMaterial)
 		{
-			if (USkeletalMeshComponent* EnemyMesh = OtherChar->GetMesh())
+			if (ACharacter* OtherChar = Cast<ACharacter>(OtherPawn))
 			{
-				if (!EnemyMesh->bRenderCustomDepth)
+				if (USkeletalMeshComponent* EnemyMesh = OtherChar->GetMesh())
 				{
-					EnemyMesh->SetRenderCustomDepth(true);
-					EnemyMesh->SetCustomDepthStencilValue(200); // 궁수 쪽(1)과 겹치지 않게
+					if (EnemyMesh->GetOverlayMaterial() != SpiritSightOverlayMaterial)
+					{
+						EnemyMesh->SetOverlayMaterial(SpiritSightOverlayMaterial);
+					}
 				}
 			}
 		}
