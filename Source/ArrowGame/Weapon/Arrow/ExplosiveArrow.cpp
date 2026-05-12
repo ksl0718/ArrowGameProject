@@ -6,16 +6,17 @@
 AExplosiveArrow::AExplosiveArrow()
 {
 	bShouldApplyDirectDamage = false;
+	bAlwaysRelevant = true;
 }
 
 void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)
 {
 	if (!HasAuthority()) return;
 
-	MulticastSpawnExplosionFX(Hit.ImpactPoint);
+	FVector Origin = Hit.ImpactPoint;
+	MulticastSpawnExplosionFX(Origin);
 
 	TArray<FHitResult> OutHits;
-	FVector Origin = GetActorLocation();
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(ExplosionRadius);
 
 	GetWorld()->SweepMultiByChannel(OutHits, Origin, Origin, FQuat::Identity, ECC_Pawn, Sphere);
@@ -28,9 +29,8 @@ void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)
 		UGameplayStatics::ApplyDamage(HitActor, ExplosionDamage, GetInstigatorController(), this, UDamageType::StaticClass());
 	}
 
-	// 즉시 Destroy 대신 지연 — 멀티캐스트 RPC가 클라에 도달할 시간 확보
+	if (CollisionBox) CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SetActorHiddenInGame(true);
-	CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SetLifeSpan(1.f);
 }
 
