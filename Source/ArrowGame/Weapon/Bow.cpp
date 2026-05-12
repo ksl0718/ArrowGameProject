@@ -476,8 +476,10 @@ void ABow::FireArrow(float ChargePercent)
             AimTarget = AimHit.Location;
         }
 
-        // 스폰은 활 소켓, 방향은 소켓 -> 에임 타겟
-        ShootDir = (AimTarget - SocketLoc).GetSafeNormal();
+        // 카메라 중심선 위에 스폰 (소켓의 forward 거리만큼 앞) → 레티클 정확도 + 머리뒤 아님
+        float SocketFwdDist = FVector::DotProduct(SocketLoc - CamLoc, CamRot.Vector());
+        FinalSpawnLoc = CamLoc + CamRot.Vector() * FMath::Max(SocketFwdDist, 30.f);
+        ShootDir = CamRot.Vector();
     }
     else
     {
