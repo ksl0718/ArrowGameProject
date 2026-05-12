@@ -198,7 +198,8 @@ void AArrowProjectile::OnHit(
 	{
 		if (HasAuthority())
 		{
-			CollisionBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+			CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			SetActorHiddenInGame(true);
 			if (bShouldApplyDirectDamage)
 			{
 				UGameplayStatics::ApplyDamage(
@@ -209,7 +210,8 @@ void AArrowProjectile::OnHit(
 					UDamageType::StaticClass()
 				);
 			}
-			Destroy();
+			// 즉시 Destroy 대신 지연 — 피격 FX 멀티캐스트 RPC가 클라에 도달할 시간 확보
+			SetLifeSpan(1.f);
 		}
 		else
 		{

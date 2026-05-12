@@ -12,7 +12,9 @@ void AFireArrow::NotifyImpact(const FHitResult& Hit)
 {
 	if (!HasAuthority()) return;
 
-	MulticastSpawnFireFX(GetActorLocation());
+	AActor* HitActor = Hit.GetActor();
+	bool bHitPawn = HitActor && HitActor->IsA(APawn::StaticClass());
+	MulticastSpawnFireFX(Hit.ImpactPoint, bHitPawn ? HitActor : nullptr);
 
 	TArray<FHitResult> OutHits;
 	FVector Origin = GetActorLocation();
@@ -22,18 +24,35 @@ void AFireArrow::NotifyImpact(const FHitResult& Hit)
 
 	for (auto& HitResult : OutHits)
 	{
-		AActor* HitActor = HitResult.GetActor();
-		if (!HitActor || !IsEnemy(GetInstigator(), HitActor)) continue;
+		AActor* BurnTarget = HitResult.GetActor();
+		if (!BurnTarget || !IsEnemy(GetInstigator(), BurnTarget)) continue;
 
-		UHealthComponent* HC = HitActor->FindComponentByClass<UHealthComponent>();
+		UHealthComponent* HC = BurnTarget->FindComponentByClass<UHealthComponent>();
 		if (HC) HC->StartBurn(BurnDuration, BurnInterval, BurnDamage);
 	}
 }
 
-void AFireArrow::MulticastSpawnFireFX_Implementation(FVector Location)
+void AFireArrow::MulticastSpawnFireFX_Implementation(FVector Location, AActor* AttachTarget)
 {
 	if (FireFX)
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), FireFX, Location);
+	{
+		if (AttachTarget && AttachTarget->GetRootComponent())
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAttached(
+				FireFX,
+				AttachTarget->GetRootComponent(),
+				NAME_None,
+				Location,
+				FRotator::ZeroRotator,
+				EAttachLocation::KeepWorldPosition,
+				true
+			);
+		}
+		else
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), FireFX, Location);
+		}
+	}
 	if (FireImpactSound)
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), FireImpactSound, Location);
 }
