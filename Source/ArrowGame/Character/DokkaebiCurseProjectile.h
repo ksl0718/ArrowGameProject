@@ -18,6 +18,9 @@ public:
 	
 	void SetCurseCaster(ADokkaebiCharacter* InCaster);
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Effects", meta = (AllowPrivateAccess = "true"))
+	class UNiagaraComponent* TrailNiagara;
+	
 protected:
 	virtual void BeginPlay() override;
 

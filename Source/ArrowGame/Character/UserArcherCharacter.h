@@ -64,6 +64,8 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Curse")
 	bool IsInputBlockedByCurse() const { return bIsCursedControl; }
+	
+	void UpdateCurseLocalPostProcessVignette();
 #pragma endregion
 
 protected:
