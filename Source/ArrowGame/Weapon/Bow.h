@@ -76,14 +76,20 @@ protected:
 
     UFUNCTION(Server, Reliable)
     void ServerStartAim();
-    
+
    //서버한테 활 당기라고 요청
     UFUNCTION(Server, Reliable)
     void ServerStartDraw();
-    
+
     //활쏘라고 요청
     UFUNCTION(Server, Reliable)
     void ServerEndDraw();
+
+    UFUNCTION(NetMulticast, Reliable)
+    void MulticastPlayDrawSound();
+
+    UFUNCTION(NetMulticast, Reliable)
+    void MulticastPlayFireSound();
     
     UPROPERTY(ReplicatedUsing=OnRep_IsCharging, VisibleAnywhere, BlueprintReadOnly, Category = "Bow|State")
     bool bIsCharging = false;

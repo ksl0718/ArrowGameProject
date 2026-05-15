@@ -103,12 +103,30 @@ void ABow::ServerStartAim_Implementation()
 void ABow::ServerStartDraw_Implementation()
 {
     UE_LOG(LogTemp, Error, TEXT("Server OK"));
-    
-    bIsCharging = true;  // 이 값이 변경되면
+
+    bIsCharging = true;
     ChargeTime = 0.f;
     BowState = EBowState::Charging;
-    
+
+    MulticastPlayDrawSound();
+
     OnRep_IsCharging();
+}
+
+void ABow::MulticastPlayDrawSound_Implementation()
+{
+    // 로컬 플레이어는 StartDraw()에서 이미 재생했으므로 스킵
+    if (OwnerArcherCharacter && OwnerArcherCharacter->IsLocallyControlled()) return;
+    if (DrawSound)
+        UGameplayStatics::SpawnSoundAtLocation(this, DrawSound, GetActorLocation());
+}
+
+void ABow::MulticastPlayFireSound_Implementation()
+{
+    // 로컬 플레이어는 EndDraw()에서 이미 재생했으므로 스킵
+    if (OwnerArcherCharacter && OwnerArcherCharacter->IsLocallyControlled()) return;
+    if (FireSound)
+        UGameplayStatics::SpawnSoundAtLocation(this, FireSound, GetActorLocation());
 }
 // 에임 상태가 변할 때 호출 (서버가 값을 바꾸면 모든 클라이언트에서 실행됨)
 void ABow::OnRep_IsVisualAiming()
@@ -185,15 +203,12 @@ void ABow::StartDraw()
         return;
     }
     
-    if (DrawSound)
+    // 로컬 클라이언트만 즉시 재생 (예측), 다른 클라이언트는 ServerStartDraw → Multicast로 전달
+    if (DrawSound && OwnerArcherCharacter && OwnerArcherCharacter->IsLocallyControlled())
     {
-        UGameplayStatics::SpawnSoundAtLocation(
-            this,
-            DrawSound,
-            GetActorLocation()
-        );
+        UGameplayStatics::SpawnSoundAtLocation(this, DrawSound, GetActorLocation());
     }
-    
+
     if (HasAuthority())
     {
         bIsCharging = true;
@@ -412,12 +427,17 @@ void ABow::EndDraw()
     // PreparedArrow 체크 제거 (더 이상 필요 없음)
     if (bIsCharging)
     {
-        // [예측] 서버 응답을 기다리지 않고 내 화면에서 먼저 재장전 상태로 만듭니다.
+        // 로컬 클라이언트 즉시 재생 (예측), 다른 클라이언트는 FireArrow → Multicast로 전달
+        if (FireSound && OwnerArcherCharacter && OwnerArcherCharacter->IsLocallyControlled())
+        {
+            UGameplayStatics::SpawnSoundAtLocation(this, FireSound, GetActorLocation());
+        }
+
         bIsReloading = true;
         UpdateArrowVisual();
 
-        ServerEndDraw(); // 서버에 발사 요청
-        
+        ServerEndDraw();
+
         bIsCharging = false;
     }
 }
@@ -441,10 +461,7 @@ void ABow::FireArrow(float ChargePercent)
         return;
     }
     
-    if (FireSound)
-    {
-        UGameplayStatics::SpawnSoundAtLocation(this, FireSound, GetActorLocation());
-    }
+    MulticastPlayFireSound();
 
     if (!Mesh || !Mesh->DoesSocketExist(BowStringSocketName))
     {
