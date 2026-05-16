@@ -18,6 +18,12 @@ public:
 	
 	void SetCurseCaster(ADokkaebiCharacter* InCaster);
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Effects", meta = (AllowPrivateAccess = "true"))
+	class UNiagaraComponent* TrailNiagara;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UProjectileMovementComponent* ProjectileMovement;
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -35,8 +41,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	USphereComponent* Collision;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	UProjectileMovementComponent* ProjectileMovement;
+	
 	
 	UPROPERTY(EditAnywhere, Category="Curse")
 	float LifeSeconds = 2.0f;

@@ -105,6 +105,7 @@ void AUserArcherCharacter::BeginPlay()
             ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
         {
             Subsystem->AddMappingContext(DefaultMappingContext, 0);
+            UpdateCurseLocalPostProcessVignette();
         }
     }
 }
@@ -743,6 +744,8 @@ void AUserArcherCharacter::ApplyCurseControl(float Duration, ADokkaebiCharacter*
     StopAiming();
     UE_LOG(LogTemp, Warning, TEXT("[Curse] Start %.2fs"), Duration);
     
+    UpdateCurseLocalPostProcessVignette();
+    
     GetWorldTimerManager().ClearTimer(CurseEndTimerHandle);
     GetWorldTimerManager().SetTimer(
         CurseEndTimerHandle,
@@ -773,6 +776,8 @@ void AUserArcherCharacter::EndCurseControl()
     bIsCursedControl = false;
     CursedDokkaebi = nullptr;
     
+    UpdateCurseLocalPostProcessVignette();
+    
     UE_LOG(LogTemp, Warning, TEXT("[Curse] End"));
 }
 
@@ -789,6 +794,7 @@ void AUserArcherCharacter::OnRep_IsCursedControl()
     {
         StopAiming();
     }
+    UpdateCurseLocalPostProcessVignette();
 }
 
 bool AUserArcherCharacter::TryGetCursedFleeWorldDirection2D(FVector& OutDir) const
@@ -871,4 +877,13 @@ void AUserArcherCharacter::CursedBrainTick()
             });
         }
     }
+}
+
+void AUserArcherCharacter::UpdateCurseLocalPostProcessVignette()
+{
+    if (!IsLocallyControlled() || !FollowCamera)
+    {
+        return;
+    }
+    FollowCamera->PostProcessBlendWeight = bIsCursedControl ? 1.f : 0.f;
 }
