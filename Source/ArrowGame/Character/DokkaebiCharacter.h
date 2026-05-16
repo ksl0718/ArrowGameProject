@@ -161,6 +161,7 @@ public:
 	
 	bool IsCurseOrbReady() const { return bCurseOrbReady; }
 protected:
+	UPROPERTY(ReplicatedUsing = OnRep_CurseOrbReady)
 	bool bCurseOrbReady = false;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dokkaebi|Skill|Curse", meta = (AllowPrivateAccess = "true"))
@@ -181,14 +182,41 @@ protected:
 	/** E 입력 */
 	void Input_PrepareCurseOrb(const FInputActionValue& Value);
 	
-	void CancelCurseOrbPrepare();
+	/** 로컬/클라 → 서버 취소 요청 */
+	void RequestCancelCurseOrbPrepare();
+	
+	UFUNCTION()
+	void OnRep_CurseOrbReady();
+	
+	void ApplyCurseOrbReadyVisuals();
+	
+	/** 서버 전용: 복제 변수 변경 + 리슨 호스트 비주얼 (OnRep 미호출 보정) */
+	void SetCurseOrbReadyOnServer(bool bReady);
+
+	/** Server_Cancel / 발사 성공 등 여러 서버 경로에서 공유 */
+	void CancelCurseOrbPrepareOnServer();
+	
+	UFUNCTION(Server, Reliable)
+	void Server_StartCursePrepare();
+	
+	UFUNCTION(Server, Reliable)
+	void Server_CancelCursePrepare();
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayPrepareCurseMontage();
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayFireCurseMontage();
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_StopPrepareCurseMontage();
 	
 	/** 구체 표시/숨김 + (선택) 스케일 */
 	void SetCurseOrbPreviewVisible(bool bVisible);
 	
-	/** 몽타주 재생 (로컬 1차) */
 	void PlayPrepareCurseMontage();
-	void PlayFireCurseMontage(); 
+	void PlayFireCurseMontage();
+	void StopPrepareCurseMontage();
 	
 	UFUNCTION(Server, Reliable)
 	void Server_FireCurseProjectile(FVector SpawnLoc, FVector AimDir);

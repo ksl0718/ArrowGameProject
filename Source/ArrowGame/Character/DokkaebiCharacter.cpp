@@ -29,8 +29,10 @@ void ADokkaebiCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ADokkaebiCharacter, bIsStealthed);
+	DOREPLIFETIME(ADokkaebiCharacter, bCurseOrbReady);
 	DOREPLIFETIME_CONDITION(ADokkaebiCharacter, SkillStates, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(ADokkaebiCharacter, SpiritSightEndServerTime, COND_OwnerOnly);
+	
 }
 
 ADokkaebiCharacter::ADokkaebiCharacter()
@@ -371,6 +373,11 @@ void ADokkaebiCharacter::EndStealthOnAuthority()
 
 void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
 {
+	if (IsLocallyControlled() && bCurseOrbReady)
+	{
+		RequestCancelCurseOrbPrepare();
+	}
+
 	const FVector SpawnLoc = GetActorLocation();
 	const FRotator ControlRot = GetControlRotation();
 	const FRotator SpawnRot(0.f, ControlRot.Yaw, 0.f);
@@ -438,54 +445,121 @@ bool ADokkaebiCharacter::IsSkillCoolingDownByIndex(EDokkaebiSkillIndex SkillInde
 
 void ADokkaebiCharacter::Input_PrepareCurseOrb(const FInputActionValue& /*Value*/)
 {
-	// 다른 플레이어 폰 / 관전자 입력 무시
-	if (!IsLocallyControlled())
+	if (!IsLocallyControlled() || bIsDead)
 	{
 		return;
 	}
-	if (bIsDead)
-	{
-		return;
-	}
-	// 이미 준비 중 → E 한 번 더 = 취소 (토글)
+
 	if (bCurseOrbReady)
 	{
-		CancelCurseOrbPrepare();
+		RequestCancelCurseOrbPrepare();
 		return;
 	}
-	// (선택) 저주 스킬 쿨이면 준비도 막기 — 발사 때 쿨 깎을 거면 여기서 막는 게 UX상 자연스러움
+
 	constexpr EDokkaebiSkillIndex CurseIndex = EDokkaebiSkillIndex::SkillB;
 	if (IsSkillCoolingDownByIndex(CurseIndex))
 	{
 		return;
 	}
-	bCurseOrbReady = true;
-	SetCurseOrbPreviewVisible(true);
+
+	if (HasAuthority())
+	{
+		Server_StartCursePrepare_Implementation();
+	}
+	else
+	{
+		Server_StartCursePrepare();
+	}
+}
+
+void ADokkaebiCharacter::RequestCancelCurseOrbPrepare()
+{
+	if (HasAuthority())
+	{
+		Server_CancelCursePrepare_Implementation();
+	}
+	else
+	{
+		Server_CancelCursePrepare();
+	}
+}
+
+void ADokkaebiCharacter::Server_StartCursePrepare_Implementation()
+{
+	if (!HasAuthority() || bIsDead || bCurseOrbReady)
+	{
+		return;
+	}
+
+	constexpr EDokkaebiSkillIndex CurseIndex = EDokkaebiSkillIndex::SkillB;
+	if (IsSkillCoolingDownByIndex(CurseIndex))
+	{
+		return;
+	}
+
+	SetCurseOrbReadyOnServer(true);
+	Multicast_PlayPrepareCurseMontage();
+}
+
+void ADokkaebiCharacter::Server_CancelCursePrepare_Implementation()
+{
+	CancelCurseOrbPrepareOnServer();
+}
+
+void ADokkaebiCharacter::CancelCurseOrbPrepareOnServer()
+{
+	if (!HasAuthority() || !bCurseOrbReady)
+	{
+		return;
+	}
+
+	SetCurseOrbReadyOnServer(false);
+	Multicast_StopPrepareCurseMontage();
+}
+
+void ADokkaebiCharacter::Multicast_PlayPrepareCurseMontage_Implementation()
+{
 	PlayPrepareCurseMontage();
+}
+
+void ADokkaebiCharacter::Multicast_PlayFireCurseMontage_Implementation()
+{
+	PlayFireCurseMontage();
+}
+
+void ADokkaebiCharacter::Multicast_StopPrepareCurseMontage_Implementation()
+{
+	StopPrepareCurseMontage();
 }
 
 void ADokkaebiCharacter::FireCurseProjectile()
 {
-	if (!IsLocallyControlled() || bIsDead) return;
-	if (!bCurseOrbReady) return;
-	
-	PlayFireCurseMontage(); 
-	
-	
+	if (!IsLocallyControlled() || bIsDead || !bCurseOrbReady)
+	{
+		return;
+	}
+
 	FVector SpawnLoc, AimDir;
 	ComputeCurseFireFromView(SpawnLoc, AimDir);
 	AimDir = AimDir.GetSafeNormal();
-	
+
 	if (HasAuthority())
+	{
 		Server_FireCurseProjectile_Implementation(SpawnLoc, AimDir);
+	}
 	else
+	{
 		Server_FireCurseProjectile(SpawnLoc, AimDir);
-	
-	CancelCurseOrbPrepare(); 
+	}
 }
 
 void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector SpawnLoc, FVector AimDir)
 {
+	if (!bCurseOrbReady)
+	{
+		return;
+	}
+
 	constexpr int32 CurseIndex = 1;
 	if (!TryCommitSkillUseOnAuthority(CurseIndex))
 	{
@@ -497,38 +571,40 @@ void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector Spawn
 		UE_LOG(LogTemp, Error, TEXT("CurseProjectileClass is null"));
 		return;
 	}
-	
+
 	AimDir = AimDir.GetSafeNormal();
 	if (AimDir.IsNearlyZero())
 	{
 		AimDir = GetActorForwardVector();
 	}
-	
+
 	FActorSpawnParameters Params;
 	Params.Owner = this;
 	Params.Instigator = this;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	
+
 	const FRotator SpawnRot = AimDir.Rotation();
-	
+
 	ADokkaebiCurseProjectile* Proj = GetWorld()->SpawnActor<ADokkaebiCurseProjectile>(
 		CurseProjectileClass, SpawnLoc, SpawnRot, Params);
-	
+
 	if (!Proj)
 	{
 		return;
 	}
-	
+
 	Proj->SetCurseCaster(this);
 	Proj->SetInstigator(this);
 	Proj->SetOwner(this);
-	
+
 	if (UProjectileMovementComponent* Move = Proj->ProjectileMovement)
 	{
 		const float Speed = Move->InitialSpeed > 0.f ? Move->InitialSpeed : 1800.f;
 		Move->Velocity = AimDir * Speed;
 	}
-	
+
+	Multicast_PlayFireCurseMontage();
+	CancelCurseOrbPrepareOnServer();
 }
 
 bool ADokkaebiCharacter::ComputeCurseFireFromView(FVector& OutSpawnLoc, FVector& OutAimDir) const
@@ -633,6 +709,11 @@ bool ADokkaebiCharacter::IsSpiritSightActive_ServerTime() const
 
 void ADokkaebiCharacter::Input_SpiritSight(const FInputActionValue& Value)
 {
+	if (IsLocallyControlled() && bCurseOrbReady)
+	{
+		RequestCancelCurseOrbPrepare();
+	}
+
 	// Listen 호스트는 RPC 없이 권한 함수만 태움 (미끼와 동일)
 	if (HasAuthority())
 	{
@@ -840,23 +921,38 @@ void ADokkaebiCharacter::PlayFireCurseMontage()
 	Anim->Montage_Play(FireCurseMontage);
 }
 
-void ADokkaebiCharacter::CancelCurseOrbPrepare()
+void ADokkaebiCharacter::StopPrepareCurseMontage()
 {
-	if (!bCurseOrbReady)
+	if (!PrepareCurseMontage)
 	{
 		return;
 	}
-	bCurseOrbReady = false;
-	SetCurseOrbPreviewVisible(false);
-	// 준비 몽타주만 끄고 싶을 때 (전체 몽타주 막지 않으려면 Slot 지정도 가능)
-	if (PrepareCurseMontage)
+
+	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
 	{
-		if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+		if (Anim->Montage_IsPlaying(PrepareCurseMontage))
 		{
-			if (Anim->Montage_IsPlaying(PrepareCurseMontage))
-			{
-				Anim->Montage_Stop(0.2f, PrepareCurseMontage);
-			}
+			Anim->Montage_Stop(0.2f, PrepareCurseMontage);
 		}
 	}
+}
+
+void ADokkaebiCharacter::OnRep_CurseOrbReady()
+{
+	ApplyCurseOrbReadyVisuals();
+}
+
+void ADokkaebiCharacter::ApplyCurseOrbReadyVisuals()
+{
+	SetCurseOrbPreviewVisible(bCurseOrbReady);
+}
+
+void ADokkaebiCharacter::SetCurseOrbReadyOnServer(bool bReady)
+{
+	if (!HasAuthority() || bCurseOrbReady == bReady)
+	{
+		return;
+	}
+	bCurseOrbReady = bReady;
+	ApplyCurseOrbReadyVisuals(); // 서버(리슨 호스트) OnRep 미호출 보정
 }
