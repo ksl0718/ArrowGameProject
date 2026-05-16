@@ -168,9 +168,8 @@ void AUserArcherCharacter::Move(const FInputActionValue& Value)
 void AUserArcherCharacter::Look(const FInputActionValue& Value)
 {
     // 저주 중에도 시야(마우스)는 돌릴 수 있게 둔다. 이동만 IsInputBlockedByCurse로 막는다.
-    const FVector2D LookAxis = Value.Get<FVector2D>();
-    AddControllerYawInput(LookAxis.X);
-    AddControllerPitchInput(LookAxis.Y);
+    // Tick에서 스무딩 후 적용하므로 여기서는 누적만 한다.
+    RawLookInput += Value.Get<FVector2D>() * MouseSensitivity;
 }
 
 void AUserArcherCharacter::OnJumpInput()
@@ -306,6 +305,15 @@ void AUserArcherCharacter::Tick(float DeltaTime)
 
     if (IsLocallyControlled())
     {
+        // 마우스 입력 스무딩: 이전 프레임 값과 lerp 후 적용, 약간의 지연감/관성 연출
+        SmoothedLookInput = FVector2D(
+            FMath::FInterpTo(SmoothedLookInput.X, RawLookInput.X, DeltaTime, LookSmoothingSpeed),
+            FMath::FInterpTo(SmoothedLookInput.Y, RawLookInput.Y, DeltaTime, LookSmoothingSpeed)
+        );
+        AddControllerYawInput(SmoothedLookInput.X);
+        AddControllerPitchInput(SmoothedLookInput.Y);
+        RawLookInput = FVector2D::ZeroVector;
+
         ABow* Bow = Cast<ABow>(EquippedWeapon);
         bool bShouldShake = TiredCameraShakeClass && Bow && Bow->IsCharging() && Bow->GetChargeTime() > Bow->GetTiredThreshold();
 
