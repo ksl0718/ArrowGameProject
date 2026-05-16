@@ -16,6 +16,12 @@
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/PostProcessComponent.h"
+#include "Components/SceneComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 
 // --- 복제: 은신 전 클라, 스킬 상태·투시 종료 시각은 시전자(Owner)만 ---
 
@@ -52,6 +58,14 @@ ADokkaebiCharacter::ADokkaebiCharacter()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
 
+	CurseOrbSlot = CreateDefaultSubobject<USceneComponent>(TEXT("CurseOrbSlot"));
+	CurseOrbSlot->SetupAttachment(GetCapsuleComponent());
+	
+	CurseOrbPreviewMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CurseOrbPreview"));
+	CurseOrbPreviewMesh->SetupAttachment(CurseOrbSlot);
+	CurseOrbPreviewMesh->SetHiddenInGame(true);
+	CurseOrbPreviewMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 	{
 		MoveComp->bOrientRotationToMovement = true;
@@ -179,7 +193,7 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		
 		if (CurseSkillAction)
 		{
-			EnhancedInput->BindAction(CurseSkillAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::FireCurseProjectile);
+			EnhancedInput->BindAction(CurseSkillAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::Input_PrepareCurseOrb);
 		}
 		
 		if (SpiritSightAction)
@@ -187,6 +201,10 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			EnhancedInput->BindAction(SpiritSightAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::Input_SpiritSight);
 		}
 		
+		if (FireAction)
+		{
+			EnhancedInput->BindAction(FireAction, ETriggerEvent::Started, this, &ADokkaebiCharacter::FireCurseProjectile);
+		}
 	}
 
 	// BeginPlay 때는 아직 Possess 전이라 Controller가 없을 수 있음(호스트에서 특히).
@@ -418,15 +436,55 @@ bool ADokkaebiCharacter::IsSkillCoolingDownByIndex(EDokkaebiSkillIndex SkillInde
 	return GetSkillCooldownRemainingByIndex(SkillIndex) > 0.f;
 }
 
-void ADokkaebiCharacter::FireCurseProjectile()
+void ADokkaebiCharacter::Input_PrepareCurseOrb(const FInputActionValue& /*Value*/)
 {
-	const FVector SpawnLoc = GetActorLocation() + GetActorForwardVector() * 100.f + FVector(0,0,50.f);
-	const FRotator SpawnRot = GetControlRotation();
-
-	Server_FireCurseProjectile(SpawnLoc, SpawnRot); // 실제 스폰·쿨다운은 서버
+	// 다른 플레이어 폰 / 관전자 입력 무시
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+	if (bIsDead)
+	{
+		return;
+	}
+	// 이미 준비 중 → E 한 번 더 = 취소 (토글)
+	if (bCurseOrbReady)
+	{
+		CancelCurseOrbPrepare();
+		return;
+	}
+	// (선택) 저주 스킬 쿨이면 준비도 막기 — 발사 때 쿨 깎을 거면 여기서 막는 게 UX상 자연스러움
+	constexpr EDokkaebiSkillIndex CurseIndex = EDokkaebiSkillIndex::SkillB;
+	if (IsSkillCoolingDownByIndex(CurseIndex))
+	{
+		return;
+	}
+	bCurseOrbReady = true;
+	SetCurseOrbPreviewVisible(true);
+	PlayPrepareCurseMontage();
 }
 
-void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector SpawnLoc, FRotator SpawnRot)
+void ADokkaebiCharacter::FireCurseProjectile()
+{
+	if (!IsLocallyControlled() || bIsDead) return;
+	if (!bCurseOrbReady) return;
+	
+	PlayFireCurseMontage(); 
+	
+	
+	FVector SpawnLoc, AimDir;
+	ComputeCurseFireFromView(SpawnLoc, AimDir);
+	AimDir = AimDir.GetSafeNormal();
+	
+	if (HasAuthority())
+		Server_FireCurseProjectile_Implementation(SpawnLoc, AimDir);
+	else
+		Server_FireCurseProjectile(SpawnLoc, AimDir);
+	
+	CancelCurseOrbPrepare(); 
+}
+
+void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector SpawnLoc, FVector AimDir)
 {
 	constexpr int32 CurseIndex = 1;
 	if (!TryCommitSkillUseOnAuthority(CurseIndex))
@@ -439,24 +497,71 @@ void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector Spawn
 		UE_LOG(LogTemp, Error, TEXT("CurseProjectileClass is null"));
 		return;
 	}
+	
+	AimDir = AimDir.GetSafeNormal();
+	if (AimDir.IsNearlyZero())
+	{
+		AimDir = GetActorForwardVector();
+	}
+	
 	FActorSpawnParameters Params;
 	Params.Owner = this;
 	Params.Instigator = this;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	
+	const FRotator SpawnRot = AimDir.Rotation();
+	
 	ADokkaebiCurseProjectile* Proj = GetWorld()->SpawnActor<ADokkaebiCurseProjectile>(
-		CurseProjectileClass,
-		SpawnLoc,
-		FRotator(0.f, SpawnRot.Yaw, 0.f),
-		Params
-	);
-	if (Proj)
+		CurseProjectileClass, SpawnLoc, SpawnRot, Params);
+	
+	if (!Proj)
 	{
-		Proj->SetCurseCaster(this);
-		// (선택) 이미 Params로 넣었어도 한 번 더 명시해도 무방
-		Proj->SetInstigator(this);
-		Proj->SetOwner(this);
-		UE_LOG(LogTemp, Warning, TEXT("[Dokkaebi] Curse projectile fired"));
+		return;
 	}
+	
+	Proj->SetCurseCaster(this);
+	Proj->SetInstigator(this);
+	Proj->SetOwner(this);
+	
+	if (UProjectileMovementComponent* Move = Proj->ProjectileMovement)
+	{
+		const float Speed = Move->InitialSpeed > 0.f ? Move->InitialSpeed : 1800.f;
+		Move->Velocity = AimDir * Speed;
+	}
+	
+}
+
+bool ADokkaebiCharacter::ComputeCurseFireFromView(FVector& OutSpawnLoc, FVector& OutAimDir) const
+{
+	OutAimDir = GetActorForwardVector();
+	OutSpawnLoc = GetActorLocation();
+	
+	const APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		if (CurseOrbSlot)
+		{
+			OutSpawnLoc = CurseOrbSlot->GetComponentLocation();
+		}
+		return false;
+	}
+	
+	FVector CamLoc;
+	FRotator CamRot;
+	
+	PC->GetPlayerViewPoint(CamLoc, CamRot);
+	OutAimDir = CamRot.Vector();
+	
+	if (CurseOrbSlot)
+	{
+		OutSpawnLoc = CurseOrbSlot->GetComponentLocation();
+	}
+	else
+	{
+		OutSpawnLoc = CamLoc + CamRot.Vector() * 80.f;
+	}
+
+	return true;
 }
 
 bool ADokkaebiCharacter::CanUseSkillOnAuthority(int32 SkillIndex) const
@@ -686,4 +791,72 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 
 	SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
 	SpiritSightMarkerWidget->SetSpiritMarkerDrawInfos(MarkerInfos);
+}
+
+void ADokkaebiCharacter::SetCurseOrbPreviewVisible(bool bVisible)
+{
+	if (!CurseOrbPreviewMesh)
+	{
+		return;
+	}
+	CurseOrbPreviewMesh->SetHiddenInGame(!bVisible);
+}
+
+void ADokkaebiCharacter::PlayPrepareCurseMontage()
+{
+	if (!PrepareCurseMontage)
+	{
+		return;
+	}
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (!MeshComp)
+	{
+		return;
+	}
+	UAnimInstance* Anim = MeshComp->GetAnimInstance();
+	if (!Anim)
+	{
+		return;
+	}
+	// 같은 몽타주가 이미 돌면 중복 재생 방지 (선택)
+	if (Anim->Montage_IsPlaying(PrepareCurseMontage))
+	{
+		return;
+	}
+	Anim->Montage_Play(PrepareCurseMontage);
+}
+
+void ADokkaebiCharacter::PlayFireCurseMontage()
+{
+	if (!FireCurseMontage || !GetMesh()) return;
+	
+	UAnimInstance* Anim = GetMesh()->GetAnimInstance();
+	if (!Anim) return;
+	// 준비 몽타주 끊고 발사로 넘어가는 경우가 많음
+	if (PrepareCurseMontage && Anim->Montage_IsPlaying(PrepareCurseMontage))
+	{
+		Anim->Montage_Stop(0.1f, PrepareCurseMontage);
+	}
+	Anim->Montage_Play(FireCurseMontage);
+}
+
+void ADokkaebiCharacter::CancelCurseOrbPrepare()
+{
+	if (!bCurseOrbReady)
+	{
+		return;
+	}
+	bCurseOrbReady = false;
+	SetCurseOrbPreviewVisible(false);
+	// 준비 몽타주만 끄고 싶을 때 (전체 몽타주 막지 않으려면 Slot 지정도 가능)
+	if (PrepareCurseMontage)
+	{
+		if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+		{
+			if (Anim->Montage_IsPlaying(PrepareCurseMontage))
+			{
+				Anim->Montage_Stop(0.2f, PrepareCurseMontage);
+			}
+		}
+	}
 }
