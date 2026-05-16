@@ -69,8 +69,21 @@ void UHealthComponent::DamageTaken(
 	if (!GetOwner()->HasAuthority()) return;
 	
 	Health = FMath::Clamp(Health - Damage, 0.0f, MaxHealth);
-	
+
 	UE_LOG(LogTemp, Warning, TEXT("%s Health: %.1f"), *GetOwner()->GetName(), Health);
+
+	// 피격 FX 멀티캐스트 (막타 포함 항상)
+	if (ACharacterBase* CharBase = Cast<ACharacterBase>(GetOwner()))
+	{
+		FVector HitLocation = GetOwner()->GetActorLocation();
+		FVector AttackerLocation = FVector::ZeroVector;
+		if (Instigator && Instigator->GetPawn())
+			AttackerLocation = Instigator->GetPawn()->GetActorLocation();
+		else if (DamageCause)
+			AttackerLocation = DamageCause->GetActorLocation();
+
+		CharBase->MulticastHitFX(HitLocation, AttackerLocation);
+	}
 
 	OnRep_Health();
 

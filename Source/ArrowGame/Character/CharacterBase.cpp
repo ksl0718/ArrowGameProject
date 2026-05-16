@@ -4,8 +4,9 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-
 #include "Net/UnrealNetwork.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Camera/CameraShakeBase.h"
 
 ACharacterBase::ACharacterBase()
 {
@@ -62,6 +63,23 @@ void ACharacterBase::OnDeathProcessed()
 		HandleDeathAdditional();
 		SetLifeSpan(5.0f);
 	}
+}
+
+void ACharacterBase::MulticastHitFX_Implementation(FVector HitLocation, FVector AttackerLocation)
+{
+	if (HitFX)
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), HitFX, HitLocation,
+			FRotator::ZeroRotator, FVector(0.5f));
+
+	if (!IsLocallyControlled()) return;
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (PC->PlayerCameraManager && HitCameraShakeClass)
+			PC->PlayerCameraManager->StartCameraShake(HitCameraShakeClass);
+	}
+
+	OnHitEffect(AttackerLocation);
 }
 
 void ACharacterBase::Multicast_Die_Implementation()
