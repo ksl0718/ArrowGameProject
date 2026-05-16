@@ -20,6 +20,10 @@ ADokkaebiCurseProjectile::ADokkaebiCurseProjectile()
 	Collision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &ADokkaebiCurseProjectile::OnPawnOverlap);
 	
+	TrailNiagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Trail"));
+	TrailNiagara->SetupAttachment(RootComponent);
+	TrailNiagara->bAutoActivate = false;
+	
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovement->InitialSpeed = 1800.f;
 	ProjectileMovement->MaxSpeed = 1800.f;
@@ -31,6 +35,12 @@ void ADokkaebiCurseProjectile::BeginPlay()
 {
 	Super::BeginPlay();
 	SetLifeSpan(LifeSeconds);
+
+	if (TrailNiagara)
+	{
+		TrailNiagara->Activate(true);
+		// 또는: TrailNiagara->ActivateSystem();
+	}
 }
 
 void ADokkaebiCurseProjectile::SetCurseCaster(ADokkaebiCharacter* InCaster)

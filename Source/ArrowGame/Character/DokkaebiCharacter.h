@@ -18,6 +18,10 @@ class ADokkaebiCurseProjectile;
 class UUserWidget;
 class UPostProcessComponent;
 class UMaterialInterface;
+class USceneComponent;
+class UStaticMeshComponent;
+class UAnimMontage;
+
 #pragma endregion
 
 #pragma region SkillStructs
@@ -152,16 +156,76 @@ protected:
 #pragma endregion
 
 #pragma region Curse_Skill // 투사체 스폰, SkillSpecs[1] 쿨다운
-protected:
 	
-	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
+public:
+	
+	bool IsCurseOrbReady() const { return bCurseOrbReady; }
+protected:
+	UPROPERTY(ReplicatedUsing = OnRep_CurseOrbReady)
+	bool bCurseOrbReady = false;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dokkaebi|Skill|Curse", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USceneComponent> CurseOrbSlot;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dokkaebi|Skill|Curse", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> CurseOrbPreviewMesh;
+	
+	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill|Curse")
+	TObjectPtr<UAnimMontage> PrepareCurseMontage;
+	
+	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill|Curse")
+	TObjectPtr<UAnimMontage> FireCurseMontage;
+	
+	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill|Curse")
 	TSubclassOf<ADokkaebiCurseProjectile> CurseProjectileClass;
 	
+	/** E 입력 */
+	void Input_PrepareCurseOrb(const FInputActionValue& Value);
+	
+	/** 로컬/클라 → 서버 취소 요청 */
+	void RequestCancelCurseOrbPrepare();
+	
+	UFUNCTION()
+	void OnRep_CurseOrbReady();
+	
+	void ApplyCurseOrbReadyVisuals();
+	
+	/** 서버 전용: 복제 변수 변경 + 리슨 호스트 비주얼 (OnRep 미호출 보정) */
+	void SetCurseOrbReadyOnServer(bool bReady);
+
+	/** Server_Cancel / 발사 성공 등 여러 서버 경로에서 공유 */
+	void CancelCurseOrbPrepareOnServer();
+	
 	UFUNCTION(Server, Reliable)
-	void Server_FireCurseProjectile(FVector SpawnLoc, FRotator SpawnRot);
+	void Server_StartCursePrepare();
+	
+	UFUNCTION(Server, Reliable)
+	void Server_CancelCursePrepare();
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayPrepareCurseMontage();
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayFireCurseMontage();
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_StopPrepareCurseMontage();
+	
+	/** 구체 표시/숨김 + (선택) 스케일 */
+	void SetCurseOrbPreviewVisible(bool bVisible);
+	
+	void PlayPrepareCurseMontage();
+	void PlayFireCurseMontage();
+	void StopPrepareCurseMontage();
+	
+	UFUNCTION(Server, Reliable)
+	void Server_FireCurseProjectile(FVector SpawnLoc, FVector AimDir);
+	// (선택) 로컬에서만 쓰는 헬퍼
+	
+	bool ComputeCurseFireFromView(FVector& OutSpawnLoc, FVector& OutAimDir) const;
 	
 	void FireCurseProjectile();
-	
+
 #pragma endregion
 	
 #pragma region Wallhack_Skill // 투시: 서버에서 종료 시각만 복제, 마커는 소유 클라에서만 갱신
@@ -257,6 +321,9 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* CurseSkillAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* FireAction;
 	
 #pragma endregion
 
