@@ -403,3 +403,6 @@ Content/Haena_v02/
 
 # Claude Code
 .claude/
+# MixedVFX - demo/scene assets excluded
+Content/MixedVFX/Blueprints/
+Content/MixedVFX/SceneAssets/

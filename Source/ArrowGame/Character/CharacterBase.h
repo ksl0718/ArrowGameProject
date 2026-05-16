@@ -7,6 +7,7 @@
 
 class UHealthComponent;
 class UUserWidget;
+class UNiagaraSystem;
 
 UCLASS()
 class ARROWGAME_API ACharacterBase : public ACharacter
@@ -33,6 +34,18 @@ protected:
 public:
 	// 피격 시 서브클래스별 반응 (몽타주 등). HealthComponent에서 호출.
 	virtual void PlayHitReaction() {}
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastHitFX(FVector HitLocation, FVector AttackerLocation);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Hit FX")
+	void OnHitEffect(FVector AttackerWorldLocation);
+
+	UPROPERTY(EditAnywhere, Category = "Hit FX")
+	UNiagaraSystem* HitFX;
+
+	UPROPERTY(EditAnywhere, Category = "Hit FX")
+	TSubclassOf<UCameraShakeBase> HitCameraShakeClass;
 
 protected:
 

@@ -10,6 +10,7 @@
 class AWeapon;
 class USceneComponent;
 class UStaticMeshComponent;
+class UNiagaraSystem;
 
 UCLASS()
 class ARROWGAME_API AArcherCharacterBase : public ACharacterBase
@@ -89,7 +90,7 @@ public:
 
 	UFUNCTION(Server, Reliable)
 	void ServerPlayFireMontage();
-	
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
