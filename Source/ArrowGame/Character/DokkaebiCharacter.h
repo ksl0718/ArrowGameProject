@@ -91,6 +91,20 @@ public:
 
 	virtual void PlayHitReaction() override;
 
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	void SetCanMove(bool bNewCanMove) { bCanMove = bNewCanMove; }
+
+	UFUNCTION(BlueprintPure, Category = "Movement")
+	bool CanMove() const { return bCanMove; }
+
+	UFUNCTION(BlueprintPure, Category = "Dokkaebi|Stealth")
+	bool IsStealthed() const { return bIsStealthed; }
+
+	UFUNCTION(BlueprintPure, Category = "Dokkaebi|Skill|Curse")
+	bool IsCurseOrbReady() const { return bCurseOrbReady; }
+
+	float GetSyncPitch() const { return SyncPitch; }
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -157,9 +171,6 @@ protected:
 
 #pragma region Curse_Skill // 투사체 스폰, SkillSpecs[1] 쿨다운
 	
-public:
-	
-	bool IsCurseOrbReady() const { return bCurseOrbReady; }
 protected:
 	UPROPERTY(ReplicatedUsing = OnRep_CurseOrbReady)
 	bool bCurseOrbReady = false;
@@ -344,5 +355,8 @@ protected:
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Sync", meta = (AllowPrivateAccess = "true"))
+	float SyncPitch = 0.f;
 #pragma endregion
 };

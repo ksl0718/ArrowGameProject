@@ -30,6 +30,7 @@ void ADokkaebiCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ADokkaebiCharacter, bIsStealthed);
 	DOREPLIFETIME(ADokkaebiCharacter, bCurseOrbReady);
+	DOREPLIFETIME(ADokkaebiCharacter, SyncPitch);
 	DOREPLIFETIME_CONDITION(ADokkaebiCharacter, SkillStates, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(ADokkaebiCharacter, SpiritSightEndServerTime, COND_OwnerOnly);
 	
@@ -137,6 +138,12 @@ void ADokkaebiCharacter::BeginPlay()
 void ADokkaebiCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (HasAuthority())
+	{
+		SyncPitch = FRotator::NormalizeAxis(GetControlRotation().Pitch);
+	}
+
 	if (!IsLocallyControlled()) return;
 	UpdateSpiritSightMarkers(DeltaTime); // 다른 클라는 마커 불필요
 }
