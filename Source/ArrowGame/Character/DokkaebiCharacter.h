@@ -174,6 +174,10 @@ protected:
 protected:
 	UPROPERTY(ReplicatedUsing = OnRep_CurseOrbReady)
 	bool bCurseOrbReady = false;
+
+	/** false 전환 시 true면 Shrink 없이 즉시 숨김 (발사), false면 Shrink (E 취소) */
+	UPROPERTY(Replicated)
+	bool bCurseOrbHideInstant = false;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dokkaebi|Skill|Curse", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USceneComponent> CurseOrbSlot;
@@ -202,10 +206,10 @@ protected:
 	void ApplyCurseOrbReadyVisuals();
 	
 	/** 서버 전용: 복제 변수 변경 + 리슨 호스트 비주얼 (OnRep 미호출 보정) */
-	void SetCurseOrbReadyOnServer(bool bReady);
+	void SetCurseOrbReadyOnServer(bool bReady, bool bInstantHideWhenOff = false);
 
-	/** Server_Cancel / 발사 성공 등 여러 서버 경로에서 공유 */
-	void CancelCurseOrbPrepareOnServer();
+	/** bInstantHide: 발사=true(즉시 숨김), E 취소=false(Shrink) */
+	void CancelCurseOrbPrepareOnServer(bool bInstantHide = false);
 	
 	UFUNCTION(Server, Reliable)
 	void Server_StartCursePrepare();
@@ -222,8 +226,10 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_StopPrepareCurseMontage();
 	
-	/** 구체 표시/숨김 + (선택) 스케일 */
-	void SetCurseOrbPreviewVisible(bool bVisible);
+	/** bCurseOrbReady 변경 시 연출 (BP Timeline Grow/Shrink 오버라이드) */
+	UFUNCTION(BlueprintNativeEvent, Category = "Dokkaebi|Skill|Curse")
+	void UpdateCurseOrbPreviewVisuals(bool bReady, bool bInstantHide);
+	virtual void UpdateCurseOrbPreviewVisuals_Implementation(bool bReady, bool bInstantHide);
 	
 	void PlayPrepareCurseMontage();
 	void PlayFireCurseMontage();

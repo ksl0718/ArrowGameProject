@@ -30,6 +30,7 @@ void ADokkaebiCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ADokkaebiCharacter, bIsStealthed);
 	DOREPLIFETIME(ADokkaebiCharacter, bCurseOrbReady);
+	DOREPLIFETIME(ADokkaebiCharacter, bCurseOrbHideInstant);
 	DOREPLIFETIME(ADokkaebiCharacter, SyncPitch);
 	DOREPLIFETIME_CONDITION(ADokkaebiCharacter, SkillStates, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(ADokkaebiCharacter, SpiritSightEndServerTime, COND_OwnerOnly);
@@ -513,14 +514,14 @@ void ADokkaebiCharacter::Server_CancelCursePrepare_Implementation()
 	CancelCurseOrbPrepareOnServer();
 }
 
-void ADokkaebiCharacter::CancelCurseOrbPrepareOnServer()
+void ADokkaebiCharacter::CancelCurseOrbPrepareOnServer(bool bInstantHide)
 {
 	if (!HasAuthority() || !bCurseOrbReady)
 	{
 		return;
 	}
 
-	SetCurseOrbReadyOnServer(false);
+	SetCurseOrbReadyOnServer(false, bInstantHide);
 	Multicast_StopPrepareCurseMontage();
 }
 
@@ -611,7 +612,7 @@ void ADokkaebiCharacter::Server_FireCurseProjectile_Implementation(FVector Spawn
 	}
 
 	Multicast_PlayFireCurseMontage();
-	CancelCurseOrbPrepareOnServer();
+	CancelCurseOrbPrepareOnServer(true);
 }
 
 bool ADokkaebiCharacter::ComputeCurseFireFromView(FVector& OutSpawnLoc, FVector& OutAimDir) const
@@ -881,13 +882,25 @@ void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
 	SpiritSightMarkerWidget->SetSpiritMarkerDrawInfos(MarkerInfos);
 }
 
-void ADokkaebiCharacter::SetCurseOrbPreviewVisible(bool bVisible)
+void ADokkaebiCharacter::UpdateCurseOrbPreviewVisuals_Implementation(bool bReady, bool bInstantHide)
 {
 	if (!CurseOrbPreviewMesh)
 	{
 		return;
 	}
-	CurseOrbPreviewMesh->SetHiddenInGame(!bVisible);
+
+	if (bReady)
+	{
+		CurseOrbPreviewMesh->SetHiddenInGame(false);
+		CurseOrbPreviewMesh->SetRelativeScale3D(FVector::OneVector);
+		return;
+	}
+
+	if (bInstantHide)
+	{
+		CurseOrbPreviewMesh->SetRelativeScale3D(FVector::OneVector);
+		CurseOrbPreviewMesh->SetHiddenInGame(true);
+	}
 }
 
 void ADokkaebiCharacter::PlayPrepareCurseMontage()
@@ -951,15 +964,34 @@ void ADokkaebiCharacter::OnRep_CurseOrbReady()
 
 void ADokkaebiCharacter::ApplyCurseOrbReadyVisuals()
 {
-	SetCurseOrbPreviewVisible(bCurseOrbReady);
+	UpdateCurseOrbPreviewVisuals(bCurseOrbReady, bCurseOrbHideInstant);
 }
 
-void ADokkaebiCharacter::SetCurseOrbReadyOnServer(bool bReady)
+void ADokkaebiCharacter::SetCurseOrbReadyOnServer(bool bReady, bool bInstantHideWhenOff)
 {
-	if (!HasAuthority() || bCurseOrbReady == bReady)
+	if (!HasAuthority())
 	{
 		return;
 	}
-	bCurseOrbReady = bReady;
-	ApplyCurseOrbReadyVisuals(); // 서버(리슨 호스트) OnRep 미호출 보정
+
+	if (bReady)
+	{
+		if (bCurseOrbReady)
+		{
+			return;
+		}
+		bCurseOrbHideInstant = false;
+		bCurseOrbReady = true;
+	}
+	else
+	{
+		if (!bCurseOrbReady)
+		{
+			return;
+		}
+		bCurseOrbHideInstant = bInstantHideWhenOff;
+		bCurseOrbReady = false;
+	}
+
+	ApplyCurseOrbReadyVisuals();
 }
