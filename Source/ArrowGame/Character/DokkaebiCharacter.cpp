@@ -17,6 +17,8 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Components/PostProcessComponent.h"
 #include "Components/SceneComponent.h"
+#include "Components/MeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
@@ -403,26 +405,85 @@ void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
 	UE_LOG(LogTemp, Log, TEXT("Dokkaebi: Skill Input Pressed (Authority=%d)"), HasAuthority() ? 1 : 0);
 }
 
+UStaticMeshComponent* ADokkaebiCharacter::FindMaskMeshOnSocket() const
+{
+	if (MaskAttachSocketName.IsNone())
+	{
+		return nullptr;
+	}
+
+	TArray<UStaticMeshComponent*> StaticMeshes;
+	GetComponents<UStaticMeshComponent>(StaticMeshes);
+
+	for (UStaticMeshComponent* StaticMesh : StaticMeshes)
+	{
+		if (!StaticMesh || StaticMesh == CurseOrbPreviewMesh)
+		{
+			continue;
+		}
+
+		if (StaticMesh->GetAttachSocketName() == MaskAttachSocketName)
+		{
+			return StaticMesh;
+		}
+	}
+
+	return nullptr;
+}
+
+void ADokkaebiCharacter::ApplyStealthOpacityToMesh(UMeshComponent* MeshComp, bool bStealth) const
+{
+	if (!MeshComp)
+	{
+		return;
+	}
+
+	const float Opacity = bStealth ? 0.3f : 1.0f;
+	for (int32 MaterialIndex = 0; MaterialIndex < MeshComp->GetNumMaterials(); ++MaterialIndex)
+	{
+		if (UMaterialInstanceDynamic* MID = MeshComp->CreateDynamicMaterialInstance(MaterialIndex))
+		{
+			MID->SetScalarParameterValue(TEXT("Opacity"), Opacity);
+		}
+	}
+}
+
 void ADokkaebiCharacter::OnRep_IsStealthed()
 {
+	TArray<USkeletalMeshComponent*> SkelMeshes;
+	GetComponents<USkeletalMeshComponent>(SkelMeshes);
+
+	UStaticMeshComponent* MaskMesh = FindMaskMeshOnSocket();
+
 	// 본인: 반투명+포스트 / 타인: 메시 숨김
 	if (IsLocallyControlled())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Stealth OnRep: bIsStealthed=%d, Local=%d"),
-		bIsStealthed ? 1 : 0,
-		IsLocallyControlled() ? 1 : 0);
+		for (USkeletalMeshComponent* MeshComp : SkelMeshes)
+		{
+			ApplyStealthOpacityToMesh(MeshComp, bIsStealthed);
+		}
 
-		GetMesh()->SetScalarParameterValueOnMaterials(TEXT("Opacity"),bIsStealthed ? 0.3f : 1.0f);
+		ApplyStealthOpacityToMesh(MaskMesh, bIsStealthed);
 
 		if (FollowCamera)
-    	{
-        FollowCamera->PostProcessBlendWeight = bIsStealthed ? 1.0f : 0.0f;
-    	}
+		{
+			FollowCamera->PostProcessBlendWeight = bIsStealthed ? 1.0f : 0.0f;
+		}
 	}
 	else
 	{
-		GetMesh()->SetHiddenInGame(bIsStealthed);
-		
+		for (USkeletalMeshComponent* MeshComp : SkelMeshes)
+		{
+			if (MeshComp)
+			{
+				MeshComp->SetHiddenInGame(bIsStealthed);
+			}
+		}
+
+		if (MaskMesh)
+		{
+			MaskMesh->SetHiddenInGame(bIsStealthed);
+		}
 	}
 }
 

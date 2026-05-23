@@ -19,6 +19,7 @@ class UUserWidget;
 class UPostProcessComponent;
 class UMaterialInterface;
 class USceneComponent;
+class UMeshComponent;
 class UStaticMeshComponent;
 class UAnimMontage;
 
@@ -155,8 +156,15 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Dokkaebi|Skill")
 	float DecoySpawnUpOffset = 40.f;
 
+	/** 가면 StaticMesh가 붙는 소켓 (BP attach/soc_tal) */
+	UPROPERTY(EditDefaultsOnly, Category="Dokkaebi|Skill")
+	FName MaskAttachSocketName = TEXT("soc_tal");
+
 	UFUNCTION()
 	void OnRep_IsStealthed();
+
+	void ApplyStealthOpacityToMesh(UMeshComponent* MeshComp, bool bStealth) const;
+	UStaticMeshComponent* FindMaskMeshOnSocket() const;
 
 	UFUNCTION(Server, Reliable)
 	void Server_UseDecoySkill(FVector SpawnLoc, FRotator SpawnRot);
