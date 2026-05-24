@@ -304,13 +304,14 @@ void AArcherCharacterBase::OnRep_EquippedWeapon()
     }
 }
 
-void AArcherCharacterBase::PlayHitReaction()
-{
-    if (HitMontage && !IsRolling())
-    {
-        PlayMontage(HitMontage);
-    }
-}
+// Hit reaction: CharacterBase -> Multicast_TriggerHitFlinch -> AnimBP HitFlinchAlpha.
+// void AArcherCharacterBase::PlayHitReaction()
+// {
+//     if (HitMontage && !IsRolling())
+//     {
+//         PlayMontage(HitMontage);
+//     }
+// }
 
 void AArcherCharacterBase::PlayMontage(UAnimMontage* Montage, float PlayRate)
 {

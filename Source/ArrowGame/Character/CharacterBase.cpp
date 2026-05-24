@@ -1,8 +1,10 @@
 #include "CharacterBase.h"
+#include "CharacterAnimInstanceBase.h"
 #include "../Component/HealthComponent.h"
 #include "../UI/HealthBarWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "NiagaraFunctionLibrary.h"
@@ -64,6 +66,27 @@ void ACharacterBase::OnDeathProcessed()
 		HandleDeathAdditional();
 		SetLifeSpan(5.0f);
 	}
+}
+
+void ACharacterBase::PlayHitReaction()
+{
+	ApplyHitFlinch(1.f);
+}
+
+void ACharacterBase::ApplyHitFlinch(float Strength)
+{
+	if (USkeletalMeshComponent* SkelMesh = GetMesh())
+	{
+		if (UCharacterAnimInstanceBase* Anim = Cast<UCharacterAnimInstanceBase>(SkelMesh->GetAnimInstance()))
+		{
+			Anim->TriggerHitFlinch(Strength);
+		}
+	}
+}
+
+void ACharacterBase::Multicast_TriggerHitFlinch_Implementation(float Strength)
+{
+	ApplyHitFlinch(Strength);
 }
 
 void ACharacterBase::MulticastHitFX_Implementation(FVector HitLocation, FVector AttackerLocation)

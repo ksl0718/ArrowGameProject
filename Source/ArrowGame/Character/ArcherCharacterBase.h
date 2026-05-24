@@ -33,16 +33,15 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void PlayMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
-	virtual void PlayHitReaction() override;
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
 	class UAnimMontage* FireMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
 	class UAnimMontage* DeathMontage;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
-	class UAnimMontage* HitMontage;
+	// Legacy hit montage — replaced by AnimBP HitFlinchAlpha (see CharacterAnimInstanceBase).
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
+	// class UAnimMontage* HitMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Montage")
 	class UAnimMontage* RollMontage;
