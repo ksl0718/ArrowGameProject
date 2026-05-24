@@ -32,8 +32,14 @@ protected:
 	virtual void HandleDeathAdditional() {}
 
 public:
-	// 피격 시 서브클래스별 반응 (몽타주 등). HealthComponent에서 호출.
-	virtual void PlayHitReaction() {}
+	/** AnimBP flinch (HitFlinchAlpha). Replaces hit montage. */
+	virtual void PlayHitReaction();
+
+	UFUNCTION(BlueprintCallable, Category = "Hit")
+	void ApplyHitFlinch(float Strength = 1.f);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_TriggerHitFlinch(float Strength);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastHitFX(FVector HitLocation, FVector AttackerLocation);

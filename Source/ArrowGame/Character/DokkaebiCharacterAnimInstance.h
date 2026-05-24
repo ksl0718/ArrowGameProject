@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Animation/AnimInstance.h"
+#include "CharacterAnimInstanceBase.h"
 #include "DokkaebiCharacterAnimInstance.generated.h"
 
 /**
@@ -9,7 +9,7 @@
  * Exposes locomotion + skill state for ABP_Dokkaebi (no bow/aim/reload).
  */
 UCLASS()
-class ARROWGAME_API UDokkaebiCharacterAnimInstance : public UAnimInstance
+class ARROWGAME_API UDokkaebiCharacterAnimInstance : public UCharacterAnimInstanceBase
 {
 	GENERATED_BODY()
 

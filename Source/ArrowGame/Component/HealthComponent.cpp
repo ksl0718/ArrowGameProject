@@ -2,6 +2,7 @@
 
 
 #include "HealthComponent.h"
+#include "BurnDamageType.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Controller.h"
 #include "Kismet/GameplayStatics.h"
@@ -74,17 +75,24 @@ void UHealthComponent::DamageTaken(
 
 	UE_LOG(LogTemp, Warning, TEXT("%s Health: %.1f"), *GetOwner()->GetName(), Health);
 
-	// 피격 FX 멀티캐스트 (막타 포함 항상)
+	const bool bIsBurnDamage = DamageType && DamageType->IsA(UBurnDamageType::StaticClass());
+	const float FlinchStrength = bIsBurnDamage ? BurnHitFlinchStrength : 1.f;
+
 	if (ACharacterBase* CharBase = Cast<ACharacterBase>(GetOwner()))
 	{
-		FVector HitLocation = GetOwner()->GetActorLocation();
-		FVector AttackerLocation = FVector::ZeroVector;
-		if (Instigator && Instigator->GetPawn())
-			AttackerLocation = Instigator->GetPawn()->GetActorLocation();
-		else if (DamageCause)
-			AttackerLocation = DamageCause->GetActorLocation();
+		if (!bIsBurnDamage)
+		{
+			FVector HitLocation = GetOwner()->GetActorLocation();
+			FVector AttackerLocation = FVector::ZeroVector;
+			if (Instigator && Instigator->GetPawn())
+				AttackerLocation = Instigator->GetPawn()->GetActorLocation();
+			else if (DamageCause)
+				AttackerLocation = DamageCause->GetActorLocation();
 
-		CharBase->MulticastHitFX(HitLocation, AttackerLocation);
+			CharBase->MulticastHitFX(HitLocation, AttackerLocation);
+		}
+
+		CharBase->Multicast_TriggerHitFlinch(FlinchStrength);
 	}
 
 	OnRep_Health();
@@ -108,16 +116,7 @@ void UHealthComponent::DamageTaken(
 
 void UHealthComponent::OnRep_Health()
 {
-	// 값이 변해서 이 함수가 불리면, UI에게 알림
 	OnHealthChanged.Broadcast(Health, MaxHealth);
-	
-	if (Health > 0.f)
-	{
-		if (ACharacterBase* CharBase = Cast<ACharacterBase>(GetOwner()))
-		{
-			CharBase->PlayHitReaction();
-		}
-	}
 }
 
 void UHealthComponent::StartBurn(float Duration, float Interval, float Damage,
@@ -172,7 +171,7 @@ void UHealthComponent::ApplyBurnTick()
 		DamagePerTick,
 		BurnDamageInstigator.Get(),
 		nullptr,
-		UDamageType::StaticClass()
+		UBurnDamageType::StaticClass()
 	);
 
 	BurnTicksRemaining--;

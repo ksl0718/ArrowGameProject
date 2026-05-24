@@ -62,6 +62,10 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	float MaxHealth = 100.f;
+
+	/** Flinch strength for burn DoT ticks (0..1). */
+	UPROPERTY(EditAnywhere, Category = "Hit")
+	float BurnHitFlinchStrength = 0.35f;
 	
 	UPROPERTY(ReplicatedUsing = OnRep_Health)
 	float Health = 0.f;

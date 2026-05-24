@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Animation/AnimInstance.h"
+#include "CharacterAnimInstanceBase.h"
 #include "ArcherCharacterAnimInstance.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class ARROWGAME_API UArcherCharacterAnimInstance : public UAnimInstance
+class ARROWGAME_API UArcherCharacterAnimInstance : public UCharacterAnimInstanceBase
 {
 	GENERATED_BODY()
 public:
