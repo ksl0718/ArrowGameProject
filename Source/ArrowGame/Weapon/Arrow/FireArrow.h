@@ -18,9 +18,7 @@ protected:
 	virtual void NotifyImpact(const FHitResult& Hit) override;
 
 	void SpawnFireZone(const FHitResult& Hit);
-
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastSpawnFireFX(FVector Location, AActor* AttachTarget);
+	void ApplyBurnToPawn(AActor* Target);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayFireImpactSound(FVector Location);
@@ -37,8 +35,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fire | FX")
 	class UNiagaraSystem* GroundFireFX;
 
-	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
-	float BurnRadius = 300.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fire | FX")
+	class UNiagaraSystem* BodyBurnFX;
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
 	float BurnDamage = 10.f;
@@ -48,9 +46,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
 	float BurnDuration = 5.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fire | FX")
-	class UNiagaraSystem* FireFX;
 
 	UPROPERTY(EditAnywhere, Category = "Fire | FX")
 	class USoundBase* FireImpactSound;

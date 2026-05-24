@@ -6,6 +6,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
 #include "Camera/CameraShakeBase.h"
 
 ACharacterBase::ACharacterBase()
@@ -82,10 +83,43 @@ void ACharacterBase::MulticastHitFX_Implementation(FVector HitLocation, FVector 
 	OnHitEffect(AttackerLocation);
 }
 
+void ACharacterBase::MulticastPlayBurnFX_Implementation(UNiagaraSystem* FXOverride)
+{
+	MulticastStopBurnFX_Implementation();
+
+	UNiagaraSystem* FX = FXOverride ? FXOverride : BurnFX;
+	if (!FX) return;
+
+	USceneComponent* AttachTarget = GetMesh() ? static_cast<USceneComponent*>(GetMesh()) : GetCapsuleComponent();
+	if (!AttachTarget) return;
+
+	ActiveBurnFX = UNiagaraFunctionLibrary::SpawnSystemAttached(
+		FX,
+		AttachTarget,
+		NAME_None,
+		FVector::ZeroVector,
+		FRotator::ZeroRotator,
+		EAttachLocation::SnapToTarget,
+		true
+	);
+}
+
+void ACharacterBase::MulticastStopBurnFX_Implementation()
+{
+	if (ActiveBurnFX)
+	{
+		ActiveBurnFX->Deactivate();
+		ActiveBurnFX->DestroyComponent();
+		ActiveBurnFX = nullptr;
+	}
+}
+
 void ACharacterBase::Multicast_Die_Implementation()
 {
 	if (bIsDead) return;
 	bIsDead = true;
+
+	MulticastStopBurnFX_Implementation();
 
 	// 1) 캡슐 콜리전 끄기
 	if (GetCapsuleComponent())
