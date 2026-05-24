@@ -76,9 +76,9 @@ protected:
 	
 	virtual void NotifyImpact(const FHitResult& Hit);
 
+public:
 	static bool IsEnemy(APawn* Instigator, AActor* Target);
 
-public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	

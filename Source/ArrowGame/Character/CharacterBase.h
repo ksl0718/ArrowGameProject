@@ -44,6 +44,18 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Hit FX")
 	UNiagaraSystem* HitFX;
 
+	UPROPERTY(EditAnywhere, Category = "Status FX")
+	UNiagaraSystem* BurnFX;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayBurnFX(UNiagaraSystem* FXOverride);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastStopBurnFX();
+
+	UPROPERTY()
+	class UNiagaraComponent* ActiveBurnFX;
+
 	UPROPERTY(EditAnywhere, Category = "Hit FX")
 	TSubclassOf<UCameraShakeBase> HitCameraShakeClass;
 

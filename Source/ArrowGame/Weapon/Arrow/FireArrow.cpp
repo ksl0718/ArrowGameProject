@@ -1,11 +1,12 @@
 #include "FireArrow.h"
-#include "NiagaraFunctionLibrary.h"
+#include "FireZoneActor.h"
 #include "Kismet/GameplayStatics.h"
 #include "ArrowGame/Component/HealthComponent.h"
 #include "Sound/SoundBase.h"
 
 AFireArrow::AFireArrow()
 {
+	ArrowType = EArrowType::Fire;
 }
 
 void AFireArrow::NotifyImpact(const FHitResult& Hit)
@@ -13,46 +14,61 @@ void AFireArrow::NotifyImpact(const FHitResult& Hit)
 	if (!HasAuthority()) return;
 
 	AActor* HitActor = Hit.GetActor();
-	bool bHitPawn = HitActor && HitActor->IsA(APawn::StaticClass());
-	MulticastSpawnFireFX(Hit.ImpactPoint, bHitPawn ? HitActor : nullptr);
+	const bool bHitPawn = HitActor && HitActor->IsA(APawn::StaticClass());
 
-	TArray<FHitResult> OutHits;
-	FVector Origin = GetActorLocation();
-	FCollisionShape Sphere = FCollisionShape::MakeSphere(BurnRadius);
-
-	GetWorld()->SweepMultiByChannel(OutHits, Origin, Origin, FQuat::Identity, ECC_Pawn, Sphere);
-
-	for (auto& HitResult : OutHits)
+	if (bHitPawn)
 	{
-		AActor* BurnTarget = HitResult.GetActor();
-		if (!BurnTarget || !IsEnemy(GetInstigator(), BurnTarget)) continue;
-
-		UHealthComponent* HC = BurnTarget->FindComponentByClass<UHealthComponent>();
-		if (HC) HC->StartBurn(BurnDuration, BurnInterval, BurnDamage);
+		ApplyBurnToPawn(HitActor);
+		MulticastPlayFireImpactSound(Hit.ImpactPoint);
+	}
+	else
+	{
+		SpawnFireZone(Hit);
+		MulticastPlayFireImpactSound(Hit.ImpactPoint);
 	}
 }
 
-void AFireArrow::MulticastSpawnFireFX_Implementation(FVector Location, AActor* AttachTarget)
+void AFireArrow::ApplyBurnToPawn(AActor* Target)
 {
-	if (FireFX)
+	if (!Target) return;
+
+	if (UHealthComponent* HC = Target->FindComponentByClass<UHealthComponent>())
 	{
-		if (AttachTarget && AttachTarget->GetRootComponent())
-		{
-			UNiagaraFunctionLibrary::SpawnSystemAttached(
-				FireFX,
-				AttachTarget->GetRootComponent(),
-				NAME_None,
-				Location,
-				FRotator::ZeroRotator,
-				EAttachLocation::KeepWorldPosition,
-				true
-			);
-		}
-		else
-		{
-			UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), FireFX, Location);
-		}
+		HC->StartBurn(BurnDuration, BurnInterval, BurnDamage, GetInstigatorController(), BodyBurnFX);
 	}
+}
+
+void AFireArrow::SpawnFireZone(const FHitResult& Hit)
+{
+	if (!FireZoneClass) return;
+
+	const FVector SpawnLocation = Hit.ImpactPoint + Hit.ImpactNormal * 5.f;
+	const FRotator SpawnRotation = Hit.ImpactNormal.Rotation();
+
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	Params.Instigator = GetInstigator();
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AFireZoneActor* Zone = GetWorld()->SpawnActor<AFireZoneActor>(FireZoneClass, SpawnLocation, SpawnRotation, Params);
+	if (!Zone) return;
+
+	Zone->InitZone(
+		GetInstigator(),
+		GroundFireRadius,
+		GroundFireLifetime,
+		BurnDamage,
+		BurnInterval,
+		BurnDuration,
+		GroundFireFX,
+		BodyBurnFX
+	);
+}
+
+void AFireArrow::MulticastPlayFireImpactSound_Implementation(FVector Location)
+{
 	if (FireImpactSound)
+	{
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), FireImpactSound, Location);
+	}
 }

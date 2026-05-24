@@ -3,7 +3,9 @@
 
 #include "HealthComponent.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/Controller.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraSystem.h"
 #include "../Character/CharacterBase.h"
 #include "../Core/GameModes/ArrowGameGameMode.h"
 #include "Net/UnrealNetwork.h"
@@ -90,6 +92,8 @@ void UHealthComponent::DamageTaken(
 	// 사망 체크
 	if (Health <= 0.f)
 	{
+		GetWorld()->GetTimerManager().ClearTimer(BurnTimerHandle);
+		StopBurnEffects();
 		bIsDead = true;
 		// 1. 캐릭터에게 "너 죽었어" 알림 (래그돌 실행용)
 		OnDead.Broadcast();
@@ -116,21 +120,42 @@ void UHealthComponent::OnRep_Health()
 	}
 }
 
-void UHealthComponent::StartBurn(float Duration, float Interval, float Damage)
+void UHealthComponent::StartBurn(float Duration, float Interval, float Damage,
+	AController* DamageInstigator, UNiagaraSystem* BurnFXOverride)
 {
 	if (!GetOwner()->HasAuthority() || bIsDead) return;
 
-	BurnTicksRemaining = FMath::FloorToInt(Duration / Interval);
+	BurnTicksRemaining = FMath::Max(1, FMath::FloorToInt(Duration / Interval));
 	DamagePerTick = Damage;
+	BurnDamageInstigator = DamageInstigator;
 
-	// 기존에 불타고 있었다면 타이머 초기화 후 재시작
+	if (!bBurnFXActive)
+	{
+		if (ACharacterBase* CharBase = Cast<ACharacterBase>(GetOwner()))
+		{
+			CharBase->MulticastPlayBurnFX(BurnFXOverride);
+			bBurnFXActive = true;
+		}
+	}
+
 	GetWorld()->GetTimerManager().SetTimer(
-		BurnTimerHandle, 
-		this, 
-		&UHealthComponent::ApplyBurnTick, 
-		Interval, 
-		true // 반복 실행
+		BurnTimerHandle,
+		this,
+		&UHealthComponent::ApplyBurnTick,
+		Interval,
+		true
 	);
+}
+
+void UHealthComponent::StopBurnEffects()
+{
+	if (!bBurnFXActive) return;
+
+	if (ACharacterBase* CharBase = Cast<ACharacterBase>(GetOwner()))
+	{
+		CharBase->MulticastStopBurnFX();
+	}
+	bBurnFXActive = false;
 }
 
 void UHealthComponent::ApplyBurnTick()
@@ -138,17 +163,22 @@ void UHealthComponent::ApplyBurnTick()
 	if (bIsDead)
 	{
 		GetWorld()->GetTimerManager().ClearTimer(BurnTimerHandle);
+		StopBurnEffects();
 		return;
 	}
 
-	// [중요] 기존 DamageTaken 로직을 재활용합니다! 
-	// 그래야 사망 처리, 킬 기록 등이 그대로 연동됩니다.
-	// 자기 자신에게 데미지를 입히는 방식
-	UGameplayStatics::ApplyDamage(GetOwner(), DamagePerTick, nullptr, nullptr, UDamageType::StaticClass());
+	UGameplayStatics::ApplyDamage(
+		GetOwner(),
+		DamagePerTick,
+		BurnDamageInstigator.Get(),
+		nullptr,
+		UDamageType::StaticClass()
+	);
 
 	BurnTicksRemaining--;
 	if (BurnTicksRemaining <= 0)
 	{
 		GetWorld()->GetTimerManager().ClearTimer(BurnTimerHandle);
+		StopBurnEffects();
 	}
 }

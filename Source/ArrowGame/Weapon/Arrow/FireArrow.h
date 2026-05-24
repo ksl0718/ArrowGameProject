@@ -4,6 +4,8 @@
 #include "ArrowGame/Weapon/ArrowProjectile.h"
 #include "FireArrow.generated.h"
 
+class AFireZoneActor;
+
 UCLASS()
 class ARROWGAME_API AFireArrow : public AArrowProjectile
 {
@@ -15,11 +17,26 @@ public:
 protected:
 	virtual void NotifyImpact(const FHitResult& Hit) override;
 
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastSpawnFireFX(FVector Location, AActor* AttachTarget);
+	void SpawnFireZone(const FHitResult& Hit);
+	void ApplyBurnToPawn(AActor* Target);
 
-	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
-	float BurnRadius = 300.f;
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayFireImpactSound(FVector Location);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Fire | Zone")
+	TSubclassOf<AFireZoneActor> FireZoneClass;
+
+	UPROPERTY(EditAnywhere, Category = "Fire | Zone")
+	float GroundFireRadius = 300.f;
+
+	UPROPERTY(EditAnywhere, Category = "Fire | Zone")
+	float GroundFireLifetime = 15.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fire | FX")
+	class UNiagaraSystem* GroundFireFX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fire | FX")
+	class UNiagaraSystem* BodyBurnFX;
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
 	float BurnDamage = 10.f;
@@ -29,9 +46,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
 	float BurnDuration = 5.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fire | FX")
-	class UNiagaraSystem* FireFX;
 
 	UPROPERTY(EditAnywhere, Category = "Fire | FX")
 	class USoundBase* FireImpactSound;

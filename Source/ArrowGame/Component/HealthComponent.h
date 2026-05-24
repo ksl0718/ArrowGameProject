@@ -29,7 +29,8 @@ public:
 	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	void StartBurn(float Duration, float Interval, float Damage);
+	void StartBurn(float Duration, float Interval, float Damage,
+		class AController* DamageInstigator = nullptr, class UNiagaraSystem* BurnFXOverride = nullptr);
 
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnDeadDelegate OnDead;
@@ -49,9 +50,13 @@ protected:
 	// 현재 남은 틱(Tick) 횟수
 	int32 BurnTicksRemaining;
 	float DamagePerTick;
+	bool bBurnFXActive = false;
+
+	TWeakObjectPtr<class AController> BurnDamageInstigator;
 
 	// 실제로 피를 깎는 내부 함수
 	void ApplyBurnTick();
+	void StopBurnEffects();
 	
 private:
 
