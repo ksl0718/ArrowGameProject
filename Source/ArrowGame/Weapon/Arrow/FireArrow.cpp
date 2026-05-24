@@ -30,7 +30,7 @@ void AFireArrow::NotifyImpact(const FHitResult& Hit)
 
 void AFireArrow::ApplyBurnToPawn(AActor* Target)
 {
-	if (!Target || !IsEnemy(GetInstigator(), Target)) return;
+	if (!Target) return;
 
 	if (UHealthComponent* HC = Target->FindComponentByClass<UHealthComponent>())
 	{
@@ -53,7 +53,16 @@ void AFireArrow::SpawnFireZone(const FHitResult& Hit)
 	AFireZoneActor* Zone = GetWorld()->SpawnActor<AFireZoneActor>(FireZoneClass, SpawnLocation, SpawnRotation, Params);
 	if (!Zone) return;
 
-	Zone->InitZone(GroundFireRadius, GroundFireLifetime, GroundFireFX);
+	Zone->InitZone(
+		GetInstigator(),
+		GroundFireRadius,
+		GroundFireLifetime,
+		BurnDamage,
+		BurnInterval,
+		BurnDuration,
+		GroundFireFX,
+		BodyBurnFX
+	);
 }
 
 void AFireArrow::MulticastPlayFireImpactSound_Implementation(FVector Location)
