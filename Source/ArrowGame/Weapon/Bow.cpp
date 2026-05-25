@@ -200,9 +200,9 @@ void ABow::UpdateArrowVisual()
 
 void ABow::StartDraw()
 {
-    if (bIsReloading || !OwnerArcherCharacter->IsAiming()) return;
+    if (!OwnerArcherCharacter->IsAiming()) return;
 
-    if (bIsNocking)
+    if (bIsReloading || bIsNocking)
     {
         bPendingDraw = true;
         return;
