@@ -153,8 +153,13 @@ void ABow::OnRep_IsReloading()
 void ABow::OnRep_IsNocking()
 {
     UE_LOG(LogTemp, Error, TEXT("OnRep_IsNocking"));
-    // 장전 시작/끝 시점에 시각적 효과가 필요하다면 여기서 처리
-    UpdateArrowVisual(); 
+    UpdateArrowVisual();
+
+    if (bIsNocking)
+    {
+        // 서버가 Nocking을 시작했을 때 클라이언트도 타이머 설정 → FinishNocking에서 bPendingDraw 확인 가능
+        GetWorldTimerManager().SetTimer(NockingTimerHandle, this, &ABow::FinishNocking, NockingDelayTime, false);
+    }
 }
 
 void ABow::UpdateArrowVisual()
