@@ -17,6 +17,7 @@ class ARROWGAME_API AArrowGameGameMode : public AGameModeBase
 public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
+	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	
 	void ActorDied(AActor* DeadActor, AController* KillerController);
 	
