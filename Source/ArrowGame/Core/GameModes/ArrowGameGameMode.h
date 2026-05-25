@@ -38,7 +38,7 @@ protected:
 	
 	// 라운드 제한 시간 (에디터에서 쉽게 수정 가능하도록 UPROPERTY 설정)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game Rules")
-	float RoundTimeLimit = 10.0f; // 기본 3분 (180초)
+	float RoundTimeLimit = 180.0f;
 
 	// 제한 시간 타이머를 잡고 있을 손잡이
 	FTimerHandle RoundTimerHandle;
