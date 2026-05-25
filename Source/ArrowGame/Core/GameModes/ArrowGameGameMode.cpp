@@ -5,6 +5,8 @@
 #include "ArrowGame/Core/ArrowGamePlayerController.h"
 #include "ArrowGame/Core/ArrowPlayerState.h"
 #include "ArrowGame//ArrowGameInstance.h"
+#include "GameFramework/PlayerStart.h"
+#include "Kismet/GameplayStatics.h"
 
 void AArrowGameGameMode::BeginPlay()
 {
@@ -72,11 +74,12 @@ void AArrowGameGameMode::AssignDokkaebiAndStart()
 				i, *PC->GetName(), PS->IsDokkaebi() ? TEXT("True") : TEXT("False"));
 		}
 		
-		if (PC->GetPawn()) 
+		if (PC->GetPawn())
 		{
 			PC->GetPawn()->Destroy();
 		}
-		
+
+		PC->StartSpot = nullptr; // 캐시된 StartSpot 초기화 → ChoosePlayerStart 호출 보장
 		RestartPlayer(PC); // 캐릭터 생성
 		if (AArrowGamePlayerController* MyPC = Cast<AArrowGamePlayerController>(PC))
 		{
@@ -99,6 +102,37 @@ void AArrowGameGameMode::AssignDokkaebiAndStart()
 		GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &AArrowGameGameMode::ActualStartGame, 5.0f, false);
         
 	}, 1.0f, false); // 1.0초의 대기 시간 부여
+}
+
+AActor* AArrowGameGameMode::ChoosePlayerStart_Implementation(AController* Player)
+{
+	TArray<AActor*> AllStarts;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), AllStarts);
+
+	if (AArrowPlayerState* PS = Player->GetPlayerState<AArrowPlayerState>())
+	{
+		if (PS->IsDokkaebi())
+		{
+			for (AActor* Start : AllStarts)
+			{
+				if (Start->ActorHasTag(FName("Dokkaebi")))
+					return Start;
+			}
+		}
+		else
+		{
+			TArray<AActor*> ArcherStarts;
+			for (AActor* Start : AllStarts)
+			{
+				if (!Start->ActorHasTag(FName("Dokkaebi")))
+					ArcherStarts.Add(Start);
+			}
+			if (ArcherStarts.Num() > 0)
+				return ArcherStarts[FMath::RandRange(0, ArcherStarts.Num() - 1)];
+		}
+	}
+
+	return Super::ChoosePlayerStart_Implementation(Player);
 }
 
 UClass* AArrowGameGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
