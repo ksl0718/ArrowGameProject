@@ -1,4 +1,4 @@
-# ArrowGame — 비대칭 멀티플레이어 궁술 대전
+# ArrowGame — 비대칭 멀티플레이어 태그 게임
 
 > 도깨비 vs 궁수 — Unreal Engine 5 기반 C++ 멀티플레이어 대전 게임
 
