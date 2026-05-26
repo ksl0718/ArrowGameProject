@@ -1,5 +1,6 @@
 ﻿#include "ArrowPlayerState.h"
 #include "Net/UnrealNetwork.h"
+#include "ArrowGameState.h"
 
 AArrowPlayerState::AArrowPlayerState()
 {
@@ -26,6 +27,10 @@ void AArrowPlayerState::ServerSetReady_Implementation(bool bNewReady)
 
 void AArrowPlayerState::OnRep_IsReady()
 {
-	// 벨을 울린다! (이 신호를 RowWidget이 듣게 됨)
 	OnReadyStateChanged.Broadcast(bIsReady);
+
+	if (AArrowGameState* GS = GetWorld()->GetGameState<AArrowGameState>())
+	{
+		GS->OnPlayerListChanged.Broadcast();
+	}
 }
