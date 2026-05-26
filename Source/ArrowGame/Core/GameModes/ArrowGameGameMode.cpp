@@ -42,7 +42,7 @@ void AArrowGameGameMode::PostLogin(APlayerController* NewPlayer)
 	UE_LOG(LogTemp, Warning, TEXT("플레이어 접속: %s | 현재 인원: %d / %d"), 
 	   *NewPlayer->GetName(), PendingPlayers.Num(), ExpectedPlayers);
     
-	if (PendingPlayers.Num() >= ExpectedPlayers && !bGameStarted)
+	if (bEnoughPlayers && !bGameStarted)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("모든 인원 집합! 게임 시작 시작!"));
 		AssignDokkaebiAndStart();
