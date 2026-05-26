@@ -2,6 +2,8 @@
 #include "Components/ScrollBox.h"
 #include "Components/Button.h"
 #include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerController.h"
+#include "Kismet/GameplayStatics.h"
 #include "LobbyRowWidget.h"
 #include "../ArrowGameInstance.h"
 #include "../Core/ArrowGameState.h"
@@ -13,8 +15,24 @@ void ULobbyBoardWidget::NativeConstruct()
 	SetIsFocusable(true);
 	
 	Super::NativeConstruct();
-	
-	Super::NativeConstruct();
+
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC)
+	{
+		PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	}
+
+	if (PC)
+	{
+		PC->bShowMouseCursor = true;
+		PC->bEnableClickEvents = true;
+		PC->bEnableMouseOverEvents = true;
+
+		FInputModeGameAndUI InputMode;
+		InputMode.SetWidgetToFocus(TakeWidget());
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		PC->SetInputMode(InputMode);
+	}
 
 	// 1. 방장 여부 확인 (보통 서버 권한이 있거나 첫 번째 플레이어인 경우)
 	bool bIsHost = GetWorld()->GetNetMode() < NM_Client; // 리슨 서버 호스트 확인
@@ -80,15 +98,31 @@ void ULobbyBoardWidget::RefreshPlayerList()
 			}
 		}
 	}
-	/**
-	if (GetWorld()->GetNetMode() < NM_Client) // 방장 확인
+	if (Btn_Start && GetWorld()->GetNetMode() < NM_Client)
 	{
-		bool bCanStart = CheckAllPlayersReady(); // 레디 체크 로직을 함수로 분리했다고 가정
-		if (btn_Start)
+		bool bAllReady = true;
+		int32 PlayerCount = 0;
+
+		if (AGameStateBase* GS = GetWorld()->GetGameState())
 		{
-			btn_Start->SetIsEnabled(bCanStart); // 모두 레디 안 했으면 클릭 불가(회색)
+			PlayerCount = GS->PlayerArray.Num();
+			for (APlayerState* PS : GS->PlayerArray)
+			{
+				AArrowPlayerState* ArrowPS = Cast<AArrowPlayerState>(PS);
+				if (!ArrowPS) continue;
+				if (ArrowPS->GetPlayerController() == GetOwningPlayer()) continue;
+
+				if (!ArrowPS->IsReady())
+				{
+					bAllReady = false;
+					break;
+				}
+			}
 		}
-	}**/
+
+		const bool bEnoughPlayers = PlayerCount >= 2;
+		Btn_Start->SetIsEnabled(bEnoughPlayers && bAllReady);
+	}
 }
 
 void ULobbyBoardWidget::OnReadyClicked()
@@ -111,6 +145,12 @@ void ULobbyBoardWidget::OnStartClicked()
 {
 	AGameStateBase* GS = GetWorld()->GetGameState();
 	if (!GS) return;
+
+	if (GS->PlayerArray.Num() < 2)
+	{
+		UE_LOG(LogTemp, Error, TEXT("출정 불가: 최소 2명 필요"));
+		return;
+	}
 
 	bool bAllReady = true;
 
@@ -152,10 +192,8 @@ void ULobbyBoardWidget::OnStartClicked()
 			{
 				UE_LOG(LogTemp, Error, TEXT("ArrowGameInstance 캐스트 실패 — MatchStartPlayerCount 설정 안 됨"));
 			}
-			// 1. 이동할 맵 경로 (예: /Game/Maps/BattleMap)
-			// 2. "?listen" 옵션은 서버로서 대기하겠다는 뜻으로 멀티플레이 이동 시 필수입니다.
-			FString MapPath = TEXT("/Game/ThirdPerson/Maps/ThirdPersonMap?listen");
-			//FString MapPath = TEXT("/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024?listen");
+			// 게임 플레이 맵의 월드 세팅(GameMode Override)을 그대로 사용
+			FString MapPath = TEXT("/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024");
 			// 3. ServerTravel은 모든 클라이언트를 동시에 이동시킵니다.
 			World->ServerTravel(MapPath);
 		}

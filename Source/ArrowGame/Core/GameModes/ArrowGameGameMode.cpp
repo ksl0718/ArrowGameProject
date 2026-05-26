@@ -7,20 +7,65 @@
 #include "ArrowGame//ArrowGameInstance.h"
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
+#include "EngineUtils.h"
 
 void AArrowGameGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
-	//User = Cast<AUserCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0));
-	//ArrowGamePlayerController = Cast<AArrowGamePlayerController>(UGameplayStatics::GetPlayerController(this, 0));
+	// 심리스 트래블로 넘어온 경우 PostLogin 호출이 생략될 수 있어 시작 시점에 수동 수집
+	for (TActorIterator<APlayerController> It(GetWorld()); It; ++It)
+	{
+		RegisterPendingPlayer(*It);
+	}
+
+	TryStartMatchIfReady();
 }
 
 void AArrowGameGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
-	
-	PendingPlayers.Add(NewPlayer);
+	RegisterPendingPlayer(NewPlayer);
+	TryStartMatchIfReady();
+}
+
+void AArrowGameGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
+{
+	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
+	RegisterPendingPlayer(NewPlayer);
+	TryStartMatchIfReady();
+}
+
+void AArrowGameGameMode::Logout(AController* Exiting)
+{
+	if (APlayerController* ExitingPC = Cast<APlayerController>(Exiting))
+	{
+		PendingPlayers.Remove(ExitingPC);
+	}
+	Super::Logout(Exiting);
+}
+
+void AArrowGameGameMode::RegisterPendingPlayer(APlayerController* NewPlayer)
+{
+	if (!IsValid(NewPlayer))
+	{
+		return;
+	}
+
+	PendingPlayers.AddUnique(NewPlayer);
+}
+
+void AArrowGameGameMode::TryStartMatchIfReady()
+{
+	if (bGameStarted)
+	{
+		return;
+	}
+
+	PendingPlayers.RemoveAll([](const APlayerController* PC)
+	{
+		return !IsValid(PC);
+	});
 
 	int32 RequiredToStart = ExpectedPlayers;
 	if (UWorld* World = GetWorld())
@@ -39,12 +84,11 @@ void AArrowGameGameMode::PostLogin(APlayerController* NewPlayer)
 	const bool bEnoughPlayers = PendingPlayers.Num() >= FMath::Max(RequiredToStart, MinPlayers)
 		&& RequiredToStart >= MinPlayers;
 
-	UE_LOG(LogTemp, Warning, TEXT("플레이어 접속: %s | 현재 인원: %d / %d"), 
-	   *NewPlayer->GetName(), PendingPlayers.Num(), ExpectedPlayers);
-    
-	if (bEnoughPlayers && !bGameStarted)
+	UE_LOG(LogTemp, Warning, TEXT("전투 맵 시작 체크 | 현재 인원: %d | 요구 인원: %d"), PendingPlayers.Num(), RequiredToStart);
+
+	if (bEnoughPlayers)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("모든 인원 집합! 게임 시작 시작!"));
+		UE_LOG(LogTemp, Warning, TEXT("조건 충족! 게임 시작 시퀀스 실행"));
 		AssignDokkaebiAndStart();
 	}
 }
@@ -296,8 +340,7 @@ void AArrowGameGameMode::ScheduleReturnToLobby(float Delay)
     GetWorldTimerManager().SetTimer(ReturnHandle, [this]()
     {
         if (!HasAuthority()) return;
-        // 실제 로비 맵 경로로 바꿔야 함
-        GetWorld()->ServerTravel(TEXT("/Game/ArrowGame/Maps/LobbyMap?listen"));
+        GetWorld()->ServerTravel(TEXT("/Game/ArrowGame/Maps/LobbyMap?game=/Script/ArrowGame.LobbyGameMode"));
     }, Delay, false);
 }
 

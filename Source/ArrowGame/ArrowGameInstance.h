@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineSessionSettings.h"
 #include "ArrowGameInstance.generated.h"
 
 UCLASS()
@@ -17,9 +18,13 @@ public:
 	// 게임 인스턴스 초기화
 	virtual void Init() override;
 
-	// 호스트 세션 생성 (UI 바인딩용)
+	// 호스트 세션 생성 (UI 바인딩용, 레거시 — 메인 메뉴에서는 OpenLevel 후 RegisterHostSessionIfNeeded 사용)
 	UFUNCTION(BlueprintCallable, Category = "Network")
 	void CreateServer();
+
+	// 로비 맵(listen)에 이미 있을 때 온라인 세션만 등록 (스팀 초대 시 맵 URL 일치)
+	UFUNCTION(BlueprintCallable, Category = "Network")
+	void RegisterHostSessionIfNeeded();
 
 	// 클라이언트 세션 검색 (UI 바인딩용)
 	UFUNCTION(BlueprintCallable, Category = "Network")
@@ -53,6 +58,11 @@ protected:
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Match")
 	int32 MatchStartPlayerCount = 0;
+
+	// DestroySession 완료 후 수행할 후속 작업 상태
+	bool bCreateSessionAfterDestroy = false;
+	bool bJoinInviteAfterDestroy = false;
+	FOnlineSessionSearchResult PendingInviteResult;
 	
 private:
 	// 델리게이트 핸들 보관용 (필요 시 해제용)

@@ -58,14 +58,30 @@ void AArrowGamePlayerController::BeginPlay()
         }
     
     
-    bShowMouseCursor = false;
-    DefaultMouseCursor = EMouseCursor::None;
+    const FString CurrentMapName = GetWorld() ? GetWorld()->GetMapName() : FString();
+    const bool bIsMenuOrLobbyMap = CurrentMapName.Contains(TEXT("MainMenuMap"))
+        || CurrentMapName.Contains(TEXT("LobbyMap"));
 
-    FInputModeGameOnly InputMode;
-    SetInputMode(InputMode);
+    if (bIsMenuOrLobbyMap)
+    {
+        bShowMouseCursor = true;
+        bEnableClickEvents = true;
+        bEnableMouseOverEvents = true;
 
-    bEnableClickEvents = false;
-    bEnableMouseOverEvents = false;
+        FInputModeGameAndUI InputMode;
+        SetInputMode(InputMode);
+    }
+    else
+    {
+        bShowMouseCursor = false;
+        DefaultMouseCursor = EMouseCursor::None;
+
+        FInputModeGameOnly InputMode;
+        SetInputMode(InputMode);
+
+        bEnableClickEvents = false;
+        bEnableMouseOverEvents = false;
+    }
 
 }
 

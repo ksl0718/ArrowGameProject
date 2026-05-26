@@ -2,10 +2,30 @@
 
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerController.h"
+#include "../ArrowGameInstance.h"
 
 void UMainMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC)
+	{
+		PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	}
+
+	if (PC)
+	{
+		PC->bShowMouseCursor = true;
+		PC->bEnableClickEvents = true;
+		PC->bEnableMouseOverEvents = true;
+
+		FInputModeUIOnly InputMode;
+		InputMode.SetWidgetToFocus(TakeWidget());
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		PC->SetInputMode(InputMode);
+	}
 
 	// 버튼 클릭 이벤트 연결
 	if (Btn_Host)
@@ -26,34 +46,57 @@ void UMainMenuWidget::NativeConstruct()
 
 void UMainMenuWidget::OnHostClicked()
 {
-	// 서버 방 만들기 로직
-	RemoveFromParent();
-	
-	UWorld* World = GetWorld();
-	if (World)
+	if (UWorld* World = GetWorld())
 	{
-		UGameplayStatics::OpenLevel(World, TEXT("ThirdPersonMap"), true, TEXT("listen"));
+		if (Txt_Status)
+		{
+			Txt_Status->SetText(FText::FromString(TEXT("로비로 이동 중...")));
+			Txt_Status->SetColorAndOpacity(FLinearColor::Green);
+		}
+
+		// 메인 메뉴에서 CreateSession 후 ServerTravel 하면 스팀 초대 URL이 MainMenuMap으로 남음.
+		// 로비에서 listen 서버를 띄운 뒤 세션을 등록해야 초대/조인 클라이언트가 LobbyMap으로 붙음.
+		UGameplayStatics::OpenLevel(
+			World,
+			FName(TEXT("/Game/ArrowGame/Maps/LobbyMap")),
+			true,
+			TEXT("listen?game=/Script/ArrowGame.LobbyGameMode"));
+		RemoveFromParent();
+		return;
+	}
+
+	if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(GetGameInstance()))
+	{
+		if (Txt_Status)
+		{
+			Txt_Status->SetText(FText::FromString(TEXT("방 생성 중...")));
+			Txt_Status->SetColorAndOpacity(FLinearColor::Green);
+		}
+		ArrowGI->CreateServer();
+		RemoveFromParent();
+	}
+	else if (Txt_Status)
+	{
+		Txt_Status->SetText(FText::FromString(TEXT("GameInstance를 찾을 수 없습니다.")));
+		Txt_Status->SetColorAndOpacity(FLinearColor::Red);
 	}
 }
 
 void UMainMenuWidget::OnJoinClicked()
 {
-	if (!IPAddressInput || !Txt_Status) return;
-	FString IP = IPAddressInput->GetText().ToString();
-	
-	if (IP.IsEmpty()) {
-		Txt_Status->SetText(FText::FromString(TEXT("IP 주소를 입력해주세요.")));
-		return; // [추가]
+	if (!Txt_Status) return;
+
+	if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(GetGameInstance()))
+	{
+		Txt_Status->SetText(FText::FromString(TEXT("방 검색 중...")));
+		Txt_Status->SetColorAndOpacity(FLinearColor::Green);
+		ArrowGI->FindServer();
 	}
-	if (!IsValidIP(IP)) {
-		Txt_Status->SetText(FText::FromString(TEXT("유효하지 않은 IP 형식입니다.")));
-		return; // [추가]
+	else
+	{
+		Txt_Status->SetText(FText::FromString(TEXT("GameInstance를 찾을 수 없습니다.")));
+		Txt_Status->SetColorAndOpacity(FLinearColor::Red);
 	}
-	
-	Txt_Status->SetText(FText::FromString(TEXT("서버에 접속 중...")));
-	Txt_Status->SetColorAndOpacity(FLinearColor::Green);
-    
-	UGameplayStatics::OpenLevel(GetWorld(), FName(*IP));
 }
 
 void UMainMenuWidget::OnQuitClicked()

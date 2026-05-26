@@ -13,6 +13,11 @@ void ALobbyGameMode::BeginPlay()
 		if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(World->GetGameInstance()))
 		{
 			ArrowGI->SetMatchStartPlayerCount(0);
+
+			if (World->GetNetMode() == NM_ListenServer)
+			{
+				ArrowGI->RegisterHostSessionIfNeeded();
+			}
 		}
 	}
 }

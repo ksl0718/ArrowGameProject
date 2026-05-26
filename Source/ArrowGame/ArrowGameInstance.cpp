@@ -15,6 +15,12 @@ static const FName SEARCH_LOBBIES(TEXT("SEARCH_LOBBIES"));
 static const FName SEARCH_MINSLOTSAVAILABLE(TEXT("SEARCH_MINSLOTSAVAILABLE"));
 #endif
 
+#ifndef SETTING_MAPNAME
+static const FName SETTING_MAPNAME(TEXT("MAPNAME"));
+#endif
+
+static const FString LobbyMapPath(TEXT("/Game/ArrowGame/Maps/LobbyMap"));
+
 UArrowGameInstance::UArrowGameInstance()
 {
     // 기본 초기화
@@ -41,11 +47,34 @@ void UArrowGameInstance::Init()
     }
 }
 
+void UArrowGameInstance::RegisterHostSessionIfNeeded()
+{
+    if (!SessionInterface.IsValid())
+    {
+        UE_LOG(LogTemp, Error, TEXT("RegisterHostSessionIfNeeded: SessionInterface invalid"));
+        return;
+    }
+
+    if (SessionInterface->GetNamedSession(NAME_GameSession) != nullptr)
+    {
+        UE_LOG(LogTemp, Log, TEXT("RegisterHostSessionIfNeeded: 세션이 이미 있습니다."));
+        return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("로비 맵에서 호스트 세션 등록 시작"));
+    bCreateSessionAfterDestroy = true;
+    bJoinInviteAfterDestroy = false;
+    StartCreateSession();
+}
+
 void UArrowGameInstance::CreateServer()
 {
     UE_LOG(LogTemp, Log, TEXT("세션 생성 시작"));
 
     if (!SessionInterface.IsValid()) return;
+
+    bCreateSessionAfterDestroy = true;
+    bJoinInviteAfterDestroy = false;
 
     auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
     if (ExistingSession != nullptr)
@@ -61,7 +90,7 @@ void UArrowGameInstance::CreateServer()
 }
 void UArrowGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
-    UE_LOG(LogTemp, Log, TEXT("이전 세션 파괴 완료: 새 세션을 생성합니다."));
+    UE_LOG(LogTemp, Log, TEXT("이전 세션 파괴 완료"));
     
     if (SessionInterface.IsValid())
     {
@@ -69,7 +98,22 @@ void UArrowGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSu
         SessionInterface->OnDestroySessionCompleteDelegates.Remove(DestroySessionCompleteDelegateHandle);
     }
 
-    StartCreateSession();
+    if (bJoinInviteAfterDestroy)
+    {
+        bJoinInviteAfterDestroy = false;
+        if (SessionInterface.IsValid())
+        {
+            UE_LOG(LogTemp, Log, TEXT("초대 참가를 이어서 진행합니다."));
+            SessionInterface->JoinSession(0, NAME_GameSession, PendingInviteResult);
+            return;
+        }
+    }
+
+    if (bCreateSessionAfterDestroy)
+    {
+        bCreateSessionAfterDestroy = false;
+        StartCreateSession();
+    }
 }
 
 void UArrowGameInstance::StartCreateSession()
@@ -84,20 +128,41 @@ void UArrowGameInstance::StartCreateSession()
     SessionSettings.bIsDedicated = false;
     SessionSettings.bUseLobbiesIfAvailable = true; // 스팀 로비 필수
     SessionSettings.bAllowJoinInProgress = true;
+    SessionSettings.bAllowInvites = true;
+    SessionSettings.bAllowJoinViaPresence = true;
+    SessionSettings.bAllowJoinViaPresenceFriendsOnly = true;
 
     SessionSettings.BuildUniqueId = 7777;
     SessionSettings.Set(FName("SERVER_NAME_KEY"), FString("SeungRae_Arrow_Game"), static_cast<EOnlineDataAdvertisementType::Type>(2));
+    SessionSettings.Set(SETTING_MAPNAME, LobbyMapPath, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
     SessionInterface->CreateSession(0, NAME_GameSession, SessionSettings);
 }
 
 void UArrowGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-    if (bWasSuccessful)
+    if (!bWasSuccessful)
     {
-        UE_LOG(LogTemp, Log, TEXT("세션 생성 최종 성공!"));
-        GetWorld()->ServerTravel("/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024?listen");
+        UE_LOG(LogTemp, Error, TEXT("세션 생성 실패"));
+        return;
     }
+
+    UE_LOG(LogTemp, Log, TEXT("세션 생성 최종 성공!"));
+
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        return;
+    }
+
+    const FString MapName = World->GetMapName();
+    if (MapName.Contains(TEXT("LobbyMap")))
+    {
+        UE_LOG(LogTemp, Log, TEXT("이미 로비 맵 — ServerTravel 생략 (스팀 초대 URL=LobbyMap)"));
+        return;
+    }
+
+    World->ServerTravel(TEXT("/Game/ArrowGame/Maps/LobbyMap?game=/Script/ArrowGame.LobbyGameMode"));
 }
 
 void UArrowGameInstance::FindServer()
@@ -161,26 +226,57 @@ void UArrowGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSession
         FString ConnectString;
         if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
         {
+            UE_LOG(LogTemp, Log, TEXT("세션 참가 성공 — ClientTravel: %s"), *ConnectString);
             if (auto* PC = GetFirstLocalPlayerController())
             {
                 PC->ClientTravel(ConnectString, ETravelType::TRAVEL_Absolute);
             }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("ClientTravel 실패: PlayerController 없음"));
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("GetResolvedConnectString 실패 (SessionName=%s)"), *SessionName.ToString());
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("세션 참가 실패"));
+        UE_LOG(LogTemp, Error, TEXT("세션 참가 실패: Result=%d"), static_cast<int32>(Result));
     }
 }
 
 void UArrowGameInstance::OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult)
 {
+    if (!SessionInterface.IsValid())
+    {
+        UE_LOG(LogTemp, Error, TEXT("Invite 수락 실패: SessionInterface invalid"));
+        return;
+    }
+
     if (bWasSuccessful)
     {
         UE_LOG(LogTemp, Log, TEXT("스팀 오버레이 참가 요청 확인! 조인을 시작합니다."));
-        
-        // 찾아온 방 정보(InviteResult)를 가지고 기존에 만들어둔 Join 로직을 실행합니다.
+
+        if (SessionInterface->GetNamedSession(NAME_GameSession) != nullptr)
+        {
+            UE_LOG(LogTemp, Log, TEXT("기존 세션이 있어 파괴 후 초대 조인을 진행합니다."));
+            bCreateSessionAfterDestroy = false;
+            bJoinInviteAfterDestroy = true;
+            PendingInviteResult = InviteResult;
+
+            DestroySessionCompleteDelegateHandle = SessionInterface->OnDestroySessionCompleteDelegates.AddUObject(this, &UArrowGameInstance::OnDestroySessionComplete);
+            SessionInterface->DestroySession(NAME_GameSession);
+            return;
+        }
+
+        // 찾아온 방 정보(InviteResult)로 바로 조인
         SessionInterface->JoinSession(0, NAME_GameSession, InviteResult);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("스팀 초대 수락 콜백 실패"));
     }
 }
 void UArrowGameInstance::SetMatchStartPlayerCount(int32 Count)

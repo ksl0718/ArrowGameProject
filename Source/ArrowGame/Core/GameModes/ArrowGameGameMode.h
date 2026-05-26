@@ -16,6 +16,8 @@ class ARROWGAME_API AArrowGameGameMode : public AGameModeBase
 
 public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void Logout(AController* Exiting) override;
+	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	
@@ -47,6 +49,9 @@ protected:
 	void OnRoundTimeUp();
 	
 private:
+	void RegisterPendingPlayer(APlayerController* NewPlayer);
+	void TryStartMatchIfReady();
+
 	
 	// 캐릭터 클래스 설정
 	UPROPERTY(EditAnywhere, Category = "Battle Settings")
