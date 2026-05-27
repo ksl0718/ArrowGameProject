@@ -124,10 +124,10 @@ protected:
     float AutoReleaseTime = 5.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Fire")
-    float MinArrowSpeed = 2000.f;
+    float MinArrowSpeed = 4000.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Fire")
-    float MaxArrowSpeed = 6000.f;
+    float MaxArrowSpeed = 12000.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Projectile")
     TSubclassOf<AArrowProjectile> ArrowProjectileClass;
