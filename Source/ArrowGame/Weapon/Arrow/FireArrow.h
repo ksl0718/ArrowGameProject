@@ -16,6 +16,7 @@ public:
 
 protected:
 	virtual void NotifyImpact(const FHitResult& Hit) override;
+	virtual void PlayLaunchEffects() override;
 
 	void SpawnFireZone(const FHitResult& Hit);
 	void ApplyBurnToPawn(AActor* Target);
@@ -49,4 +50,8 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Fire | FX")
 	class USoundBase* FireImpactSound;
+
+	UPROPERTY(EditAnywhere, Category = "Fire | Sound")
+	class USoundBase* LaunchSound;
+
 };

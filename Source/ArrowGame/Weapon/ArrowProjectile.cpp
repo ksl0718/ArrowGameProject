@@ -197,6 +197,7 @@ void AArrowProjectile::OnHit(
 
 	if (OtherActor->IsA(APawn::StaticClass()))
 	{
+		MulticastPlayHitSound(Hit.ImpactPoint);
 		if (HasAuthority())
 		{
 			CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -327,6 +328,19 @@ void AArrowProjectile::MulticastActivateTrail_Implementation()
 	if (TrailNiagara)
 	{
 		TrailNiagara->Activate(true);
+	}
+	PlayLaunchEffects();
+}
+
+void AArrowProjectile::PlayLaunchEffects()
+{
+}
+
+void AArrowProjectile::MulticastPlayHitSound_Implementation(FVector Location)
+{
+	if (HitSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), HitSound, Location);
 	}
 }
 

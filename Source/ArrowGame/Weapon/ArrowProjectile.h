@@ -36,7 +36,10 @@ public:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastActivateTrail();
-	
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayHitSound(FVector Location);
+
 	UFUNCTION(BlueprintCallable, Category = "Arrow Data")
 	EArrowType GetArrowType() const { return ArrowType; }
 	
@@ -75,6 +78,11 @@ protected:
 	bool bShouldApplyDirectDamage = true;
 	
 	virtual void NotifyImpact(const FHitResult& Hit);
+
+	virtual void PlayLaunchEffects();
+
+	UPROPERTY(EditAnywhere, Category = "Sound")
+	USoundBase* HitSound;
 
 public:
 	static bool IsEnemy(APawn* Instigator, AActor* Target);
