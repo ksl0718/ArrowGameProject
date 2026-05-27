@@ -64,6 +64,8 @@ private:
 	TArray<class APlayerController*> PendingPlayers;
 
 	FTimerHandle CountdownTimerHandle;
+	FTimerHandle LastThirtySecondsTimerHandle;
+	void OnLastThirtySecondsStart();
 	int32 ExpectedPlayers = 2; // GameInstance 연동 권장
 	bool bGameStarted = false;
 	

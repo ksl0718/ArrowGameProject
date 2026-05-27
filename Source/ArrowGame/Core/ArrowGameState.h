@@ -16,6 +16,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Lobby")
 	FOnPlayerListChanged OnPlayerListChanged;
 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Game")
+	bool bLastThirtySeconds = false;
+
 	// 1. 명단 변경 신호를 보낼 리플리케이션 변수
 	UPROPERTY(ReplicatedUsing = OnRep_ListUpdateCount)
 	int32 ListUpdateCount = 0;

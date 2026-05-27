@@ -5,6 +5,7 @@ void AArrowGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	// 숫자를 복제하도록 등록
+	DOREPLIFETIME(AArrowGameState, bLastThirtySeconds);
 	DOREPLIFETIME(AArrowGameState, ListUpdateCount);
 }
 

@@ -18,6 +18,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h" 
 #include "ArrowGame/Character/DokkaebiCharacter.h"
+#include "ArrowGame/Core/ArrowGameState.h"
+#include "ArrowGame/Core/ArrowPlayerState.h"
 #include "TimerManager.h"
 
 void AUserArcherCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -339,6 +341,16 @@ void AUserArcherCharacter::Tick(float DeltaTime)
     float NewFOV = FMath::FInterpTo(FollowCamera->FieldOfView, TargetFOV, DeltaTime, AimInterpSpeed);
     FollowCamera->SetFieldOfView(NewFOV);
     
+    // 마지막 30초 도깨비 위치 공개
+    if (AArrowGameState* GS = GetWorld()->GetGameState<AArrowGameState>())
+    {
+        if (GS->bLastThirtySeconds != bArcherVisionActive)
+        {
+            bArcherVisionActive = GS->bLastThirtySeconds;
+            ApplyDokkaebiVision(bArcherVisionActive);
+        }
+    }
+
     //--화살 줍기 관련 로직---//
     AActor* ClosestActor = nullptr;
     float MinDist = 999999.f;
@@ -874,6 +886,27 @@ void AUserArcherCharacter::CursedBrainTick()
                     M ? M->MaxWalkSpeed : -1.f,
                     CursedFleeInputScale);
             });
+        }
+    }
+}
+
+void AUserArcherCharacter::ApplyDokkaebiVision(bool bEnable)
+{
+    AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+    if (!GS) return;
+
+    for (APlayerState* PS : GS->PlayerArray)
+    {
+        AArrowPlayerState* ArrowPS = Cast<AArrowPlayerState>(PS);
+        if (!ArrowPS || !ArrowPS->IsDokkaebi()) continue;
+
+        ADokkaebiCharacter* Dokkaebi = Cast<ADokkaebiCharacter>(ArrowPS->GetPawn());
+        if (!Dokkaebi) continue;
+
+        UMaterialInterface* Mat = bEnable ? Dokkaebi->GetSpiritSightOverlayMaterial() : nullptr;
+        if (USkeletalMeshComponent* DokkaebiMesh = Dokkaebi->GetMesh())
+        {
+            DokkaebiMesh->SetOverlayMaterial(Mat);
         }
     }
 }

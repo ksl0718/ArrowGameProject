@@ -103,6 +103,7 @@ public:
 	bool IsCurseOrbReady() const { return bCurseOrbReady; }
 
 	float GetSyncPitch() const { return SyncPitch; }
+	UMaterialInterface* GetSpiritSightOverlayMaterial() const { return SpiritSightOverlayMaterial; }
 
 protected:
 	virtual void BeginPlay() override;
