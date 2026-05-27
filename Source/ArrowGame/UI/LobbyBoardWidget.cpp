@@ -61,6 +61,10 @@ void ULobbyBoardWidget::NativeConstruct()
 	}
 
 	RefreshPlayerList();
+
+	// 게스트 입장 시 PlayerArray 복제가 NativeConstruct보다 늦게 도착할 수 있어 지연 리프레시
+	FTimerHandle InitRefreshHandle;
+	GetWorld()->GetTimerManager().SetTimer(InitRefreshHandle, this, &ULobbyBoardWidget::RefreshPlayerList, 1.0f, false);
 }
 
 void ULobbyRowWidget::NativeDestruct()

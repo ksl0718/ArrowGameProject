@@ -124,10 +124,10 @@ protected:
     float AutoReleaseTime = 5.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Fire")
-    float MinArrowSpeed = 2000.f;
+    float MinArrowSpeed = 4000.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Fire")
-    float MaxArrowSpeed = 6000.f;
+    float MaxArrowSpeed = 12000.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Bow|Projectile")
     TSubclassOf<AArrowProjectile> ArrowProjectileClass;
@@ -154,7 +154,7 @@ protected:
 
     // 장전 동작(등에서 꺼내기)에 걸리는 시간 (0.3~0.5초 추천)
     UPROPERTY(EditAnywhere, Category = "Bow|Fire")
-    float NockingDelayTime = 0.4f;
+    float NockingDelayTime = 0.15f;
     
     // 발사 후 다음 화살을 꺼낼 때까지 걸리는 시간 (0.4~0.7초 추천)
     UPROPERTY(EditAnywhere, Category = "Bow|Fire")

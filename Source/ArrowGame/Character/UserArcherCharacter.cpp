@@ -175,7 +175,6 @@ void AUserArcherCharacter::Look(const FInputActionValue& Value)
 
 void AUserArcherCharacter::OnJumpInput()
 {
-    if (IsAiming()) return;
     Jump();
 }
 

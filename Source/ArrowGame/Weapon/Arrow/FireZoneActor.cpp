@@ -17,6 +17,7 @@ AFireZoneActor::AFireZoneActor()
 	BurnSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
 	BurnSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	BurnSphere->SetGenerateOverlapEvents(true);
+	BurnSphere->SetHiddenInGame(true, true);
 
 	GroundFireNiagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("GroundFire"));
 	GroundFireNiagara->SetupAttachment(BurnSphere);
