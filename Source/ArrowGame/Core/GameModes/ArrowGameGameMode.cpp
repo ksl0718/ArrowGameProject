@@ -4,6 +4,7 @@
 #include "ArrowGameGameMode.h"
 #include "ArrowGame/Core/ArrowGamePlayerController.h"
 #include "ArrowGame/Core/ArrowPlayerState.h"
+#include "ArrowGame/Core/ArrowGameState.h"
 #include "ArrowGame//ArrowGameInstance.h"
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
@@ -213,9 +214,18 @@ void AArrowGameGameMode::ActualStartGame()
 		}
 	}
 	
-	// [추가] 실제 배틀이 시작되면 제한 시간 타이머를 돌립니다.
 	UE_LOG(LogTemp, Warning, TEXT("라운드 타이머 시작! 제한 시간: %f초"), RoundTimeLimit);
 	GetWorldTimerManager().SetTimer(RoundTimerHandle, this, &AArrowGameGameMode::OnRoundTimeUp, RoundTimeLimit, false);
+
+	const float TimeUntilLastThirty = RoundTimeLimit - 30.0f;
+	if (TimeUntilLastThirty > 0.0f)
+	{
+		GetWorldTimerManager().SetTimer(LastThirtySecondsTimerHandle, this, &AArrowGameGameMode::OnLastThirtySecondsStart, TimeUntilLastThirty, false);
+	}
+	else
+	{
+		OnLastThirtySecondsStart();
+	}
 }
 
 
@@ -295,8 +305,8 @@ void AArrowGameGameMode::EndRound(bool bDokkaebiWin)
 	if (bRoundEnded) return;
 	bRoundEnded = true;
 	
-	// 라운드 카운트 강제 제거
 	GetWorldTimerManager().ClearTimer(RoundTimerHandle);
+	GetWorldTimerManager().ClearTimer(LastThirtySecondsTimerHandle);
 	
 	UE_LOG(LogTemp, Warning, TEXT("Round Ended! Winner: %s"),
 		bDokkaebiWin ? TEXT("Dokkaebi") : TEXT("Humans"));
@@ -346,11 +356,17 @@ void AArrowGameGameMode::ScheduleReturnToLobby(float Delay)
 
 void AArrowGameGameMode::OnRoundTimeUp()
 {
-	// 혹시라도 이미 라운드가 끝났다면 무시
 	if (bRoundEnded) return;
-
 	UE_LOG(LogTemp, Warning, TEXT("시간 초과! 살아남은 도깨비의 승리입니다."));
-    
-	// 도깨비 승리(true)로 라운드 종료
-	EndRound(true); 
+	EndRound(true);
+}
+
+void AArrowGameGameMode::OnLastThirtySecondsStart()
+{
+	if (bRoundEnded) return;
+	if (AArrowGameState* GS = GetWorld()->GetGameState<AArrowGameState>())
+	{
+		GS->bLastThirtySeconds = true;
+		UE_LOG(LogTemp, Warning, TEXT("마지막 30초! 아처에게 도깨비 위치 공개"));
+	}
 }

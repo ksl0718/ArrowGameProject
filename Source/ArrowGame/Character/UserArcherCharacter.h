@@ -234,6 +234,9 @@ protected:
 
 #pragma region Interaction
 
+	bool bArcherVisionActive = false;
+	void ApplyDokkaebiVision(bool bEnable);
+
 	FTimerHandle RollSafetyTimerHandle;
 	void OnRollSafetyTimeout();
 
