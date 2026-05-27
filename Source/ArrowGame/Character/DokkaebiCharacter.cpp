@@ -148,7 +148,16 @@ void ADokkaebiCharacter::Tick(float DeltaTime)
 	}
 
 	if (!IsLocallyControlled()) return;
-	UpdateSpiritSightMarkers(DeltaTime); // 다른 클라는 마커 불필요
+
+	SmoothedLookInput = FVector2D(
+		FMath::FInterpTo(SmoothedLookInput.X, RawLookInput.X, DeltaTime, LookSmoothingSpeed),
+		FMath::FInterpTo(SmoothedLookInput.Y, RawLookInput.Y, DeltaTime, LookSmoothingSpeed)
+	);
+	AddControllerYawInput(SmoothedLookInput.X);
+	AddControllerPitchInput(SmoothedLookInput.Y);
+	RawLookInput = FVector2D::ZeroVector;
+
+	UpdateSpiritSightMarkers(DeltaTime);
 }
 
 void ADokkaebiCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -292,14 +301,8 @@ void ADokkaebiCharacter::Move(const FInputActionValue& Value)
 
 void ADokkaebiCharacter::Look(const FInputActionValue& Value)
 {
-	if (bIsDead)
-	{
-		return;
-	}
-
-	const FVector2D LookAxis = Value.Get<FVector2D>();
-	AddControllerYawInput(LookAxis.X);
-	AddControllerPitchInput(LookAxis.Y);
+	if (bIsDead) return;
+	RawLookInput += Value.Get<FVector2D>() * MouseSensitivity;
 }
 
 void ADokkaebiCharacter::Server_UseDecoySkill_Implementation(FVector SpawnLoc, FRotator SpawnRot)

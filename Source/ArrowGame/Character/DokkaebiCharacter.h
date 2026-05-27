@@ -357,6 +357,15 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* FollowCamera;
+
+	UPROPERTY(EditAnywhere, Category = "Camera|Input", meta = (ClampMin = "0.01", ClampMax = "2.0"))
+	float MouseSensitivity = 0.4f;
+
+	UPROPERTY(EditAnywhere, Category = "Camera|Input", meta = (ClampMin = "1.0", ClampMax = "50.0"))
+	float LookSmoothingSpeed = 15.f;
+
+	FVector2D RawLookInput;
+	FVector2D SmoothedLookInput;
 #pragma endregion
 
 #pragma region Movement
