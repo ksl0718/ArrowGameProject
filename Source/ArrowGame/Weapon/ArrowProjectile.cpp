@@ -79,7 +79,7 @@ AArrowProjectile::AArrowProjectile()
     //ProjectileMovement
     ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
     ProjectileMovement->InitialSpeed = 3000.f;
-    ProjectileMovement->MaxSpeed = 6000.f;
+    ProjectileMovement->MaxSpeed = 12000.f;
     ProjectileMovement->bRotationFollowsVelocity = true;
     ProjectileMovement->ProjectileGravityScale = 0.5f; // ȭ�� ������
 	
