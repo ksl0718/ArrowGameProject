@@ -340,7 +340,7 @@ void AArrowGameGameMode::ScheduleReturnToLobby(float Delay)
     GetWorldTimerManager().SetTimer(ReturnHandle, [this]()
     {
         if (!HasAuthority()) return;
-        GetWorld()->ServerTravel(TEXT("/Game/ArrowGame/Maps/LobbyMap?game=/Script/ArrowGame.LobbyGameMode"));
+        GetWorld()->ServerTravel(TEXT("/Game/ArrowGame/Maps/LobbyMap?listen?game=/Script/ArrowGame.LobbyGameMode"));
     }, Delay, false);
 }
 
