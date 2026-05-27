@@ -5,6 +5,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Controller.h"
 #include "ArrowGame/Component/HealthComponent.h"
+#include "Engine/OverlapResult.h"
 
 AFireZoneActor::AFireZoneActor()
 {
@@ -13,10 +14,8 @@ AFireZoneActor::AFireZoneActor()
 
 	BurnSphere = CreateDefaultSubobject<USphereComponent>(TEXT("BurnSphere"));
 	SetRootComponent(BurnSphere);
-	BurnSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	BurnSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-	BurnSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	BurnSphere->SetGenerateOverlapEvents(true);
+	BurnSphere->SetCollisionProfileName(TEXT("OverlapOnlyPawn"));
+	BurnSphere->SetGenerateOverlapEvents(false);
 	BurnSphere->SetHiddenInGame(true, true);
 
 	GroundFireNiagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("GroundFire"));
@@ -38,11 +37,59 @@ void AFireZoneActor::InitZone(APawn* InInstigator, float InRadius, float InLifet
 	if (BurnSphere)
 	{
 		BurnSphere->SetSphereRadius(InRadius);
+		BurnSphere->SetCollisionProfileName(TEXT("OverlapOnlyPawn"));
 	}
 
 	if (GroundFireNiagara && InGroundFX)
 	{
 		GroundFireNiagara->SetAsset(InGroundFX);
+	}
+
+	if (HasAuthority())
+	{
+		TickBurnZone();
+	}
+}
+
+void AFireZoneActor::GatherPawnsInBurnRadius(TArray<APawn*>& OutPawns) const
+{
+	OutPawns.Reset();
+
+	if (!BurnSphere || !GetWorld())
+	{
+		return;
+	}
+
+	const FVector Center = BurnSphere->GetComponentLocation();
+	const float Radius = BurnSphere->GetScaledSphereRadius();
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(FireZonePawnOverlap), false, this);
+	QueryParams.AddIgnoredActor(this);
+
+	FCollisionObjectQueryParams ObjectParams;
+	ObjectParams.AddObjectTypesToQuery(ECC_Pawn);
+
+	TArray<FOverlapResult> OverlapResults;
+	if (!GetWorld()->OverlapMultiByObjectType(
+		OverlapResults,
+		Center,
+		FQuat::Identity,
+		ObjectParams,
+		FCollisionShape::MakeSphere(Radius),
+		QueryParams))
+	{
+		return;
+	}
+
+	TSet<APawn*> Unique;
+	for (const FOverlapResult& Result : OverlapResults)
+	{
+		APawn* Pawn = Cast<APawn>(Result.GetActor());
+		if (Pawn && !Unique.Contains(Pawn))
+		{
+			Unique.Add(Pawn);
+			OutPawns.Add(Pawn);
+		}
 	}
 }
 
@@ -57,70 +104,105 @@ void AFireZoneActor::BeginPlay()
 
 	SetLifeSpan(ZoneLifetime);
 
-	if (!HasAuthority()) return;
+	if (!HasAuthority())
+	{
+		return;
+	}
 
-	BurnSphere->OnComponentBeginOverlap.AddDynamic(this, &AFireZoneActor::OnBurnSphereBeginOverlap);
-	BurnSphere->OnComponentEndOverlap.AddDynamic(this, &AFireZoneActor::OnBurnSphereEndOverlap);
+	TickBurnZone();
 
 	GetWorld()->GetTimerManager().SetTimer(
 		BurnTickHandle,
 		this,
 		&AFireZoneActor::TickBurnZone,
 		BurnInterval,
-		true
-	);
-
-	TArray<AActor*> AlreadyOverlapping;
-	BurnSphere->GetOverlappingActors(AlreadyOverlapping, APawn::StaticClass());
-	for (AActor* Actor : AlreadyOverlapping)
-	{
-		OnBurnSphereBeginOverlap(BurnSphere, Actor, nullptr, 0, false, FHitResult());
-	}
+		true);
 }
 
-void AFireZoneActor::OnBurnSphereBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AFireZoneActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (!HasAuthority() || !OtherActor || !OtherActor->IsA(APawn::StaticClass())) return;
-
-	OverlappingBurnTargets.Add(OtherActor);
-	ApplyBurnToActor(OtherActor);
-}
-
-void AFireZoneActor::OnBurnSphereEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
-	if (OtherActor)
+	if (HasAuthority())
 	{
-		OverlappingBurnTargets.Remove(OtherActor);
+		for (const TWeakObjectPtr<APawn>& Pawn : PawnsInZoneLastTick)
+		{
+			if (Pawn.IsValid())
+			{
+				StopBurnOnActor(Pawn.Get());
+			}
+		}
+		PawnsInZoneLastTick.Empty();
+
+		if (GetWorld())
+		{
+			GetWorld()->GetTimerManager().ClearTimer(BurnTickHandle);
+		}
 	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 void AFireZoneActor::TickBurnZone()
 {
-	if (!HasAuthority()) return;
-
-	for (auto It = OverlappingBurnTargets.CreateIterator(); It; ++It)
+	if (!HasAuthority())
 	{
-		if (!It->IsValid())
+		return;
+	}
+
+	TArray<APawn*> PawnsInRadius;
+	GatherPawnsInBurnRadius(PawnsInRadius);
+
+	TSet<TWeakObjectPtr<APawn>> CurrentSet;
+	for (APawn* Pawn : PawnsInRadius)
+	{
+		if (!Pawn)
 		{
-			It.RemoveCurrent();
 			continue;
 		}
-		ApplyBurnToActor(It->Get());
+
+		CurrentSet.Add(Pawn);
+		ApplyBurnToActor(Pawn);
 	}
+
+	for (const TWeakObjectPtr<APawn>& Previous : PawnsInZoneLastTick)
+	{
+		if (Previous.IsValid() && !CurrentSet.Contains(Previous))
+		{
+			StopBurnOnActor(Previous.Get());
+		}
+	}
+
+	PawnsInZoneLastTick = MoveTemp(CurrentSet);
 }
 
-void AFireZoneActor::ApplyBurnToActor(AActor* Target)
+void AFireZoneActor::ApplyBurnToActor(APawn* Target)
 {
-	if (!Target) return;
+	if (!Target)
+	{
+		return;
+	}
 
 	UHealthComponent* HC = Target->FindComponentByClass<UHealthComponent>();
-	if (!HC) return;
+	if (!HC)
+	{
+		return;
+	}
 
 	AController* InstigatorController = DamageInstigator.IsValid()
 		? DamageInstigator->GetController()
 		: nullptr;
 
-	HC->StartBurn(BurnDuration, BurnInterval, BurnDamage, InstigatorController, BodyBurnFX);
+	HC->ApplyZoneBurnTick(BurnDamage, InstigatorController, BodyBurnFX);
+}
+
+void AFireZoneActor::StopBurnOnActor(APawn* Target)
+{
+	if (!Target)
+	{
+		return;
+	}
+
+	if (UHealthComponent* HC = Target->FindComponentByClass<UHealthComponent>())
+	{
+		HC->StopZoneBurnEffects();
+	}
 }

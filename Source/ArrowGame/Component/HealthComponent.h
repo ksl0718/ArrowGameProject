@@ -32,6 +32,12 @@ public:
 	void StartBurn(float Duration, float Interval, float Damage,
 		class AController* DamageInstigator = nullptr, class UNiagaraSystem* BurnFXOverride = nullptr);
 
+	/** 화염 존 틱용 — StartBurn 타이머를 리셋하지 않고 1틱 데미지 + FX 유지 */
+	void ApplyZoneBurnTick(float Damage, class AController* DamageInstigator = nullptr,
+		class UNiagaraSystem* BurnFXOverride = nullptr);
+
+	void StopZoneBurnEffects();
+
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnDeadDelegate OnDead;
 	
