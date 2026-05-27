@@ -11,26 +11,20 @@ class ARROWGAME_API ADokkaebiDecoy : public ACharacter
 public:
 	ADokkaebiDecoy();
 
+	/** 스폰 주체 MaxWalkSpeed에 곱함 (1 = 본체와 동일) */
+	UPROPERTY(EditAnywhere, Category = "Decoy|Movement")
+	float SpeedMultiplier = 1.f;
+
+	/** 소유자 MaxStepHeight에 더해 미세 턱/바닥 이음을 넘기기 쉽게 함 */
+	UPROPERTY(EditAnywhere, Category = "Decoy|Movement")
+	float ExtraStepHeight = 12.f;
+
+	/** 스폰 직후·BeginPlay에서 본체 이동 수치를 복사 */
+	void SyncMovementFromOwner();
+
 protected:
 	virtual void BeginPlay() override;
 
-	UFUNCTION()
-    void OnCapsuleHit(
-        UPrimitiveComponent* HitComp,
-        AActor* OtherActor,
-        UPrimitiveComponent* OtherComp,
-        FVector NormalImpulse,
-        const FHitResult& Hit);
-
 public:
 	virtual void Tick(float DeltaTime) override;
-
-	// 분신 이동 속도
-	UPROPERTY(EditAnywhere, Category = "Decoy")
-	float DecoySpeed = 450.f;
-
-	
-private:
-    // 한번 막히면 이후엔 속도 갱신을 안 해서 "벽에 비비며 떨림" 방지
-    bool bStoppedByHit = false;
 };

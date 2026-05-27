@@ -30,14 +30,10 @@ void UUserCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
         bIsDead = false;
     }
 
-    if (ADokkaebiDecoy* Decoy = Cast<ADokkaebiDecoy>(Pawn))
+    if (Cast<ADokkaebiDecoy>(Pawn))
     {
-        // Decoy는 네트워크 보간 영향 줄이려고 Velocity 기반만 사용
         const float RawSpeed = Character->GetVelocity().Size2D();
-        // 이동 중이면 목표 속도를 DecoySpeed로 고정해 호스트/클라 체감 맞춤
-        const float TargetSpeed = (RawSpeed > 5.f) ? Decoy->DecoySpeed : 0.f;
-        // 시각 스무딩
-        GroundSpeed = FMath::FInterpTo(GroundSpeed, TargetSpeed, DeltaSeconds, 10.f);
+        GroundSpeed = FMath::FInterpTo(GroundSpeed, RawSpeed, DeltaSeconds, 10.f);
         // 직진 분신이면 방향값은 0 고정해도 충분
         Direction = 0.f;
         bShouldMove = (GroundSpeed > 3.f);
