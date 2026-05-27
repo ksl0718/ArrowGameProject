@@ -3,10 +3,17 @@
 #include "Kismet/GameplayStatics.h"
 #include "ArrowGame/Component/HealthComponent.h"
 #include "Sound/SoundBase.h"
-
 AFireArrow::AFireArrow()
 {
 	ArrowType = EArrowType::Fire;
+}
+
+void AFireArrow::PlayLaunchEffects()
+{
+	if (LaunchSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), LaunchSound, GetActorLocation());
+	}
 }
 
 void AFireArrow::NotifyImpact(const FHitResult& Hit)
