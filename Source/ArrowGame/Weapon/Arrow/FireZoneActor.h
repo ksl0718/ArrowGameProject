@@ -7,8 +7,9 @@
 class USphereComponent;
 class UNiagaraComponent;
 class UNiagaraSystem;
+class APawn;
 
-/** 땅/벽 화염 존 — 오버랩 시 화상 DoT + 몸불 FX */
+/** 땅/벽 화염 존 — 반경 내 Pawn에게 주기 화상 */
 UCLASS()
 class ARROWGAME_API AFireZoneActor : public AActor
 {
@@ -23,6 +24,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	USphereComponent* BurnSphere;
@@ -40,16 +42,10 @@ protected:
 	float BurnDuration = 5.f;
 
 	FTimerHandle BurnTickHandle;
-	TSet<TWeakObjectPtr<AActor>> OverlappingBurnTargets;
+	TSet<TWeakObjectPtr<APawn>> PawnsInZoneLastTick;
 
-	UFUNCTION()
-	void OnBurnSphereBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UFUNCTION()
-	void OnBurnSphereEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-
-	void ApplyBurnToActor(AActor* Target);
+	void GatherPawnsInBurnRadius(TArray<APawn*>& OutPawns) const;
+	void ApplyBurnToActor(APawn* Target);
+	void StopBurnOnActor(APawn* Target);
 	void TickBurnZone();
 };

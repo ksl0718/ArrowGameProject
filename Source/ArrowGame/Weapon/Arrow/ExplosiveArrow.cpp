@@ -24,7 +24,7 @@ void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)
 	for (auto& HitResult : OutHits)
 	{
 		AActor* HitActor = HitResult.GetActor();
-		if (!HitActor || HitActor == GetInstigator()) continue;
+		if (!HitActor) continue;
 
 		UGameplayStatics::ApplyDamage(HitActor, ExplosionDamage, GetInstigatorController(), this, UDamageType::StaticClass());
 	}

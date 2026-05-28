@@ -31,11 +31,10 @@ void UDokkaebiCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		bIsDead = CharBase->bIsDead;
 	}
 
-	if (ADokkaebiDecoy* Decoy = Cast<ADokkaebiDecoy>(Pawn))
+	if (Cast<ADokkaebiDecoy>(Pawn))
 	{
 		const float RawSpeed = Character->GetVelocity().Size2D();
-		const float TargetSpeed = (RawSpeed > 5.f) ? Decoy->DecoySpeed : 0.f;
-		Speed = FMath::FInterpTo(Speed, TargetSpeed, DeltaSeconds, 10.f);
+		Speed = FMath::FInterpTo(Speed, RawSpeed, DeltaSeconds, 10.f);
 		GroundSpeed = Speed;
 		Direction = 0.f;
 		bShouldMove = Speed > 3.f;

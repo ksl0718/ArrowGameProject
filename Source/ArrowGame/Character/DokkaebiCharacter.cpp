@@ -347,6 +347,10 @@ void ADokkaebiCharacter::ExecuteDecoySkillOnAuthority(FVector SpawnLoc, FRotator
 		{
 			UE_LOG(LogTemp, Error, TEXT("Decoy spawn failed at %s"), *SafeSpawnLoc.ToString());
 		}
+		else
+		{
+			Decoy->SyncMovementFromOwner();
+		}
 	}
 	GetWorldTimerManager().ClearTimer(StealthEndTimerHandle);
 	GetWorldTimerManager().SetTimer(
