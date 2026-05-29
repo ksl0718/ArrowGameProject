@@ -24,6 +24,8 @@
 #include "Animation/AnimMontage.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Particles/ParticleSystem.h"
+#include "Kismet/GameplayStatics.h"
 
 // --- 복제: 은신 전 클라, 스킬 상태·투시 종료 시각은 시전자(Owner)만 ---
 
@@ -383,6 +385,8 @@ void ADokkaebiCharacter::EndStealthOnAuthority()
         GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f);
 
 	OnRep_IsStealthed();
+	
+	MulticastPlayDecoyVanishFX(GetActorLocation());
 }
 
 void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
@@ -1059,4 +1063,14 @@ void ADokkaebiCharacter::SetCurseOrbReadyOnServer(bool bReady, bool bInstantHide
 	}
 
 	ApplyCurseOrbReadyVisuals();
+}
+
+
+void ADokkaebiCharacter::MulticastPlayDecoyVanishFX_Implementation(FVector Location)
+{
+	if (DecoyVanishFX)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(
+			GetWorld(), DecoyVanishFX, Location);
+	}
 }

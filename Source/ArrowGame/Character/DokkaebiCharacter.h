@@ -140,6 +140,13 @@ public:
 #pragma endregion
 
 #pragma region Decoy_Skill // 미끼 스폰 + 전 클라에 보이는 은신
+public:
+	UPROPERTY(EditAnywhere, Category = "FX")
+	UParticleSystem* DecoyVanishFX;
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayDecoyVanishFX(FVector Location);
+	
 protected:
 	void Input_DecoySkillA(const FInputActionValue& Value);
 

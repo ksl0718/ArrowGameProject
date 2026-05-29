@@ -1,4 +1,6 @@
 #include "DokkaebiDecoy.h"
+
+#include "DokkaebiCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -97,4 +99,16 @@ void ADokkaebiDecoy::Tick(float DeltaTime)
 	{
 		AddMovementInput(ForwardFlat.GetSafeNormal(), 1.f);
 	}
+}
+
+void ADokkaebiDecoy::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (HasAuthority() && EndPlayReason == EEndPlayReason::Destroyed )
+	{
+		if (ADokkaebiCharacter* OwnerDokkaebi = Cast<ADokkaebiCharacter>(GetOwner()))
+		{
+			OwnerDokkaebi->MulticastPlayDecoyVanishFX(GetActorLocation());
+		}
+	}
+	Super::EndPlay(EndPlayReason);
 }
