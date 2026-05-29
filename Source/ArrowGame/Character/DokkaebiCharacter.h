@@ -143,6 +143,17 @@ public:
 public:
 	UPROPERTY(EditAnywhere, Category = "FX")
 	UParticleSystem* DecoyVanishFX;
+
+	/** DecoyVanishFX 재생 배율 (클수록 펑 하고 빨리 끝남) */
+	UPROPERTY(EditAnywhere, Category = "FX", meta = (ClampMin = "0.1", UIMin = "0.1", UIMax = "10"))
+	float DecoyVanishFXTimeDilation = 4.f;
+
+	UPROPERTY(EditAnywhere, Category = "FX")
+	FVector DecoyVanishFXScale = FVector(1.2f);
+
+	/** 연기 컴포넌트 강제 제거(초). Cascade가 Loop면 bAutoDestroy만으로 안 꺼질 수 있음 */
+	UPROPERTY(EditAnywhere, Category = "FX", meta = (ClampMin = "0.1", UIMin = "0.1", UIMax = "10"))
+	float DecoyVanishFXMaxLifetime = 1.5f;
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayDecoyVanishFX(FVector Location);

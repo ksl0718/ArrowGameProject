@@ -22,6 +22,9 @@ public:
 	/** 스폰 직후·BeginPlay에서 본체 이동 수치를 복사 */
 	void SyncMovementFromOwner();
 
+	/** 스폰 주체(도깨비) 캡슐과 물리/이동 충돌 무시 */
+	void IgnoreCollisionWithOwner();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

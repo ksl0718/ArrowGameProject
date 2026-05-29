@@ -25,6 +25,7 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Particles/ParticleSystem.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 // --- 복제: 은신 전 클라, 스킬 상태·투시 종료 시각은 시전자(Owner)만 ---
@@ -384,9 +385,9 @@ void ADokkaebiCharacter::EndStealthOnAuthority()
         (int32)GetNetMode(),
         GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f);
 
-	OnRep_IsStealthed();
-	
 	MulticastPlayDecoyVanishFX(GetActorLocation());
+	
+	OnRep_IsStealthed();
 }
 
 void ADokkaebiCharacter::Input_DecoySkillA(const FInputActionValue& Value)
@@ -1068,9 +1069,37 @@ void ADokkaebiCharacter::SetCurseOrbReadyOnServer(bool bReady, bool bInstantHide
 
 void ADokkaebiCharacter::MulticastPlayDecoyVanishFX_Implementation(FVector Location)
 {
-	if (DecoyVanishFX)
+	if (!DecoyVanishFX || !GetWorld())
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(
-			GetWorld(), DecoyVanishFX, Location);
+		return;
+	}
+	UParticleSystemComponent* FX = UGameplayStatics::SpawnEmitterAtLocation(
+		GetWorld(),
+		DecoyVanishFX,
+		Location,
+		FRotator::ZeroRotator,
+		DecoyVanishFXScale,
+		true);
+
+	if (FX)
+	{
+		FX->CustomTimeDilation = DecoyVanishFXTimeDilation;
+		FX->bAutoDestroy = true;
+
+		const float KillAfter = DecoyVanishFXMaxLifetime / FMath::Max(DecoyVanishFXTimeDilation, 0.1f);
+		TWeakObjectPtr<UParticleSystemComponent> WeakFX(FX);
+		FTimerHandle KillFXHandle;
+		GetWorld()->GetTimerManager().SetTimer(
+			KillFXHandle,
+			FTimerDelegate::CreateWeakLambda(FX, [WeakFX]()
+			{
+				if (UParticleSystemComponent* Comp = WeakFX.Get())
+				{
+					Comp->DeactivateSystem();
+					Comp->DestroyComponent();
+				}
+			}),
+			KillAfter,
+			false);
 	}
 }
