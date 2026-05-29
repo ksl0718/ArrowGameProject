@@ -1,4 +1,6 @@
 #include "DokkaebiDecoy.h"
+
+#include "DokkaebiCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -7,16 +9,12 @@
 ADokkaebiDecoy::ADokkaebiDecoy()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.TickGroup = TG_PrePhysics;
 
 	bReplicates = true;
 	SetReplicateMovement(true);
 
 	if (UCharacterMovementComponent* Move = GetCharacterMovement())
 	{
-		Move->PrimaryComponentTick.TickGroup = TG_PrePhysics;
-		Move->PrimaryComponentTick.AddPrerequisite(this, PrimaryActorTick);
-
 		Move->bOrientRotationToMovement = true;
 		Move->RotationRate = FRotator(0.f, 500.f, 0.f);
 		Move->bRunPhysicsWithNoController = true;
@@ -81,6 +79,29 @@ void ADokkaebiDecoy::BeginPlay()
 	}
 
 	SyncMovementFromOwner();
+	IgnoreCollisionWithOwner();
+}
+
+void ADokkaebiDecoy::IgnoreCollisionWithOwner()
+{
+	ADokkaebiCharacter* OwnerDokkaebi = Cast<ADokkaebiCharacter>(GetOwner());
+	if (!OwnerDokkaebi)
+	{
+		return;
+	}
+
+	if (UCapsuleComponent* DecoyCapsule = GetCapsuleComponent())
+	{
+		DecoyCapsule->IgnoreActorWhenMoving(OwnerDokkaebi, true);
+	}
+
+	if (UCapsuleComponent* OwnerCapsule = OwnerDokkaebi->GetCapsuleComponent())
+	{
+		OwnerCapsule->IgnoreActorWhenMoving(this, true);
+	}
+
+	MoveIgnoreActorAdd(OwnerDokkaebi);
+	OwnerDokkaebi->MoveIgnoreActorAdd(this);
 }
 
 void ADokkaebiDecoy::Tick(float DeltaTime)
@@ -97,4 +118,16 @@ void ADokkaebiDecoy::Tick(float DeltaTime)
 	{
 		AddMovementInput(ForwardFlat.GetSafeNormal(), 1.f);
 	}
+}
+
+void ADokkaebiDecoy::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (HasAuthority() && EndPlayReason == EEndPlayReason::Destroyed )
+	{
+		if (ADokkaebiCharacter* OwnerDokkaebi = Cast<ADokkaebiCharacter>(GetOwner()))
+		{
+			OwnerDokkaebi->MulticastPlayDecoyVanishFX(GetActorLocation());
+		}
+	}
+	Super::EndPlay(EndPlayReason);
 }
