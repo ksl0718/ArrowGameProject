@@ -2,10 +2,16 @@
 #include "FireZoneActor.h"
 #include "Kismet/GameplayStatics.h"
 #include "ArrowGame/Component/HealthComponent.h"
+#include "NiagaraComponent.h"
 #include "Sound/SoundBase.h"
+
 AFireArrow::AFireArrow()
 {
 	ArrowType = EArrowType::Fire;
+
+	TipNiagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("TipFX"));
+	TipNiagara->SetupAttachment(ArrowMesh);
+	TipNiagara->bAutoActivate = false;
 }
 
 void AFireArrow::PlayLaunchEffects()

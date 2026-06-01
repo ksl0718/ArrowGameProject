@@ -14,7 +14,8 @@ AFireZoneActor::AFireZoneActor()
 
 	BurnSphere = CreateDefaultSubobject<USphereComponent>(TEXT("BurnSphere"));
 	SetRootComponent(BurnSphere);
-	BurnSphere->SetCollisionProfileName(TEXT("OverlapOnlyPawn"));
+	// 화상 판정은 GatherPawnsInBurnRadius 수동 오버랩만 사용 — Block 하면 화살이 존에 박힘
+	BurnSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	BurnSphere->SetGenerateOverlapEvents(false);
 	BurnSphere->SetHiddenInGame(true, true);
 
@@ -37,7 +38,6 @@ void AFireZoneActor::InitZone(APawn* InInstigator, float InRadius, float InLifet
 	if (BurnSphere)
 	{
 		BurnSphere->SetSphereRadius(InRadius);
-		BurnSphere->SetCollisionProfileName(TEXT("OverlapOnlyPawn"));
 	}
 
 	if (GroundFireNiagara && InGroundFX)
