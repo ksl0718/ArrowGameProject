@@ -16,6 +16,7 @@
 #include "../Character/ArcherCharacterBase.h"
 #include "../Core/ArrowPlayerState.h"
 #include "../Core/ArrowGamePlayerController.h"
+#include "Arrow/FireZoneActor.h"
 
 void AArrowProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -190,6 +191,11 @@ void AArrowProjectile::OnHit(
 		return;
 
 	if (!OtherActor || OtherActor == this || OtherActor == GetInstigator()) return;
+
+	if (Cast<AFireZoneActor>(OtherActor))
+	{
+		return;
+	}
 
 	NotifyImpact(Hit);
 
