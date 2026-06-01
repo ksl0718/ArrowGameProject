@@ -34,8 +34,18 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Effects", meta = (AllowPrivateAccess = "true"))
 	class UNiagaraComponent* TrailNiagara;
 
+	/** 화살촉 이펙트 (불/폭발 화살 등에서 서브클래스가 생성) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Effects", meta = (AllowPrivateAccess = "true"))
+	class UNiagaraComponent* TipNiagara;
+
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastActivateTrail();
+
+	/** 화살촉 이펙트만 (조준용 PreparedArrow) */
+	void ActivateTipEffect();
+
+	/** 궤적 + 화살촉 (발사 시) */
+	void ActivateArrowEffects();
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayHitSound(FVector Location);

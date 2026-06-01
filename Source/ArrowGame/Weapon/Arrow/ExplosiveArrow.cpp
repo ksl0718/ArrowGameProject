@@ -1,12 +1,18 @@
 #include "ExplosiveArrow.h"
+#include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
 
 AExplosiveArrow::AExplosiveArrow()
 {
+	ArrowType = EArrowType::Explosive;
 	bShouldApplyDirectDamage = false;
 	bAlwaysRelevant = true;
+
+	TipNiagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("TipFX"));
+	TipNiagara->SetupAttachment(ArrowMesh);
+	TipNiagara->bAutoActivate = false;
 }
 
 void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)

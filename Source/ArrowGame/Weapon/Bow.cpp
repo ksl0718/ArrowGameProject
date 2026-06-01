@@ -293,6 +293,8 @@ void ABow::SpawnDrawArrow()
         ArrowHandSocketName
     );
 
+    PreparedArrow->ActivateTipEffect();
+
     GetWorldTimerManager().ClearTimer(NockToStringTimerHandle);
     GetWorldTimerManager().SetTimer(
         NockToStringTimerHandle,
@@ -551,8 +553,8 @@ void ABow::FireArrow(float ChargePercent)
         FiredArrow->CollisionBox->MoveIgnoreActors.AddUnique(this);
     }
 
-    // 이펙트 활성화
-    if (FiredArrow->TrailNiagara)
+    // 이펙트 활성화 (궤적 / 화살촉)
+    if (FiredArrow->TrailNiagara || FiredArrow->TipNiagara)
     {
         FiredArrow->MulticastActivateTrail();
     }

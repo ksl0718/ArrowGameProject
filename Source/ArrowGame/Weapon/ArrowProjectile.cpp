@@ -262,6 +262,7 @@ void AArrowProjectile::StopAndDisable()
 	}
 
 	if (TrailNiagara) TrailNiagara->Deactivate();
+	if (TipNiagara) TipNiagara->Deactivate();
 
 	if (CollisionBox)
 	{
@@ -322,13 +323,26 @@ void AArrowProjectile::StickIntoWorld(UPrimitiveComponent* OtherComp, AActor* Ot
 	UpdateOverlaps();
 }
 
-//나이아가라 서버호출
-void AArrowProjectile::MulticastActivateTrail_Implementation()
+void AArrowProjectile::ActivateTipEffect()
+{
+	if (TipNiagara)
+	{
+		TipNiagara->Activate(true);
+	}
+}
+
+void AArrowProjectile::ActivateArrowEffects()
 {
 	if (TrailNiagara)
 	{
 		TrailNiagara->Activate(true);
 	}
+	ActivateTipEffect();
+}
+
+void AArrowProjectile::MulticastActivateTrail_Implementation()
+{
+	ActivateArrowEffects();
 	PlayLaunchEffects();
 }
 
