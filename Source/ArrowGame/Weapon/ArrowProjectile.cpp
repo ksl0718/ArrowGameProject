@@ -14,6 +14,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "../Character/ArcherCharacterBase.h"
+#include "../Character/DokkaebiDecoy.h"
 #include "../Core/ArrowPlayerState.h"
 #include "../Core/ArrowGamePlayerController.h"
 
@@ -202,21 +203,40 @@ void AArrowProjectile::OnHit(
 		{
 			CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			SetActorHiddenInGame(true);
-			if (bShouldApplyDirectDamage)
+
+			// 분신 피격: 쏜 아처에게 역데미지, 분신 제거
+			if (OtherActor->IsA(ADokkaebiDecoy::StaticClass()))
 			{
-				UGameplayStatics::ApplyDamage(
-					OtherActor,
-					Damage,
-					GetInstigatorController(),
-					this,
-					UDamageType::StaticClass()
-				);
-			}
-			if (IsEnemy(GetInstigator(), OtherActor))
-			{
-				if (AArrowGamePlayerController* PC = Cast<AArrowGamePlayerController>(GetInstigatorController()))
+				OtherActor->Destroy();
+				if (APawn* Shooter = GetInstigator())
 				{
-					PC->Client_ShowHitMarker();
+					UGameplayStatics::ApplyDamage(
+						Shooter,
+						Damage,
+						nullptr,
+						this,
+						UDamageType::StaticClass()
+					);
+				}
+			}
+			else
+			{
+				if (bShouldApplyDirectDamage)
+				{
+					UGameplayStatics::ApplyDamage(
+						OtherActor,
+						Damage,
+						GetInstigatorController(),
+						this,
+						UDamageType::StaticClass()
+					);
+				}
+				if (IsEnemy(GetInstigator(), OtherActor))
+				{
+					if (AArrowGamePlayerController* PC = Cast<AArrowGamePlayerController>(GetInstigatorController()))
+					{
+						PC->Client_ShowHitMarker();
+					}
 				}
 			}
 			// 즉시 Destroy 대신 지연 — 피격 FX 멀티캐스트 RPC가 클라에 도달할 시간 확보
