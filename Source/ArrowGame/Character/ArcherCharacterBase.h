@@ -84,6 +84,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Ammo")
 	TSubclassOf<class AArrowProjectile> GetCurrentArrowClass() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Ammo")
+	TSubclassOf<class AArrowProjectile> GetArrowClassForType(EArrowType Type) const;
+
 	UFUNCTION(BlueprintPure, Category = "Weapon|Bow")
 	bool HasEquippedBow() const;
 
