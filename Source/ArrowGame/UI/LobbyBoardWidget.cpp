@@ -196,10 +196,11 @@ void ULobbyBoardWidget::OnStartClicked()
 			{
 				UE_LOG(LogTemp, Error, TEXT("ArrowGameInstance 캐스트 실패 — MatchStartPlayerCount 설정 안 됨"));
 			}
-			// 게임 플레이 맵의 월드 세팅(GameMode Override)을 그대로 사용
-			FString MapPath = TEXT("/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024");
-			// 3. ServerTravel은 모든 클라이언트를 동시에 이동시킵니다.
-			World->ServerTravel(MapPath);
+			// 전투 GameMode를 URL에 명시 (심리스 2회차 트래블 시 World Settings만으로는 GM이 안 바뀌는 경우 방지)
+			const FString TravelURL = TEXT(
+				"/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024"
+				"?game=/Game/ArrowGame/Blueprint/GameMode/BP_ArrowGameGameMode.BP_ArrowGameGameMode_C");
+			World->ServerTravel(TravelURL);
 		}
 	}
 	else
