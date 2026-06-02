@@ -20,12 +20,19 @@
 #include "ArrowGame/Character/DokkaebiCharacter.h"
 #include "ArrowGame/Core/ArrowGameState.h"
 #include "ArrowGame/Core/ArrowPlayerState.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
+#include "CollisionQueryParams.h"
 #include "TimerManager.h"
+#include "DrawDebugHelpers.h"
 
 void AUserArcherCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AUserArcherCharacter, bIsCursedControl);
+    DOREPLIFETIME(AUserArcherCharacter, CursedBehaviorMode);
+    DOREPLIFETIME(AUserArcherCharacter, CursedAttackTarget);
     DOREPLIFETIME_CONDITION(AUserArcherCharacter, CursedDokkaebi, COND_OwnerOnly);
 }
 
@@ -151,7 +158,7 @@ void AUserArcherCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 void AUserArcherCharacter::Move(const FInputActionValue& Value)
 {
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     if (!bCanMove) return;
 
     const FVector2D MovementVector = Value.Get<FVector2D>();
@@ -170,7 +177,7 @@ void AUserArcherCharacter::Move(const FInputActionValue& Value)
 
 void AUserArcherCharacter::Look(const FInputActionValue& Value)
 {
-    // 저주 중에도 시야(마우스)는 돌릴 수 있게 둔다. 이동만 IsInputBlockedByCurse로 막는다.
+    // 저주 중에도 시야(마우스)는 돌릴 수 있게 둔다. 이동만 IsPlayerManualInputBlockedByCurse 로 막는다.
     // Tick에서 스무딩 후 적용하므로 여기서는 누적만 한다.
     RawLookInput += Value.Get<FVector2D>() * MouseSensitivity;
 }
@@ -182,7 +189,7 @@ void AUserArcherCharacter::OnJumpInput()
 
 void AUserArcherCharacter::StartAiming()
  {
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     if (!bCanMove || IsDead()) return;
     
     if (GetAmmoCount(CurrentArrowType) <= 0)
@@ -215,7 +222,7 @@ void AUserArcherCharacter::StartAiming()
 
 void AUserArcherCharacter::StartCharging()
 {
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
 
     if (!EquippedWeapon) return;
 
@@ -233,7 +240,7 @@ void AUserArcherCharacter::StartCharging()
 
 void AUserArcherCharacter::ReleaseArrow()
 {
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     if (!EquippedWeapon) return;
 
     ABow* Bow = Cast<ABow>(EquippedWeapon);
@@ -288,33 +295,42 @@ void AUserArcherCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    // 저주 도망은 서버 권한에서 매 프레임 넣어야 걷기와 비슷한 가속이 난다.
-    // 타이머(예: 0.1초)만 쓰면 초당 몇 번만 입력이 들어가서 극도로 느리게 느껴진다.
-    if (HasAuthority() && bIsCursedControl && !bIsDead)
+    const bool bFocusCurseTarget = ShouldFocusCurseAttackTarget();
+
+    // LookAt을 발사(TryCurseAutoFire)보다 먼저 — 리슨 호스트에서 ControlRotation·에임 정합
+    if (IsLocallyControlled() && bFocusCurseTarget)
+    {
+        ApplyCursedAttackAllyLookFocus(DeltaTime);
+    }
+
+    if (HasAuthority() && IsCursedAndAlive())
     {
         CursedBrainTick();
     }
 
-    // 전용 서버 등: 원격 플레이어 이동은 ServerMove가 지배하므로, 도망 입력은 소유 클라에서만 넣어야 서버 시뮬과 맞음
-    if (bIsCursedControl && !bIsDead && !HasAuthority() && IsLocallyControlled())
+    if (IsCursedAndAlive() && !HasAuthority() && IsLocallyControlled())
     {
-        FVector FleeDir;
-        if (TryGetCursedFleeWorldDirection2D(FleeDir))
-        {
-            AddMovementInput(FleeDir, CursedFleeInputScale, true);
-        }
+        ApplyCursedAutomatedMovementInput();
+    }
+
+    if (IsCursedAndAlive() && bDrawCurseDebug)
+    {
+        DrawCurseDebugVisuals();
     }
 
     if (IsLocallyControlled())
     {
-        // 마우스 입력 스무딩: 이전 프레임 값과 lerp 후 적용, 약간의 지연감/관성 연출
-        SmoothedLookInput = FVector2D(
-            FMath::FInterpTo(SmoothedLookInput.X, RawLookInput.X, DeltaTime, LookSmoothingSpeed),
-            FMath::FInterpTo(SmoothedLookInput.Y, RawLookInput.Y, DeltaTime, LookSmoothingSpeed)
-        );
-        AddControllerYawInput(SmoothedLookInput.X);
-        AddControllerPitchInput(SmoothedLookInput.Y);
-        RawLookInput = FVector2D::ZeroVector;
+        if (!bFocusCurseTarget)
+        {
+            // 마우스 입력 스무딩: 이전 프레임 값과 lerp 후 적용, 약간의 지연감/관성 연출
+            SmoothedLookInput = FVector2D(
+                FMath::FInterpTo(SmoothedLookInput.X, RawLookInput.X, DeltaTime, LookSmoothingSpeed),
+                FMath::FInterpTo(SmoothedLookInput.Y, RawLookInput.Y, DeltaTime, LookSmoothingSpeed)
+            );
+            AddControllerYawInput(SmoothedLookInput.X);
+            AddControllerPitchInput(SmoothedLookInput.Y);
+            RawLookInput = FVector2D::ZeroVector;
+        }
 
         ABow* Bow = Cast<ABow>(EquippedWeapon);
         bool bShouldShake = TiredCameraShakeClass && Bow && Bow->IsCharging() && Bow->GetChargeTime() > Bow->GetTiredThreshold();
@@ -399,7 +415,7 @@ void AUserArcherCharacter::Tick(float DeltaTime)
 void AUserArcherCharacter::OnWalkSlowStarted(const FInputActionValue& Value)
 {
 
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     // 1. 내 화면(로컬)에서는 답답하지 않게 즉시 속도를 줄임
 
     // 2. 🔥 내가 클라이언트라면, 서버한테도 내 속도를 깎아달라고 요청!
@@ -416,7 +432,7 @@ void AUserArcherCharacter::OnWalkSlowStarted(const FInputActionValue& Value)
 void AUserArcherCharacter::OnWalkSlowEnded(const FInputActionValue& Value)
 {
 
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     // 1. 내 화면(로컬)에서 즉시 원래 속도로 복구
 
     GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
@@ -437,7 +453,7 @@ void AUserArcherCharacter::ServerSetMaxWalkSpeed_Implementation(float NewSpeed)
 //----------Roll(구르기) 관련 함수-----------------//
 void AUserArcherCharacter::Roll()
 {
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     if (IsAiming()) return;
     if (bIsRolling || bIsDead || !bCanMove) return;
     if (!RollMontage) return;
@@ -522,7 +538,7 @@ float AUserArcherCharacter::GetRollCooldownRemaining() const
 
 void AUserArcherCharacter::Input_CycleArrow(const FInputActionValue& Value)
 {
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     if (IsAiming()) return;
     float ScrollValue = Value.Get<float>();
     if (ScrollValue == 0.f) return;
@@ -607,7 +623,7 @@ void AUserArcherCharacter::UpdateHighlight(AActor* Target, bool bEnable)
 
 void AUserArcherCharacter::Input_Interact(const FInputActionValue& Value)
 {
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     if (IsAiming()) return;
     // 1. 이미 실시간(Overlap)으로 찾은 '가장 가까운 타겟'이 있는지 확인합니다.
     if (CurrentTargetActor)
@@ -683,14 +699,14 @@ void AUserArcherCharacter::EquipNewBow(TSubclassOf<ABow> NewBowClass)
 
 void AUserArcherCharacter::OnCrouchStarted(const FInputActionValue& Value)
 {
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     if (IsAiming()) return;
     if (!bCanMove || IsDead()) return;
     Crouch();
 }
 void AUserArcherCharacter::OnCrouchEnded(const FInputActionValue& Value)
 {
-    if (IsInputBlockedByCurse()) return;
+    if (IsPlayerManualInputBlockedByCurse()) return;
     UnCrouch();
 }
 
@@ -734,9 +750,14 @@ void AUserArcherCharacter::ApplyCurseControl(float Duration, ADokkaebiCharacter*
         return;
     }
 
-    bIsCursedControl = true;
     CursedDokkaebi = CurseSource;
+    LastCurseAutoFireTime = -1.0e9f;
     CurseMoveDebugLastLogTime = -1.0e9f;
+    LastCurseBehaviorReevaluateTime = -1.0e9f;
+
+    ResolveAndApplyCurseBehaviorMode(true);
+
+    bIsCursedControl = true;
 
     // 원격 클라 소유 궁수: 서버 AddMovementInput이 예측/보정에 묻히지 않게 (에디터 단일 설정으로는 한계)
     ForceNetUpdate();
@@ -752,7 +773,7 @@ void AUserArcherCharacter::ApplyCurseControl(float Duration, ADokkaebiCharacter*
         Move->MaxWalkSpeed = FMath::Max(1.f, FMath::Max(Move->MaxWalkSpeed, NormalSpeed));
     }
 
-    StopAiming();
+    ApplyCurseAimingForBehaviorMode();
     UE_LOG(LogTemp, Warning, TEXT("[Curse] Start %.2fs"), Duration);
     
     UpdateCurseLocalPostProcessVignette();
@@ -784,12 +805,51 @@ void AUserArcherCharacter::EndCurseControl()
         Move->bIgnoreClientMovementErrorChecksAndCorrection = false;
     }
 
+    StopAiming();
+
     bIsCursedControl = false;
     CursedDokkaebi = nullptr;
+    CursedBehaviorMode = ECurseBehaviorMode::FleeFromDokkaebi;
+    CursedAttackTarget = nullptr;
     
     UpdateCurseLocalPostProcessVignette();
     
     UE_LOG(LogTemp, Warning, TEXT("[Curse] End"));
+}
+
+void AUserArcherCharacter::ApplyCurseAimingForBehaviorMode()
+{
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    if (IsAttackAllyCurseMode())
+    {
+        SetAiming(true);
+        if (IsLocallyControlled())
+        {
+            ApplyCurseAttackAimingLocalVisuals();
+        }
+        return;
+    }
+
+    StopAiming();
+}
+
+void AUserArcherCharacter::ApplyCurseAttackAimingLocalVisuals()
+{
+    if (!IsLocallyControlled())
+    {
+        return;
+    }
+
+    ShowReticle();
+
+    if (UCharacterMovementComponent* Move = GetCharacterMovement())
+    {
+        Move->MaxWalkSpeed = WalkSpeed;
+    }
 }
 
 void AUserArcherCharacter::OnRep_IsCursedControl()
@@ -803,53 +863,450 @@ void AUserArcherCharacter::OnRep_IsCursedControl()
 
     if (bIsCursedControl)
     {
+        if (IsLocallyControlled())
+        {
+            if (IsAttackAllyCurseMode())
+            {
+                ApplyCurseAttackAimingLocalVisuals();
+            }
+            else
+            {
+                StopAiming();
+            }
+        }
+        UE_LOG(LogTemp, Warning, TEXT("[Curse] OnRep Mode=%d Target=%s Aiming=%d"),
+            static_cast<int32>(CursedBehaviorMode),
+            CursedAttackTarget ? *CursedAttackTarget->GetName() : TEXT("none"),
+            IsAiming() ? 1 : 0);
+    }
+    else if (IsLocallyControlled())
+    {
         StopAiming();
     }
+
     UpdateCurseLocalPostProcessVignette();
 }
 
-bool AUserArcherCharacter::TryGetCursedFleeWorldDirection2D(FVector& OutDir) const
+FVector AUserArcherCharacter::GetCurseEyeWorldLocation(const AActor* Actor) const
 {
-    if (!bIsCursedControl)
+    return Actor
+        ? Actor->GetActorLocation() + FVector(0.f, 0.f, CursedAllyTraceEyeHeight)
+        : FVector::ZeroVector;
+}
+
+bool AUserArcherCharacter::IsCurseAllyWithinAttackRange(const ACharacter* Candidate) const
+{
+    if (!IsCurseAllyArcher(Candidate))
     {
         return false;
     }
 
-    ADokkaebiCharacter* Dok = CursedDokkaebi;
-    if (!IsValid(Dok))
+    const float DistSq = FVector::DistSquared2D(GetActorLocation(), Candidate->GetActorLocation());
+    if (DistSq > FMath::Square(CursedAllySearchRadius))
+    {
+        return false;
+    }
+
+    return HasClearCurseLineOfSightTo(Candidate);
+}
+
+bool AUserArcherCharacter::IsCurseAllyArcher(const ACharacter* Candidate) const
+{
+    if (!Candidate || Candidate == this)
+    {
+        return false;
+    }
+
+    const AUserArcherCharacter* AllyArcher = Cast<AUserArcherCharacter>(Candidate);
+    if (!AllyArcher || AllyArcher->IsDead())
+    {
+        return false;
+    }
+
+    const AArrowPlayerState* MyPS = GetPlayerState<AArrowPlayerState>();
+    const AArrowPlayerState* AllyPS = AllyArcher->GetPlayerState<AArrowPlayerState>();
+    if (!MyPS || !AllyPS)
+    {
+        return false;
+    }
+
+    // 궁수끼리만 팀 (도깨비 제외)
+    return !MyPS->IsDokkaebi() && !AllyPS->IsDokkaebi();
+}
+
+bool AUserArcherCharacter::HasClearCurseLineOfSightTo(const ACharacter* Candidate) const
+{
+    if (!Candidate || !GetWorld())
+    {
+        return false;
+    }
+
+    const FVector Start = GetCurseEyeWorldLocation(this);
+    const FVector End = GetCurseEyeWorldLocation(Candidate);
+    const float DistToTarget = FVector::Dist(Start, End);
+    if (DistToTarget <= KINDA_SMALL_NUMBER)
+    {
+        return true;
+    }
+
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(CurseAllyLOS), false, this);
+    Params.AddIgnoredActor(this);
+
+    FHitResult Hit;
+    const bool bHit = GetWorld()->LineTraceSingleByChannel(
+        Hit,
+        Start,
+        End,
+        CursedAllyLineTraceChannel,
+        Params);
+
+    auto ResolveHitCharacter = [](const FHitResult& InHit) -> const ACharacter*
+    {
+        if (const ACharacter* AsChar = Cast<ACharacter>(InHit.GetActor()))
+        {
+            return AsChar;
+        }
+        if (InHit.GetComponent())
+        {
+            return Cast<ACharacter>(InHit.GetComponent()->GetOwner());
+        }
+        return nullptr;
+    };
+
+    // Visibility는 Pawn에 Block 안 하는 설정이 많음 → 히트 없음 = 벽 없음
+    if (!bHit)
+    {
+        return true;
+    }
+
+    const ACharacter* HitChar = ResolveHitCharacter(Hit);
+    if (HitChar == Candidate)
+    {
+        return true;
+    }
+
+    const float HitDist = FVector::Dist(Start, Hit.ImpactPoint);
+    constexpr float BlockToleranceCm = 25.f;
+    if (HitDist < DistToTarget - BlockToleranceCm)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool AUserArcherCharacter::TryResolveCurseAllyTarget(ACharacter*& OutTarget) const
+{
+    OutTarget = nullptr;
+
+    if (!HasAuthority() || bIsDead)
+    {
+        return false;
+    }
+
+    const UWorld* World = GetWorld();
+    const AGameStateBase* GS = World ? World->GetGameState() : nullptr;
+    if (!GS)
     {
         return false;
     }
 
     const FVector MyLoc = GetActorLocation();
-    const FVector DokLoc = Dok->GetActorLocation();
 
-    if (CursedFleeMaxDistance > 0.f)
+    ACharacter* BestTarget = nullptr;
+    float BestDistSq = TNumericLimits<float>::Max();
+
+    for (APlayerState* PS : GS->PlayerArray)
     {
-        const float Dist = FVector::Dist(MyLoc, DokLoc);
-        if (Dist > CursedFleeMaxDistance)
+        if (!PS)
         {
-            return false;
+            continue;
+        }
+
+        APawn* Pawn = PS->GetPawn();
+        ACharacter* Candidate = Cast<ACharacter>(Pawn);
+        if (!IsCurseAllyArcher(Candidate))
+        {
+            if (bLogCurseAllyResolve && Candidate)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("[Curse][Resolve] skip %s: not ally archer"), *Candidate->GetName());
+            }
+            continue;
+        }
+
+        const float DistSq = FVector::DistSquared2D(MyLoc, Candidate->GetActorLocation());
+        if (!IsCurseAllyWithinAttackRange(Candidate))
+        {
+            if (bLogCurseAllyResolve)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("[Curse][Resolve] skip %s: out of range or LOS"), *Candidate->GetName());
+            }
+            continue;
+        }
+
+        if (DistSq < BestDistSq)
+        {
+            BestDistSq = DistSq;
+            BestTarget = Candidate;
         }
     }
 
-    FVector Flee = MyLoc - DokLoc;
-    Flee.Z = 0.f;
-    OutDir = Flee.GetSafeNormal();
+    if (!BestTarget)
+    {
+        if (bLogCurseAllyResolve)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[Curse][Resolve] no valid ally (PlayerArray=%d)"), GS->PlayerArray.Num());
+        }
+        return false;
+    }
+
+    OutTarget = BestTarget;
+    return true;
+}
+
+bool AUserArcherCharacter::TryGetCursedHorizontalMoveDirection2D(
+    const FVector& GoalWorldLocation,
+    const bool bMoveAwayFromGoal,
+    FVector& OutDir) const
+{
+    OutDir = FVector::ZeroVector;
+
+    FVector Delta = bMoveAwayFromGoal
+        ? (GetActorLocation() - GoalWorldLocation)
+        : (GoalWorldLocation - GetActorLocation());
+    Delta.Z = 0.f;
+    OutDir = Delta.GetSafeNormal();
     return !OutDir.IsNearlyZero();
+}
+
+bool AUserArcherCharacter::TryGetCursedMovementWorldDirection2D(FVector& OutDir) const
+{
+    OutDir = FVector::ZeroVector;
+
+    if (!IsCursedAndAlive())
+    {
+        return false;
+    }
+
+    if (IsAttackAllyCurseMode() && IsCurseAllyArcher(CursedAttackTarget))
+    {
+        return TryGetCursedHorizontalMoveDirection2D(CursedAttackTarget->GetActorLocation(), false, OutDir);
+    }
+
+    const ADokkaebiCharacter* Dok = CursedDokkaebi;
+    if (!IsValid(Dok))
+    {
+        return false;
+    }
+
+    return TryGetCursedHorizontalMoveDirection2D(Dok->GetActorLocation(), true, OutDir);
+}
+
+void AUserArcherCharacter::ApplyCursedAutomatedMovementInput()
+{
+    FVector Dir;
+    if (!TryGetCursedMovementWorldDirection2D(Dir))
+    {
+        return;
+    }
+
+    const float Scale = ShouldFocusCurseAttackTarget() ? CursedApproachInputScale : CursedFleeInputScale;
+
+    AddMovementInput(Dir, Scale, true);
+}
+
+bool AUserArcherCharacter::ShouldFocusCurseAttackTarget() const
+{
+    return IsCursedAndAlive() && IsAttackAllyCurseMode() && IsCurseAllyArcher(CursedAttackTarget);
+}
+
+void AUserArcherCharacter::ApplyCursedAttackAllyLookFocus(float DeltaTime)
+{
+    AController* ControllerPtr = GetController();
+    if (!ControllerPtr || !IsCurseAllyArcher(CursedAttackTarget))
+    {
+        return;
+    }
+
+    const FVector ViewStart = GetCurseEyeWorldLocation(this);
+    const FVector ViewEnd = GetCurseEyeWorldLocation(CursedAttackTarget);
+    const FRotator TargetRotation = (ViewEnd - ViewStart).Rotation();
+
+    if (CursedAllyLookInterpSpeed <= 0.f)
+    {
+        ControllerPtr->SetControlRotation(TargetRotation);
+    }
+    else
+    {
+        const FRotator NewRotation = FMath::RInterpTo(
+            ControllerPtr->GetControlRotation(),
+            TargetRotation,
+            DeltaTime,
+            CursedAllyLookInterpSpeed);
+        ControllerPtr->SetControlRotation(NewRotation);
+    }
+
+    RawLookInput = FVector2D::ZeroVector;
+    SmoothedLookInput = FVector2D::ZeroVector;
+}
+
+void AUserArcherCharacter::ResolveAndApplyCurseBehaviorMode(const bool bLogResolution)
+{
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    const ECurseBehaviorMode PreviousMode = CursedBehaviorMode;
+    ACharacter* const PreviousTarget = CursedAttackTarget;
+
+    ACharacter* AllyTarget = nullptr;
+    if (TryResolveCurseAllyTarget(AllyTarget))
+    {
+        CursedBehaviorMode = ECurseBehaviorMode::AttackAlly;
+        CursedAttackTarget = AllyTarget;
+
+        if (bLogResolution)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[Curse] Mode=AttackAlly Target=%s Dist2D=%.0f"),
+                *GetNameSafe(AllyTarget),
+                AllyTarget ? FVector::Dist2D(GetActorLocation(), AllyTarget->GetActorLocation()) : -1.f);
+        }
+    }
+    else
+    {
+        CursedBehaviorMode = ECurseBehaviorMode::FleeFromDokkaebi;
+        CursedAttackTarget = nullptr;
+
+        if (bLogResolution)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[Curse] Mode=FleeFromDokkaebi (no valid ally LOS)"));
+        }
+    }
+
+    if (PreviousMode != CursedBehaviorMode || PreviousTarget != CursedAttackTarget)
+    {
+        ApplyCurseAimingForBehaviorMode();
+
+        if (bLogResolution && PreviousMode != CursedBehaviorMode)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[Curse] Behavior changed %d -> %d"),
+                static_cast<int32>(PreviousMode),
+                static_cast<int32>(CursedBehaviorMode));
+        }
+    }
+}
+
+bool AUserArcherCharacter::IsCurrentCurseAttackTargetValid() const
+{
+    return IsAttackAllyCurseMode() && IsCurseAllyWithinAttackRange(CursedAttackTarget);
+}
+
+void AUserArcherCharacter::ReevaluateCurseBehaviorOnAuthority()
+{
+    if (!HasAuthority() || !IsCursedAndAlive())
+    {
+        return;
+    }
+
+    if (IsCurrentCurseAttackTargetValid())
+    {
+        return;
+    }
+
+    ResolveAndApplyCurseBehaviorMode(bLogCurseAllyResolve);
+}
+
+void AUserArcherCharacter::DrawCurseDebugVisuals() const
+{
+    UWorld* World = GetWorld();
+    if (!World || !IsCursedAndAlive())
+    {
+        return;
+    }
+
+    const FVector ViewStart = GetCurseEyeWorldLocation(this);
+    const float DebugLifetime = 0.f;
+
+    if (ShouldFocusCurseAttackTarget())
+    {
+        const FVector TargetPoint = GetCurseEyeWorldLocation(CursedAttackTarget);
+        DrawDebugLine(World, ViewStart, TargetPoint, FColor::Green, false, DebugLifetime, 0, 2.f);
+        DrawDebugSphere(World, TargetPoint, 24.f, 8, FColor::Green, false, DebugLifetime);
+    }
+    else if (IsValid(CursedDokkaebi))
+    {
+        const FVector DokPoint = GetCurseEyeWorldLocation(CursedDokkaebi);
+        const FVector FleeHint = ViewStart + (ViewStart - DokPoint).GetSafeNormal2D() * 200.f;
+        DrawDebugLine(World, ViewStart, FleeHint, FColor::Red, false, DebugLifetime, 0, 2.f);
+    }
+
+    DrawDebugCircle(
+        World,
+        GetActorLocation(),
+        CursedAllySearchRadius,
+        32,
+        FColor::Cyan,
+        false,
+        DebugLifetime,
+        0,
+        1.5f,
+        FVector(1.f, 0.f, 0.f),
+        FVector(0.f, 1.f, 0.f),
+        false);
+}
+
+void AUserArcherCharacter::TryCurseAutoFire()
+{
+    if (!HasAuthority() || !ShouldFocusCurseAttackTarget())
+    {
+        return;
+    }
+
+    ABow* Bow = Cast<ABow>(EquippedWeapon);
+    if (!Bow || Bow->IsReloading() || Bow->IsNocking())
+    {
+        return;
+    }
+
+    const UWorld* World = GetWorld();
+    if (!World)
+    {
+        return;
+    }
+
+    const float Now = World->GetTimeSeconds();
+    if (Now - LastCurseAutoFireTime < CurseAutoFireInterval)
+    {
+        return;
+    }
+
+    LastCurseAutoFireTime = Now;
+    Bow->ExecuteCurseShot(CurseAutoFireChargePercent, CursedAttackTarget, CursedAllyTraceEyeHeight);
 }
 
 void AUserArcherCharacter::CursedBrainTick()
 {
-    if (!HasAuthority() || !bIsCursedControl || bIsDead)
+    if (!HasAuthority() || !IsCursedAndAlive())
     {
         return;
     }
 
-    FVector Dir;
-    if (!TryGetCursedFleeWorldDirection2D(Dir))
+    const UWorld* World = GetWorld();
+    const float Now = World ? World->GetTimeSeconds() : 0.f;
+
+    if (bReevaluateCurseBehaviorWhileActive && World)
     {
-        return;
+        if (Now - LastCurseBehaviorReevaluateTime >= CurseBehaviorReevaluateInterval)
+        {
+            LastCurseBehaviorReevaluateTime = Now;
+            ReevaluateCurseBehaviorOnAuthority();
+        }
+    }
+
+    if (IsAttackAllyCurseMode())
+    {
+        TryCurseAutoFire();
     }
 
     // 원격 클라가 조종하는 궁수: 서버에서 AddMovementInput 해도 ServerMove(클라 정지 입력)에 밀림 → 소유 클라 Tick에서만 입력.
@@ -859,32 +1316,34 @@ void AUserArcherCharacter::CursedBrainTick()
     }
 
     // 리슨 서버에서 본인 궁수만 여기서 입력(클라 미러는 !HasAuthority()라 안 돔).
-    AddMovementInput(Dir, CursedFleeInputScale, true);
+    ApplyCursedAutomatedMovementInput();
 
-    if (const UWorld* W = GetWorld())
+    if (World)
     {
-        const float Now = W->GetTimeSeconds();
         if (Now - CurseMoveDebugLastLogTime >= 0.25f)
         {
             CurseMoveDebugLastLogTime = Now;
             // 같은 틱에서 바로 읽으면 Vel/Acc가 아직 갱신 전일 수 있어, 다음 틱에 한 번 더 찍음
             GetWorldTimerManager().SetTimerForNextTick([this]()
             {
-                if (!IsValid(this) || !HasAuthority() || !bIsCursedControl)
+                if (!IsValid(this) || !HasAuthority() || !IsCursedAndAlive())
                 {
                     return;
                 }
                 UCharacterMovementComponent* M = GetCharacterMovement();
                 const FVector V = GetVelocity();
                 const FVector Acc = M ? M->GetCurrentAcceleration() : FVector::ZeroVector;
+                const float MoveScale = ShouldFocusCurseAttackTarget()
+                    ? CursedApproachInputScale
+                    : CursedFleeInputScale;
                 UE_LOG(LogTemp, Warning,
-                    TEXT("[Curse] BrainTick+1 %s Vel2D=%.1f Acc2D=%.1f Mode=%d MaxWalk=%.0f Scale=%.2f"),
+                    TEXT("[Curse] BrainTick+1 %s Vel2D=%.1f Acc2D=%.1f BehaviorMode=%d MaxWalk=%.0f Scale=%.2f"),
                     *GetName(),
                     V.Size2D(),
                     Acc.Size2D(),
-                    M ? (int32)M->MovementMode : -1,
+                    static_cast<int32>(CursedBehaviorMode),
                     M ? M->MaxWalkSpeed : -1.f,
-                    CursedFleeInputScale);
+                    MoveScale);
             });
         }
     }

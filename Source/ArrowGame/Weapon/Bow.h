@@ -3,10 +3,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Weapon.h"
+#include "ArrowProjectile.h"
 #include "Bow.generated.h"
-
-
-class AArrowProjectile;
 
 UENUM(BlueprintType)
 enum class EBowState : uint8
@@ -43,6 +41,9 @@ public:
     
     UFUNCTION(BlueprintCallable)
     bool IsCharging() const { return bIsCharging; }
+
+    /** 서버 전용: 저주 AttackAlly 자동 발사 (차지·발사·재장전 한 사이클) */
+    void ExecuteCurseShot(float ChargePercent, const AActor* AimTarget, float AimEyeHeightOffset);
     FORCEINLINE bool IsReloading() const { return bIsReloading; }
     FORCEINLINE bool HasPreparedArrow() const { return PreparedArrow != nullptr; }
     FORCEINLINE bool IsNocking() const { return bIsNocking; }
@@ -178,6 +179,7 @@ private:
     void AttachPreparedArrowToBowString();
     
     void FireArrow(float Power);
+    void FireArrowWithShootDirection(float ChargePercent, const FVector& ShootDir, EArrowType ArrowTypeForShot, bool bSpawnAtBowSocket = false);
 
-    
+    FVector ComputeCurseShotDirection(const AActor* AimTarget, float AimEyeHeightOffset) const;
 };

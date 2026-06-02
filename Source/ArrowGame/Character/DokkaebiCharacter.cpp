@@ -1008,6 +1008,17 @@ void ADokkaebiCharacter::PlayFireCurseMontage()
 	{
 		Anim->Montage_Stop(0.1f, PrepareCurseMontage);
 	}
+	SetCurseFireMovementLock(true);
+	GetWorldTimerManager().ClearTimer(CurseFireMoveUnlockTimerHandle);
+	GetWorldTimerManager().SetTimer(
+		CurseFireMoveUnlockTimerHandle,
+		[this]()
+		{
+			SetCurseFireMovementLock(false);
+		},
+		FMath::Max(0.f, CurseFireMoveLockDuration),
+		false
+	);
 	Anim->Montage_Play(FireCurseMontage);
 }
 
@@ -1025,6 +1036,28 @@ void ADokkaebiCharacter::StopPrepareCurseMontage()
 			Anim->Montage_Stop(0.2f, PrepareCurseMontage);
 		}
 	}
+}
+
+void ADokkaebiCharacter::SetCurseFireMovementLock(bool bLocked)
+{
+	if (bLocked)
+	{
+		bCanMove = false;
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+		{
+			MoveComp->StopMovementImmediately();
+		}
+		bCurseFireMovementLocked = true;
+		return;
+	}
+
+	if (!bCurseFireMovementLocked)
+	{
+		return;
+	}
+
+	bCanMove = true;
+	bCurseFireMovementLocked = false;
 }
 
 void ADokkaebiCharacter::OnRep_CurseOrbReady()

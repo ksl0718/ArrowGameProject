@@ -422,13 +422,16 @@ void AArcherCharacterBase::OnRep_CurrentArrowType()
 
 TSubclassOf<class AArrowProjectile> AArcherCharacterBase::GetCurrentArrowClass() const
 {
-    // TMap에 현재 화살 타입이 세팅되어 있다면 그 클래스를 반환
-    if (ArrowClasses.Contains(CurrentArrowType))
+    return GetArrowClassForType(CurrentArrowType);
+}
+
+TSubclassOf<class AArrowProjectile> AArcherCharacterBase::GetArrowClassForType(const EArrowType Type) const
+{
+    if (ArrowClasses.Contains(Type))
     {
-        return ArrowClasses[CurrentArrowType];
+        return ArrowClasses[Type];
     }
-    
-    // 세팅을 깜빡했을 때를 대비한 방어 코드 (크래시 방지)
-    UE_LOG(LogTemp, Error, TEXT("ArrowClasses TMap에 현재 화살(%d) 클래스가 세팅되지 않았습니다!"), (int32)CurrentArrowType);
-    return nullptr; 
+
+    UE_LOG(LogTemp, Error, TEXT("ArrowClasses TMap에 화살(%d) 클래스가 세팅되지 않았습니다!"), static_cast<int32>(Type));
+    return nullptr;
 }

@@ -460,6 +460,72 @@ void ABow::HandleCharge(float DeltaTime)
     }
 }
 
+FVector ABow::ComputeCurseShotDirection(const AActor* AimTarget, const float AimEyeHeightOffset) const
+{
+    if (!OwnerArcherCharacter)
+    {
+        return FVector::ForwardVector;
+    }
+
+    if (IsValid(AimTarget))
+    {
+        const FVector ViewStart = OwnerArcherCharacter->GetActorLocation() + FVector(0.f, 0.f, AimEyeHeightOffset);
+        const FVector AimPoint = AimTarget->GetActorLocation() + FVector(0.f, 0.f, AimEyeHeightOffset);
+        const FVector Dir = AimPoint - ViewStart;
+        if (!Dir.IsNearlyZero())
+        {
+            return Dir.GetSafeNormal();
+        }
+    }
+
+    if (AController* Controller = OwnerArcherCharacter->GetController())
+    {
+        return Controller->GetControlRotation().Vector();
+    }
+
+    return OwnerArcherCharacter->GetActorForwardVector();
+}
+
+void ABow::ExecuteCurseShot(float ChargePercent, const AActor* AimTarget, const float AimEyeHeightOffset)
+{
+    if (!HasAuthority() || !OwnerArcherCharacter)
+    {
+        return;
+    }
+
+    if (!OwnerArcherCharacter->IsAiming())
+    {
+        return;
+    }
+
+    if (bIsReloading || bIsNocking)
+    {
+        return;
+    }
+
+    AArcherCharacterBase* OwnerChar = Cast<AArcherCharacterBase>(OwnerArcherCharacter);
+    const float ClampedCharge = FMath::Clamp(ChargePercent, 0.f, 1.f);
+    const FVector ShootDir = ComputeCurseShotDirection(AimTarget, AimEyeHeightOffset);
+
+    OwnerArcherCharacter->ServerPlayFireMontage();
+    FireArrowWithShootDirection(ClampedCharge, ShootDir, EArrowType::Normal, true);
+
+    bIsReloading = true;
+    bIsCharging = false;
+    ChargeTime = 0.f;
+    BowState = EBowState::Idle;
+    UpdateArrowVisual();
+
+    GetWorldTimerManager().SetTimer(
+        ReloadTimerHandle,
+        this,
+        &ABow::FinishReloading,
+        ReloadDelayTime,
+        false);
+
+    OnRep_IsCharging();
+}
+
 void ABow::FireArrow(float ChargePercent)
 {
     if (!OwnerArcherCharacter)
@@ -467,7 +533,47 @@ void ABow::FireArrow(float ChargePercent)
         UE_LOG(LogTemp, Error, TEXT("Bow: OwnerArcherCharacter is NULL"));
         return;
     }
-    
+
+    if (!Mesh || !Mesh->DoesSocketExist(BowStringSocketName))
+    {
+        UE_LOG(LogTemp, Error, TEXT("Bow: Bow string socket invalid: '%s'"), *BowStringSocketName.ToString());
+        return;
+    }
+
+    const FVector SocketLoc = Mesh->GetSocketLocation(BowStringSocketName);
+    FVector ShootDir = Mesh->GetSocketRotation(BowStringSocketName).Vector();
+
+    if (AController* Controller = OwnerArcherCharacter->GetController())
+    {
+        FVector CamLoc;
+        FRotator CamRot;
+        Controller->GetPlayerViewPoint(CamLoc, CamRot);
+
+        FVector AimTargetPoint = CamLoc + CamRot.Vector() * 10000.f;
+        FHitResult AimHit;
+        FCollisionQueryParams AimParams;
+        AimParams.AddIgnoredActor(OwnerArcherCharacter);
+        AimParams.AddIgnoredActor(this);
+        if (GetWorld()->LineTraceSingleByChannel(AimHit, CamLoc, AimTargetPoint, ECC_Visibility, AimParams))
+        {
+            AimTargetPoint = AimHit.Location;
+        }
+
+        ShootDir = CamRot.Vector();
+    }
+
+    const AArcherCharacterBase* OwnerChar = Cast<AArcherCharacterBase>(OwnerArcherCharacter);
+    const EArrowType ShotType = OwnerChar ? OwnerChar->GetCurrentArrowType() : EArrowType::Normal;
+    FireArrowWithShootDirection(ChargePercent, ShootDir, ShotType);
+}
+
+void ABow::FireArrowWithShootDirection(float ChargePercent, const FVector& ShootDir, const EArrowType ArrowTypeForShot, const bool bSpawnAtBowSocket)
+{
+    if (!OwnerArcherCharacter || !GetWorld())
+    {
+        return;
+    }
+
     MulticastPlayFireSound();
 
     if (!Mesh || !Mesh->DoesSocketExist(BowStringSocketName))
@@ -476,38 +582,20 @@ void ABow::FireArrow(float ChargePercent)
         return;
     }
 
-    // ========== 발사 방향 계산 ==========
-
-    FVector SocketLoc = Mesh->GetSocketLocation(BowStringSocketName);
-
-    FVector ShootDir;
+    const FVector SocketLoc = Mesh->GetSocketLocation(BowStringSocketName);
+    const FVector NormalizedDir = ShootDir.GetSafeNormal();
     FVector FinalSpawnLoc = SocketLoc;
-    AController* Controller = OwnerArcherCharacter->GetController();
-    if (Controller)
-    {
-        FVector CamLoc;
-        FRotator CamRot;
-        Controller->GetPlayerViewPoint(CamLoc, CamRot);
 
-        // 카메라 에임 타겟 라인트레이스 (100m)
-        FVector AimTarget = CamLoc + CamRot.Vector() * 10000.f;
-        FHitResult AimHit;
-        FCollisionQueryParams AimParams;
-        AimParams.AddIgnoredActor(OwnerArcherCharacter);
-        AimParams.AddIgnoredActor(this);
-        if (GetWorld()->LineTraceSingleByChannel(AimHit, CamLoc, AimTarget, ECC_Visibility, AimParams))
+    if (!bSpawnAtBowSocket)
+    {
+        if (AController* Controller = OwnerArcherCharacter->GetController())
         {
-            AimTarget = AimHit.Location;
+            FVector CamLoc;
+            FRotator CamRot;
+            Controller->GetPlayerViewPoint(CamLoc, CamRot);
+            const float SocketFwdDist = FVector::DotProduct(SocketLoc - CamLoc, NormalizedDir);
+            FinalSpawnLoc = CamLoc + NormalizedDir * FMath::Max(SocketFwdDist, 30.f);
         }
-
-        // 카메라 중심선 위에 스폰 (소켓의 forward 거리만큼 앞) → 레티클 정확도 + 머리뒤 아님
-        float SocketFwdDist = FVector::DotProduct(SocketLoc - CamLoc, CamRot.Vector());
-        FinalSpawnLoc = CamLoc + CamRot.Vector() * FMath::Max(SocketFwdDist, 30.f);
-        ShootDir = CamRot.Vector();
-    }
-    else
-    {
-        ShootDir = Mesh->GetSocketRotation(BowStringSocketName).Vector();
     }
 
     // 4. [화살 생성] Instigator 설정 필수
@@ -518,18 +606,21 @@ void ABow::FireArrow(float ChargePercent)
 
     // 회전값: ShootDir(조준방향)을 그대로 사용 -> ArrowProjectile에서 Velocity가 0이어도 이 회전값을 씀
     AArcherCharacterBase* OwnerChar = Cast<AArcherCharacterBase>(GetOwner());
-    TSubclassOf<AArrowProjectile> ClassToSpawn = ArrowProjectileClass; // 기본값
-    
-    if (OwnerChar && OwnerChar->GetCurrentArrowClass())
+    TSubclassOf<AArrowProjectile> ClassToSpawn = ArrowProjectileClass;
+
+    if (OwnerChar)
     {
-        ClassToSpawn = OwnerChar->GetCurrentArrowClass();
+        if (TSubclassOf<AArrowProjectile> TypeClass = OwnerChar->GetArrowClassForType(ArrowTypeForShot))
+        {
+            ClassToSpawn = TypeClass;
+        }
     }
 
     // 2. 알아낸 클래스로 진짜 화살 스폰!
     AArrowProjectile* FiredArrow = GetWorld()->SpawnActor<AArrowProjectile>(
         ClassToSpawn,
         FinalSpawnLoc,
-        ShootDir.Rotation(), 
+        NormalizedDir.Rotation(),
         SpawnParams
     );
     
@@ -561,13 +652,13 @@ void ABow::FireArrow(float ChargePercent)
 
     // 발사 속도 적용
     float Speed = FMath::Lerp(MinArrowSpeed, MaxArrowSpeed, ChargePercent);
-    FVector FinalVelocity = ShootDir * Speed;
+    const FVector FinalVelocity = NormalizedDir * Speed;
     
     FiredArrow->InitVelocity(FinalVelocity);
     
     if (auto MoveComp = FiredArrow->GetProjectileMovement())
     {
-        MoveComp->Velocity = ShootDir * Speed;
+        MoveComp->Velocity = FinalVelocity;
         MoveComp->Activate();
     }
 
@@ -588,11 +679,7 @@ void ABow::FireArrow(float ChargePercent)
     
     if (OwnerChar && HasAuthority())
     {
-        OwnerChar->ConsumeAmmo(OwnerChar->GetCurrentArrowType(), 1);
-        
-        // (디버그용) 남은 개수 확인
-        UE_LOG(LogTemp, Warning, TEXT("발사 완료! 남은 화살 개수: %d"), OwnerChar->GetAmmoCount(OwnerChar->GetCurrentArrowType()));
-        
+        OwnerChar->ConsumeAmmo(ArrowTypeForShot, 1);
     }
 }
 

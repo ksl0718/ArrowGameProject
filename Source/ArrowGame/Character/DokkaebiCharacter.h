@@ -260,6 +260,7 @@ protected:
 	void PlayPrepareCurseMontage();
 	void PlayFireCurseMontage();
 	void StopPrepareCurseMontage();
+	void SetCurseFireMovementLock(bool bLocked);
 	
 	UFUNCTION(Server, Reliable)
 	void Server_FireCurseProjectile(FVector SpawnLoc, FVector AimDir);
@@ -381,6 +382,15 @@ protected:
 #pragma region Movement
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	bool bCanMove = true;
+
+	/** 저주 발사 직후 이동 잠금 시간(초). 몽타주와 무관하게 타이머로 해제 */
+	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill|Curse", meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "2.0"))
+	float CurseFireMoveLockDuration = 0.5f;
+
+	/** Fire 몽타주 재생 중 이동 잠금 상태 추적 */
+	bool bCurseFireMovementLocked = false;
+
+	FTimerHandle CurseFireMoveUnlockTimerHandle;
 
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	float NormalWalkSpeed = 400.f;
