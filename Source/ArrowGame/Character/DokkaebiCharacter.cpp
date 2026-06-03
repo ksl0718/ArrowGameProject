@@ -138,6 +138,7 @@ void ADokkaebiCharacter::BeginPlay()
 	SkillStates.SetNum(SkillSpecs.Num());
 
 	EnsureSpiritSightMarkerWidget();
+	EnsureCrosshairWidget();
 }
 
 
@@ -160,6 +161,12 @@ void ADokkaebiCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		SpiritSightMarkerWidget->RemoveFromParent();
 		SpiritSightMarkerWidget = nullptr;
+	}
+
+	if (CrosshairWidget)
+	{
+		CrosshairWidget->RemoveFromParent();
+		CrosshairWidget = nullptr;
 	}
 
 	if (DefaultMappingContext)
@@ -243,6 +250,24 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	}
 
 	EnsureSpiritSightMarkerWidget(); // BeginPlay엔 Controller 없을 수 있어 Setup에서도 재시도
+	EnsureCrosshairWidget();
+}
+
+void ADokkaebiCharacter::EnsureCrosshairWidget()
+{
+	if (!IsLocallyControlled() || !CrosshairWidgetClass || CrosshairWidget)
+	{
+		return;
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		CrosshairWidget = CreateWidget<UUserWidget>(PC, CrosshairWidgetClass);
+		if (CrosshairWidget && !CrosshairWidget->IsInViewport())
+		{
+			CrosshairWidget->AddToViewport();
+		}
+	}
 }
 
 // 로컬 플레이어만: PC 생긴 뒤 뷰포트에 마커 레이어 올림
