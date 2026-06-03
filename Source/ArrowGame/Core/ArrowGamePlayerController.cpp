@@ -138,18 +138,25 @@ void AArrowGamePlayerController::BindLocalHealthBarToPawn()
         return;
     }
 
-    if (!HealthBarWidget)
+    if (!HealthBarWidget || HealthBarWidget->GetClass() != CharacterPawn->HealthBarClass)
     {
-        HealthBarWidget = CreateWidget<UHealthBarWidget>(this, CharacterPawn->HealthBarClass);
         if (HealthBarWidget)
         {
-            HealthBarWidget->AddToViewport();
+            HealthBarWidget->RemoveFromParent();
+            HealthBarWidget = nullptr;
         }
+
+        HealthBarWidget = CreateWidget<UHealthBarWidget>(this, CharacterPawn->HealthBarClass);
     }
 
     if (!HealthBarWidget)
     {
         return;
+    }
+
+    if (!HealthBarWidget->IsInViewport())
+    {
+        HealthBarWidget->AddToViewport();
     }
 
     BoundHealthComp = CharacterPawn->HealthComp;
