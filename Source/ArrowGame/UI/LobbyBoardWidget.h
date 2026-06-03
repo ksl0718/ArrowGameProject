@@ -16,6 +16,17 @@ public:
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
+
+	/** PlayerArray/이름 복제가 끝난 뒤 목록 갱신 (입장 직후 즉시 Refresh는 이름이 비는 경우 있음) */
+	void ScheduleDelayedPlayerListRefresh();
+
+	UFUNCTION()
+	void OnLobbyPlayerListChanged();
+
+	static constexpr float LobbyListRefreshDelaySeconds = 0.75f;
+
+	FTimerHandle DelayedRefreshTimerHandle;
 
 	// --- UI 바인딩 ---
 	UPROPERTY(meta = (BindWidget))
