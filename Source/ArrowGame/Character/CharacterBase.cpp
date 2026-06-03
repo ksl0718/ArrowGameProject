@@ -1,7 +1,6 @@
 #include "CharacterBase.h"
 #include "CharacterAnimInstanceBase.h"
 #include "../Component/HealthComponent.h"
-#include "../UI/HealthBarWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -26,18 +25,6 @@ void ACharacterBase::BeginPlay()
 	Super::BeginPlay();
 
 	CurrentHealth = MaxHealth;
-
-	// HUD 생성 (기본 제공되는 로컬 플레이어용 체력바)
-	if (IsLocallyControlled() && HealthBarClass && HealthComp)
-	{
-		UHealthBarWidget* HealthWidget = CreateWidget<UHealthBarWidget>(GetWorld(), HealthBarClass);
-		if (HealthWidget)
-		{
-			HealthWidget->AddToViewport();
-			HealthComp->OnHealthChanged.AddDynamic(HealthWidget, &UHealthBarWidget::UpdateHealthBar);
-			HealthWidget->UpdateHealthBar(HealthComp->GetHealth(), HealthComp->GetMaxHealth());
-		}
-	}
 
 	if (HealthComp)
 	{

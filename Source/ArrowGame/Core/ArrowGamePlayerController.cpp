@@ -10,8 +10,13 @@
 #include "../UI/ResultWidget.h"
 #include "../UI/RoundTimerWidget.h"
 #include "../UI/SkillCooldownHUDWidget.h"
+#include "../UI/HealthBarWidget.h"
 #include "../Character/ArcherCharacterBase.h"
+#include "../Character/CharacterBase.h"
+#include "../Character/UserArcherCharacter.h"
+#include "../Character/DokkaebiCharacter.h"
 #include "../Character/SkillCooldownProvider.h"
+#include "../Component/HealthComponent.h"
 #include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
@@ -20,43 +25,38 @@ void AArrowGamePlayerController::BeginPlay()
 {
     Super::BeginPlay();
 
-    // 이 컨트롤러가 로컬(내 컴퓨터)일 때만 위젯 생성
-    
-        if (IsLocalPlayerController())
+    if (IsLocalPlayerController())
+    {
+        if (ScoreboardClass)
         {
-            if (ScoreboardClass)
-            {
-                // 위젯을 생성하고 포인터 변수에 저장
-                ScoreboardWidget = CreateWidget<UScoreboardWidget>(this, ScoreboardClass);
-            }
-            
-            if (LoadingWidgetClass)
-            {
-                LoadingWidget = CreateWidget<UUserWidget>(this, LoadingWidgetClass);
-                if (LoadingWidget) LoadingWidget->AddToViewport(100);
-            }
-            
-            if (SkillCooldownHUDClass)
-            {
-                SkillCooldownHUDWidget = CreateWidget<USkillCooldownHUDWidget>(this, SkillCooldownHUDClass);
-                if (SkillCooldownHUDWidget)
-                {
-                    SkillCooldownHUDWidget->AddToViewport(5);
-                    ConfigureSkillHUDForCurrentPawn();
-                    // 0.05초마다 HUD 갱신
-                    GetWorldTimerManager().SetTimer(
-                        SkillCooldownUpdateTimerHandle,
-                        this,
-                        &AArrowGamePlayerController::UpdateSkillCooldownHUD,
-                        0.05f,
-                        true
-                    );
-                }
-            }
-
-            ConfigureArrowIconForCurrentPawn();
+            ScoreboardWidget = CreateWidget<UScoreboardWidget>(this, ScoreboardClass);
         }
-    
+        
+        if (LoadingWidgetClass)
+        {
+            LoadingWidget = CreateWidget<UUserWidget>(this, LoadingWidgetClass);
+            if (LoadingWidget) LoadingWidget->AddToViewport(100);
+        }
+        
+        if (SkillCooldownHUDClass)
+        {
+            SkillCooldownHUDWidget = CreateWidget<USkillCooldownHUDWidget>(this, SkillCooldownHUDClass);
+            if (SkillCooldownHUDWidget)
+            {
+                SkillCooldownHUDWidget->AddToViewport(5);
+                ConfigureSkillHUDForCurrentPawn();
+                GetWorldTimerManager().SetTimer(
+                    SkillCooldownUpdateTimerHandle,
+                    this,
+                    &AArrowGamePlayerController::UpdateSkillCooldownHUD,
+                    0.05f,
+                    true
+                );
+            }
+        }
+
+        ConfigureArrowIconForCurrentPawn();
+    }
     
     const FString CurrentMapName = GetWorld() ? GetWorld()->GetMapName() : FString();
     const bool bIsMenuOrLobbyMap = CurrentMapName.Contains(TEXT("MainMenuMap"))
@@ -82,12 +82,19 @@ void AArrowGamePlayerController::BeginPlay()
         bEnableClickEvents = false;
         bEnableMouseOverEvents = false;
     }
-
 }
 
 void AArrowGamePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     GetWorldTimerManager().ClearTimer(SkillCooldownUpdateTimerHandle);
+
+    if (HealthBarWidget)
+    {
+        HealthBarWidget->RemoveFromParent();
+        HealthBarWidget = nullptr;
+    }
+    BoundHealthComp = nullptr;
+
     if (ArrowIconWidget)
     {
         ArrowIconWidget->RemoveFromParent();
@@ -98,18 +105,67 @@ void AArrowGamePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReaso
 
 void AArrowGamePlayerController::SetPawn(APawn* InPawn)
 {
+    if (HealthBarWidget && BoundHealthComp.IsValid())
+    {
+        BoundHealthComp->OnHealthChanged.RemoveDynamic(HealthBarWidget, &UHealthBarWidget::UpdateHealthBar);
+        BoundHealthComp = nullptr;
+    }
+
     Super::SetPawn(InPawn);
 
     if (IsLocalController())
     {
         ConfigureArrowIconForCurrentPawn();
+        BindLocalHealthBarToPawn();
+        ConfigureSkillHUDForCurrentPawn();
+    }
+}
+
+void AArrowGamePlayerController::BindLocalHealthBarToPawn()
+{
+    if (!IsLocalController())
+    {
+        return;
     }
 
-    // Apply the cached state when pawn possession arrives late on clients.
-    if (IsLocalController() && InPawn)
+    ACharacterBase* CharacterPawn = Cast<ACharacterBase>(GetPawn());
+    if (!CharacterPawn || !CharacterPawn->HealthComp || !CharacterPawn->HealthBarClass)
     {
-        SetPlayerEnabledState_Local(bCachedPlayerEnabled);
-        ConfigureSkillHUDForCurrentPawn();
+        if (HealthBarWidget)
+        {
+            HealthBarWidget->RemoveFromParent();
+        }
+        return;
+    }
+
+    if (!HealthBarWidget)
+    {
+        HealthBarWidget = CreateWidget<UHealthBarWidget>(this, CharacterPawn->HealthBarClass);
+        if (HealthBarWidget)
+        {
+            HealthBarWidget->AddToViewport();
+        }
+    }
+
+    if (!HealthBarWidget)
+    {
+        return;
+    }
+
+    BoundHealthComp = CharacterPawn->HealthComp;
+    BoundHealthComp->OnHealthChanged.AddDynamic(HealthBarWidget, &UHealthBarWidget::UpdateHealthBar);
+    HealthBarWidget->UpdateHealthBar(BoundHealthComp->GetHealth(), BoundHealthComp->GetMaxHealth());
+}
+
+void AArrowGamePlayerController::ApplyMovementGateToPawn(APawn* InPawn, bool bAllowMovement)
+{
+    if (AUserArcherCharacter* Archer = Cast<AUserArcherCharacter>(InPawn))
+    {
+        Archer->bCanMove = bAllowMovement;
+    }
+    else if (ADokkaebiCharacter* Dokkaebi = Cast<ADokkaebiCharacter>(InPawn))
+    {
+        Dokkaebi->SetCanMove(bAllowMovement);
     }
 }
 
@@ -124,7 +180,6 @@ void AArrowGamePlayerController::UpdateSkillCooldownHUD()
     
     for (int32 i = 0; i < SlotCount; ++i)
     {
-        
         float Remaining = 0.f;
         float Duration = 0.01f;
         
@@ -212,13 +267,9 @@ void AArrowGamePlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
 
-    // 3. Enhanced Input 컴포넌트로 캐스팅하여 바인딩
     if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent))
     {
-        // Started: 키를 눌렀을 때 (Triggered도 가능하지만 탭 키는 보통 Started가 명확합니다)
         EnhancedInputComponent->BindAction(ScoreboardAction, ETriggerEvent::Started, this, &AArrowGamePlayerController::ShowScoreboard);
-		
-        // Completed: 키를 뗐을 때
         EnhancedInputComponent->BindAction(ScoreboardAction, ETriggerEvent::Completed, this, &AArrowGamePlayerController::HideScoreboard);
     }
 }
@@ -232,7 +283,7 @@ void AArrowGamePlayerController::SetPlayerEnabledState(bool bPlayerEnabled)
 {
     if (HasAuthority())
     {
-        // Keep remote/local owner in sync from server-side callers (e.g. GameMode).
+        ApplyMovementGateToPawn(GetPawn(), bPlayerEnabled);
         Client_SetPlayerEnabledState(bPlayerEnabled);
         if (IsLocalController())
         {
@@ -246,29 +297,26 @@ void AArrowGamePlayerController::SetPlayerEnabledState(bool bPlayerEnabled)
 
 void AArrowGamePlayerController::SetPlayerEnabledState_Local(bool bPlayerEnabled)
 {
-    bCachedPlayerEnabled = bPlayerEnabled;
+    ApplyMovementGateToPawn(GetPawn(), bPlayerEnabled);
 
-    APawn* MyPawn = GetPawn();
-    if (MyPawn) // [추가] 폰이 파괴된 상태일 수 있으므로 체크 필수
+    if (bPlayerEnabled)
     {
-        if (bPlayerEnabled) MyPawn->EnableInput(this);
-        else MyPawn->DisableInput(this);
+        bShowMouseCursor = false;
+        FInputModeGameOnly InputMode;
+        SetInputMode(InputMode);
     }
-
-    bShowMouseCursor = !bPlayerEnabled; // 죽었을 때(false) 마우스를 보여줄지 선택
+    else
+    {
+        bShowMouseCursor = true;
+    }
 }
 
 void AArrowGamePlayerController::ShowScoreboard()
 {
     if (ScoreboardWidget)
     {
-        // 3. 점수판을 갱신하고 화면에 띄웁니다.
         ScoreboardWidget->RefreshScoreboard();
         ScoreboardWidget->AddToViewport();
-		
-        // 마우스 커서가 필요하다면 아래 주석 해제
-        // bShowMouseCursor = true;
-        // SetInputMode(FInputModeGameAndUI());
     }
 }
 
@@ -276,11 +324,7 @@ void AArrowGamePlayerController::HideScoreboard()
 {
     if (ScoreboardWidget)
     {
-        // 4. 화면에서 지웁니다.
         ScoreboardWidget->RemoveFromParent();
-		
-        // bShowMouseCursor = false;
-        // SetInputMode(FInputModeGameOnly());
     }
 }
 
@@ -301,6 +345,8 @@ void AArrowGamePlayerController::Client_StartCountdown_Implementation(float Dura
 
 void AArrowGamePlayerController::Client_BattleStart_Implementation(float TimeLimit)
 {
+    SetPlayerEnabledState_Local(true);
+
     if (CountdownWidget)
     {
         CountdownWidget->RemoveFromParent();
@@ -312,37 +358,22 @@ void AArrowGamePlayerController::Client_BattleStart_Implementation(float TimeLim
         if (RoundTimerWidget)
         {
             RoundTimerWidget->AddToViewport();
-            
-            // ★ 여기서 아까 만든 UI 타이머 작동!
             RoundTimerWidget->StartTimer(TimeLimit);
         }
     }
-    
 }
 
 void AArrowGamePlayerController::Client_ShowRoundResult_Implementation( bool bIsWin, float MoveToLobbyInSeconds)
 {
     if (ResultWidget)
     {
-        
         ResultWidget->AddToViewport();
         ResultWidget->showResult(bIsWin);
-        // 1초 뒤에 실제로 제거
         FTimerHandle DestroyHandle;
         GetWorld()->GetTimerManager().SetTimer(DestroyHandle, [this]() {
             if (ResultWidget) ResultWidget->RemoveFromParent();
         }, MoveToLobbyInSeconds, false);
     }
-    
-    
-    /*const FString PlayerName = GetPlayerState<APlayerState>()
-        ? GetPlayerState<APlayerState>()->GetPlayerName()
-        : TEXT("Unknown");
-    
-    FTimerHandle ResultHandle;
-    GetWorld()->GetTimerManager().SetTimer(ResultHandle, [this, bIsWin, PlayerName]() {
-        UE_LOG(LogTemp, Warning, TEXT("GameOver %4s %s"), *PlayerName,  bIsWin ? TEXT("WIN") : TEXT("LOSE"));
-    }, MoveToLobbyInSeconds, false); */
 }
 
 void AArrowGamePlayerController::Client_ShowHitMarker_Implementation()

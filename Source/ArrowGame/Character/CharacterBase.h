@@ -80,6 +80,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
 	float CurrentHealth;
 
+	/** 로컬 PlayerController HUD가 SetPawn 시 참조 (캐릭터 BeginPlay에서 UI 만들지 않음) */
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<UUserWidget> HealthBarClass;
 };
