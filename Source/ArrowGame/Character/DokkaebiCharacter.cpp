@@ -1087,12 +1087,36 @@ void ADokkaebiCharacter::SetCurseFireMovementLock(bool bLocked)
 
 void ADokkaebiCharacter::OnRep_CurseOrbReady()
 {
+	ApplyCurseOrbMovementSettings();
 	ApplyCurseOrbReadyVisuals();
 }
 
 void ADokkaebiCharacter::ApplyCurseOrbReadyVisuals()
 {
 	UpdateCurseOrbPreviewVisuals(bCurseOrbReady, bCurseOrbHideInstant);
+}
+
+void ADokkaebiCharacter::ApplyCurseOrbMovementSettings()
+{
+	UCharacterMovementComponent* Move = GetCharacterMovement();
+	if (!Move)
+	{
+		return;
+	}
+
+	if (bCurseOrbReady)
+	{
+		Move->bOrientRotationToMovement = false;
+		if (IsLocallyControlled() || HasAuthority())
+		{
+			bUseControllerRotationYaw = true;
+		}
+	}
+	else
+	{
+		Move->bOrientRotationToMovement = true;
+		bUseControllerRotationYaw = false;
+	}
 }
 
 void ADokkaebiCharacter::SetCurseOrbReadyOnServer(bool bReady, bool bInstantHideWhenOff)
@@ -1121,6 +1145,7 @@ void ADokkaebiCharacter::SetCurseOrbReadyOnServer(bool bReady, bool bInstantHide
 		bCurseOrbReady = false;
 	}
 
+	ApplyCurseOrbMovementSettings();
 	ApplyCurseOrbReadyVisuals();
 }
 

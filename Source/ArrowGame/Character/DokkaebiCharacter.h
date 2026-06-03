@@ -230,6 +230,9 @@ protected:
 	void OnRep_CurseOrbReady();
 	
 	void ApplyCurseOrbReadyVisuals();
+
+	/** bCurseOrbReady 기준 이동/회전 (서버 Set + OnRep 소유 클라). */
+	void ApplyCurseOrbMovementSettings();
 	
 	/** 서버 전용: 복제 변수 변경 + 리슨 호스트 비주얼 (OnRep 미호출 보정) */
 	void SetCurseOrbReadyOnServer(bool bReady, bool bInstantHideWhenOff = false);
