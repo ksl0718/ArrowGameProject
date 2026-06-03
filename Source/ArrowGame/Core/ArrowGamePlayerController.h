@@ -16,6 +16,8 @@ class UUserWidget;
 class UScoreboardWidget;
 class URoundTimerWidget;
 class USkillCooldownHUDWidget;
+class UHealthBarWidget;
+class UHealthComponent;
 class UTexture2D;
 class AArcherCharacterBase;
 
@@ -100,12 +102,19 @@ protected:
 	
 private:
 	void SetPlayerEnabledState_Local(bool bPlayerEnabled);
+	void ApplyMovementGateToPawn(APawn* InPawn, bool bAllowMovement);
+	void BindLocalHealthBarToPawn();
 	
 	void ConfigureSkillHUDForCurrentPawn();
 	void ConfigureArrowIconForCurrentPawn();
 	
 	bool TryGetCurrentSkillHudMeta(int32 SlotIndex, UTexture2D*& OutIcon, FText& OutKeyText) const;
 	bool TryGetCurrentSkillCooldown(int32 SlotIndex, float& OutRemaining, float& OutDuration) const;
+
+	UPROPERTY()
+	UHealthBarWidget* HealthBarWidget = nullptr;
+
+	TWeakObjectPtr<UHealthComponent> BoundHealthComp;
 
 	UPROPERTY()
 	UUserWidget* LoadingWidget;
@@ -117,5 +126,4 @@ private:
 	UUserWidget* ArrowIconWidget = nullptr;
 	
 	FTimerHandle SkillCooldownUpdateTimerHandle;
-	bool bCachedPlayerEnabled = true;
 };

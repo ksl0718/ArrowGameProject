@@ -47,8 +47,8 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "PlayerState")
 	bool bIsDokkaebi = false;
 
-	// 2. Getter와 Setter 추가
-	void SetIsDokkaebi(bool bNewState) { bIsDokkaebi = bNewState; }
+	/** 서버 전용. 역할 변경 후 즉시 복제되도록 ForceNetUpdate 호출 */
+	void SetIsDokkaebi(bool bNewState);
 	
 	UFUNCTION(BlueprintCallable) // 블루프린트에서도 확인 가능하게
 	bool IsDokkaebi() const { return bIsDokkaebi; }

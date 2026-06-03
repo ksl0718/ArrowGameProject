@@ -15,6 +15,7 @@ class ARROWGAME_API AArrowGameGameMode : public AGameModeBase
 	GENERATED_BODY()
 
 public:
+	AArrowGameGameMode();
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
@@ -28,6 +29,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void PostSeamlessTravel() override;
 	
 	void AssignDokkaebiAndStart();
 	void ActualStartGame();
@@ -50,7 +52,14 @@ protected:
 	
 private:
 	void RegisterPendingPlayer(APlayerController* NewPlayer);
+	void SyncPendingPlayersFromGameState();
+	int32 GetRequiredPlayersToStart() const;
+	bool AreAllPendingPlayersReadyForAssign() const;
+	bool IsBlockedByTravel() const;
+	void ScheduleTryStartMatch(float DelaySeconds = 0.5f);
 	void TryStartMatchIfReady();
+	void CatchUpPlayerAfterMatchStarted(APlayerController* PC);
+	void SpawnPlayerForMatchStart(APlayerController* PC);
 
 	
 	// 캐릭터 클래스 설정
@@ -65,9 +74,14 @@ private:
 
 	FTimerHandle CountdownTimerHandle;
 	FTimerHandle LastThirtySecondsTimerHandle;
+	FTimerHandle MatchStartRetryTimerHandle;
 	void OnLastThirtySecondsStart();
 	int32 ExpectedPlayers = 2; // GameInstance 연동 권장
 	bool bGameStarted = false;
+	bool bBattleInputsUnlocked = false;
+
+	/** AssignDokkaebiAndStart에서 이미 RestartPlayer 완료한 PC (호스트 재-HandleStartingNewPlayer 시 폰 파괴 방지) */
+	TSet<TObjectPtr<APlayerController>> ControllersSpawnedAtMatchStart;
 	
 	bool bRoundEnded = false;
 

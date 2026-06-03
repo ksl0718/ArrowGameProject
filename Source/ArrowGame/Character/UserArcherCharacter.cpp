@@ -107,16 +107,29 @@ void AUserArcherCharacter::BeginPlay()
     InteractionSphere->OnComponentBeginOverlap.AddDynamic(this, &AUserArcherCharacter::OnInteractionOverlapBegin);
     InteractionSphere->OnComponentEndOverlap.AddDynamic(this, &AUserArcherCharacter::OnInteractionOverlapEnd);
     
-    // Enhanced Input ���
-    if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+}
+
+void AUserArcherCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    if (DefaultMappingContext)
     {
-        if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
-            ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+        if (APlayerController* PC = Cast<APlayerController>(Controller))
         {
-            Subsystem->AddMappingContext(DefaultMappingContext, 0);
-            UpdateCurseLocalPostProcessVignette();
+            if (PC->IsLocalPlayerController())
+            {
+                if (ULocalPlayer* LP = PC->GetLocalPlayer())
+                {
+                    if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+                        ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
+                    {
+                        Subsystem->RemoveMappingContext(DefaultMappingContext);
+                    }
+                }
+            }
         }
     }
+
+    Super::EndPlay(EndPlayReason);
 }
 
 void AUserArcherCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -153,6 +166,26 @@ void AUserArcherCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
         EnhancedInput->BindAction(CycleArrowAction, ETriggerEvent::Triggered, this, &AUserArcherCharacter::Input_CycleArrow);
         //화살 pickup
         EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, this, &AUserArcherCharacter::Input_Interact);
+    }
+
+    // 빙의 직후에만 호출됨 — BeginPlay보다 늦게 Controller/LocalPlayer가 준비된 시점 (도깨비와 동일)
+    if (DefaultMappingContext)
+    {
+        if (APlayerController* PC = Cast<APlayerController>(GetController()))
+        {
+            if (PC->IsLocalPlayerController())
+            {
+                if (ULocalPlayer* LP = PC->GetLocalPlayer())
+                {
+                    if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+                        ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
+                    {
+                        Subsystem->AddMappingContext(DefaultMappingContext, 0);
+                        UpdateCurseLocalPostProcessVignette();
+                    }
+                }
+            }
+        }
     }
 }
 

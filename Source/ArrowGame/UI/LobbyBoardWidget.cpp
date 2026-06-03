@@ -56,15 +56,48 @@ void ULobbyBoardWidget::NativeConstruct()
 	
 	if (AArrowGameState* GS = GetWorld()->GetGameState<AArrowGameState>())
 	{
-		// 명단 변경 벨소리에 RefreshPlayerList 연결
-		GS->OnPlayerListChanged.AddDynamic(this, &ULobbyBoardWidget::RefreshPlayerList);
+		GS->OnPlayerListChanged.AddDynamic(this, &ULobbyBoardWidget::OnLobbyPlayerListChanged);
 	}
 
 	RefreshPlayerList();
+	ScheduleDelayedPlayerListRefresh();
+}
 
-	// 게스트 입장 시 PlayerArray 복제가 NativeConstruct보다 늦게 도착할 수 있어 지연 리프레시
-	FTimerHandle InitRefreshHandle;
-	GetWorld()->GetTimerManager().SetTimer(InitRefreshHandle, this, &ULobbyBoardWidget::RefreshPlayerList, 1.0f, false);
+void ULobbyBoardWidget::NativeDestruct()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(DelayedRefreshTimerHandle);
+	}
+
+	if (AArrowGameState* GS = GetWorld() ? GetWorld()->GetGameState<AArrowGameState>() : nullptr)
+	{
+		GS->OnPlayerListChanged.RemoveDynamic(this, &ULobbyBoardWidget::OnLobbyPlayerListChanged);
+	}
+
+	Super::NativeDestruct();
+}
+
+void ULobbyBoardWidget::OnLobbyPlayerListChanged()
+{
+	ScheduleDelayedPlayerListRefresh();
+}
+
+void ULobbyBoardWidget::ScheduleDelayedPlayerListRefresh()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	World->GetTimerManager().ClearTimer(DelayedRefreshTimerHandle);
+	World->GetTimerManager().SetTimer(
+		DelayedRefreshTimerHandle,
+		this,
+		&ULobbyBoardWidget::RefreshPlayerList,
+		LobbyListRefreshDelaySeconds,
+		false);
 }
 
 void ULobbyRowWidget::NativeDestruct()
