@@ -118,6 +118,11 @@ void AArrowGamePlayerController::SetPawn(APawn* InPawn)
         ConfigureArrowIconForCurrentPawn();
         BindLocalHealthBarToPawn();
         ConfigureSkillHUDForCurrentPawn();
+
+        if (InPawn)
+        {
+            SetPlayerEnabledState_Local(bCachedPlayerEnabled);
+        }
     }
 }
 
@@ -304,6 +309,7 @@ void AArrowGamePlayerController::SetPlayerEnabledState(bool bPlayerEnabled)
 
 void AArrowGamePlayerController::SetPlayerEnabledState_Local(bool bPlayerEnabled)
 {
+    bCachedPlayerEnabled = bPlayerEnabled;
     ApplyMovementGateToPawn(GetPawn(), bPlayerEnabled);
 
     if (bPlayerEnabled)
