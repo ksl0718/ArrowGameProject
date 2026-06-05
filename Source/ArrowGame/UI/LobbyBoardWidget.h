@@ -38,6 +38,9 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<class UButton> Btn_Start;
 
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<class UButton> Btn_Back;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Lobby")
 	TSubclassOf<class ULobbyRowWidget> RowWidgetClass;
 
@@ -47,4 +50,7 @@ protected:
 	
 	UFUNCTION()
 	void OnStartClicked();
+
+	UFUNCTION()
+	void OnBackClicked();
 };

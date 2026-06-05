@@ -20,6 +20,7 @@ static const FName SETTING_MAPNAME(TEXT("MAPNAME"));
 #endif
 
 static const FString LobbyMapPath(TEXT("/Game/ArrowGame/Maps/LobbyMap"));
+static const FName MainMenuMapPath(TEXT("/Game/ArrowGame/Maps/MainMenuMap"));
 
 UArrowGameInstance::UArrowGameInstance()
 {
@@ -113,6 +114,16 @@ void UArrowGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSu
     {
         bCreateSessionAfterDestroy = false;
         StartCreateSession();
+        return;
+    }
+
+    if (bReturnToMainMenuAfterDestroy)
+    {
+        bReturnToMainMenuAfterDestroy = false;
+        if (UWorld* World = GetWorld())
+        {
+            UGameplayStatics::OpenLevel(World, MainMenuMapPath, true);
+        }
     }
 }
 
@@ -283,4 +294,24 @@ void UArrowGameInstance::SetMatchStartPlayerCount(int32 Count)
 {
 	MatchStartPlayerCount = Count;
 	UE_LOG(LogTemp, Log, TEXT("MatchStartPlayerCount = %d"), MatchStartPlayerCount);
+}
+
+void UArrowGameInstance::ReturnToMainMenu()
+{
+    if (SessionInterface.IsValid() && SessionInterface->GetNamedSession(NAME_GameSession) != nullptr)
+    {
+        bReturnToMainMenuAfterDestroy = true;
+        bCreateSessionAfterDestroy = false;
+        bJoinInviteAfterDestroy = false;
+
+        DestroySessionCompleteDelegateHandle = SessionInterface->OnDestroySessionCompleteDelegates.AddUObject(
+            this, &UArrowGameInstance::OnDestroySessionComplete);
+        SessionInterface->DestroySession(NAME_GameSession);
+        return;
+    }
+
+    if (UWorld* World = GetWorld())
+    {
+        UGameplayStatics::OpenLevel(World, MainMenuMapPath, true);
+    }
 }

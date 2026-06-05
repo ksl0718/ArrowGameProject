@@ -53,6 +53,7 @@ void ULobbyBoardWidget::NativeConstruct()
 	// 2. 각각 다른 함수 연결
 	if (Btn_Start) Btn_Start->OnClicked.AddDynamic(this, &ULobbyBoardWidget::OnStartClicked);
 	if (Btn_Ready) Btn_Ready->OnClicked.AddDynamic(this, &ULobbyBoardWidget::OnReadyClicked);
+	if (Btn_Back) Btn_Back->OnClicked.AddDynamic(this, &ULobbyBoardWidget::OnBackClicked);
 	
 	if (AArrowGameState* GS = GetWorld()->GetGameState<AArrowGameState>())
 	{
@@ -240,4 +241,18 @@ void ULobbyBoardWidget::OnStartClicked()
 	{
 		UE_LOG(LogTemp, Error, TEXT("출정 불가"));
 	}
+}
+
+void ULobbyBoardWidget::OnBackClicked()
+{
+	if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(GetGameInstance()))
+	{
+		ArrowGI->ReturnToMainMenu();
+	}
+	else if (UWorld* World = GetWorld())
+	{
+		UGameplayStatics::OpenLevel(World, FName(TEXT("/Game/ArrowGame/Maps/MainMenuMap")), true);
+	}
+
+	RemoveFromParent();
 }
