@@ -126,4 +126,7 @@ private:
 	UUserWidget* ArrowIconWidget = nullptr;
 	
 	FTimerHandle SkillCooldownUpdateTimerHandle;
+
+	/** RPC가 폰 빙의보다 먼저 올 때 SetPawn에서 입력 잠금을 다시 적용 */
+	bool bCachedPlayerEnabled = true;
 };
