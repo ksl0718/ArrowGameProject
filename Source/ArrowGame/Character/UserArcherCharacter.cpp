@@ -457,7 +457,7 @@ void AUserArcherCharacter::OnWalkSlowStarted(const FInputActionValue& Value)
     GetCharacterMovement()->MaxWalkSpeed = RunSpeed;
   
     if (!HasAuthority())
-    {
+    {  
         ServerSetMaxWalkSpeed(RunSpeed);
     }
 }

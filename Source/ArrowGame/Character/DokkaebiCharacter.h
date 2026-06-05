@@ -393,7 +393,7 @@ protected:
 	FTimerHandle CurseFireMoveUnlockTimerHandle;
 
 	UPROPERTY(EditAnywhere, Category = "Movement")
-	float NormalWalkSpeed = 400.f;
+	float NormalWalkSpeed = 550.f;
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
