@@ -230,6 +230,9 @@ protected:
 	void OnRep_CurseOrbReady();
 	
 	void ApplyCurseOrbReadyVisuals();
+
+	/** bCurseOrbReady 기준 이동/회전 (서버 Set + OnRep 소유 클라). */
+	void ApplyCurseOrbMovementSettings();
 	
 	/** 서버 전용: 복제 변수 변경 + 리슨 호스트 비주얼 (OnRep 미호출 보정) */
 	void SetCurseOrbReadyOnServer(bool bReady, bool bInstantHideWhenOff = false);
@@ -312,6 +315,9 @@ protected:
 
 	/** 빙의 후 PC 준비될 때 마커 위젯 1회 생성 */
 	void EnsureSpiritSightMarkerWidget();
+
+	/** 로컬 빙의 시 크로스헤어 1회 생성 (BP BeginPlay AddToViewport 대신) */
+	void EnsureCrosshairWidget();
 	
 	bool IsSpiritSightActive_ServerTime() const;
 	
@@ -340,6 +346,15 @@ protected:
 	UPROPERTY()
 	TObjectPtr<USpiritSightMarkerWidget> SpiritSightMarkerWidget;
 	
+#pragma endregion
+
+#pragma region UI_Crosshair
+	/** 고정 표시용 WBP만 지정 (궁수 조준/차징 로직 없음). */
+	UPROPERTY(EditAnywhere, Category = "UI|Crosshair")
+	TSubclassOf<UUserWidget> CrosshairWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> CrosshairWidget = nullptr;
 #pragma endregion
 	
 #pragma region Skill_Config
@@ -394,6 +409,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	float NormalWalkSpeed = 550.f;
+
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
