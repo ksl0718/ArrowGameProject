@@ -132,13 +132,13 @@ protected:
 	void MulticastPlayFireMontage();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float NormalSpeed = 200.f;
+	float NormalSpeed = 300.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float RunSpeed = 400.f;
+	float RunSpeed = 500.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float WalkSpeed = 200.f;
+	float WalkSpeed = 300.f;
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentArrowType, BlueprintReadOnly, Category = "Inventory")
 	EArrowType CurrentArrowType = EArrowType::Normal;
