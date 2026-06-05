@@ -30,6 +30,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Network")
 	void FindServer();
 
+	// 로비 등에서 메인 메뉴로 복귀 (온라인 세션 정리 후 이동)
+	UFUNCTION(BlueprintCallable, Category = "Network")
+	void ReturnToMainMenu();
 
 	UFUNCTION(BlueprintCallable, Category = "Match")
 	void SetMatchStartPlayerCount(int32 Count);
@@ -62,8 +65,9 @@ protected:
 	// DestroySession 완료 후 수행할 후속 작업 상태
 	bool bCreateSessionAfterDestroy = false;
 	bool bJoinInviteAfterDestroy = false;
+	bool bReturnToMainMenuAfterDestroy = false;
 	FOnlineSessionSearchResult PendingInviteResult;
-	
+
 private:
 	// 델리게이트 핸들 보관용 (필요 시 해제용)
 	FDelegateHandle CreateSessionCompleteDelegateHandle;
