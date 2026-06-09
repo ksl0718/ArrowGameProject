@@ -10,6 +10,7 @@
 #include "../UI/ResultWidget.h"
 #include "../UI/RoundTimerWidget.h"
 #include "../UI/SkillCooldownHUDWidget.h"
+#include "../UI/PauseMenuWidget.h"
 #include "../UI/HealthBarWidget.h"
 #include "../Character/ArcherCharacterBase.h"
 #include "../Character/CharacterBase.h"
@@ -102,6 +103,14 @@ void AArrowGamePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReaso
         ArrowIconWidget->RemoveFromParent();
         ArrowIconWidget = nullptr;
     }
+
+    if (PauseMenuWidget)
+    {
+        PauseMenuWidget->RemoveFromParent();
+        PauseMenuWidget = nullptr;
+    }
+    bPauseMenuOpen = false;
+
     Super::EndPlay(EndPlayReason);
 }
 
@@ -206,11 +215,7 @@ void AArrowGamePlayerController::UpdateSkillCooldownHUD()
 
 void AArrowGamePlayerController::ConfigureSkillHUDForCurrentPawn()
 {
-    if (!SkillCooldownHUDWidget)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("SkillHUD: SkillCooldownHUDWidget 없음 — PlayerController BP의 Skill Cooldown HUD Class 확인"));
-        return;
-    }
+    if (!SkillCooldownHUDWidget) return;
     SkillCooldownHUDWidget->RefreshFromPawn(GetPawn());
 }
 
@@ -270,8 +275,121 @@ void AArrowGamePlayerController::SetupInputComponent()
 
     if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent))
     {
-        EnhancedInputComponent->BindAction(ScoreboardAction, ETriggerEvent::Started, this, &AArrowGamePlayerController::ShowScoreboard);
-        EnhancedInputComponent->BindAction(ScoreboardAction, ETriggerEvent::Completed, this, &AArrowGamePlayerController::HideScoreboard);
+        if (ScoreboardAction)
+        {
+            EnhancedInputComponent->BindAction(ScoreboardAction, ETriggerEvent::Started, this, &AArrowGamePlayerController::ShowScoreboard);
+            EnhancedInputComponent->BindAction(ScoreboardAction, ETriggerEvent::Completed, this, &AArrowGamePlayerController::HideScoreboard);
+        }
+
+        if (PauseAction)
+        {
+            EnhancedInputComponent->BindAction(PauseAction, ETriggerEvent::Started, this, &AArrowGamePlayerController::TogglePauseMenu);
+        }
+    }
+}
+
+bool AArrowGamePlayerController::CanOpenPauseMenu() const
+{
+    if (!IsLocalController() || !PauseMenuClass)
+    {
+        return false;
+    }
+
+    const FString MapName = GetWorld() ? GetWorld()->GetMapName() : FString();
+    if (MapName.Contains(TEXT("MainMenuMap")) || MapName.Contains(TEXT("LobbyMap")))
+    {
+        return false;
+    }
+
+    if (CountdownWidget && CountdownWidget->IsInViewport())
+    {
+        return false;
+    }
+
+    if (ResultWidget && ResultWidget->IsInViewport())
+    {
+        return false;
+    }
+
+    return true;
+}
+
+void AArrowGamePlayerController::TogglePauseMenu()
+{
+    if (bPauseMenuOpen)
+    {
+        ClosePauseMenu();
+        return;
+    }
+
+    OpenPauseMenu();
+}
+
+void AArrowGamePlayerController::OpenPauseMenu()
+{
+    if (bPauseMenuOpen)
+    {
+        return;
+    }
+
+    if (!CanOpenPauseMenu())
+    {
+        return;
+    }
+
+    if (!PauseMenuWidget)
+    {
+        PauseMenuWidget = CreateWidget<UPauseMenuWidget>(this, PauseMenuClass);
+    }
+
+    if (!PauseMenuWidget)
+    {
+        return;
+    }
+
+    PauseMenuWidget->AddToViewport(90);
+    bPauseMenuOpen = true;
+
+    ApplyMovementGateToPawn(GetPawn(), false);
+
+    bShowMouseCursor = true;
+    bEnableClickEvents = true;
+    bEnableMouseOverEvents = true;
+
+    FInputModeGameAndUI InputMode;
+    InputMode.SetWidgetToFocus(PauseMenuWidget->TakeWidget());
+    InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    SetInputMode(InputMode);
+}
+
+void AArrowGamePlayerController::ClosePauseMenu()
+{
+    if (!bPauseMenuOpen)
+    {
+        return;
+    }
+
+    if (PauseMenuWidget)
+    {
+        PauseMenuWidget->RemoveFromParent();
+    }
+
+    bPauseMenuOpen = false;
+
+    ApplyMovementGateToPawn(GetPawn(), bCachedPlayerEnabled);
+
+    if (bCachedPlayerEnabled)
+    {
+        bShowMouseCursor = false;
+        bEnableClickEvents = false;
+        bEnableMouseOverEvents = false;
+
+        FInputModeGameOnly InputMode;
+        SetInputMode(InputMode);
+    }
+    else
+    {
+        bShowMouseCursor = true;
     }
 }
 

@@ -37,7 +37,6 @@ void USkillCooldownSlotWidget::SetSkillIcon(UTexture2D* InIconTexture)
 {
 	if (!Img_Icon)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("SkillCooldownSlotWidget: Img_Icon 바인딩 없음 — WBP 슬롯 Image 이름을 'Img_Icon'으로 맞추세요."));
 		return;
 	}
 
