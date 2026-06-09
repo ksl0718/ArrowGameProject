@@ -1,7 +1,10 @@
 #include "FireZoneActor.h"
+#include "Components/AudioComponent.h"
 #include "Components/SphereComponent.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
+#include "Sound/SoundAttenuation.h"
+#include "Sound/SoundBase.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Controller.h"
 #include "ArrowGame/Component/HealthComponent.h"
@@ -22,11 +25,18 @@ AFireZoneActor::AFireZoneActor()
 	GroundFireNiagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("GroundFire"));
 	GroundFireNiagara->SetupAttachment(BurnSphere);
 	GroundFireNiagara->bAutoActivate = false;
+
+	FireLoopAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("FireLoopAudio"));
+	FireLoopAudio->SetupAttachment(BurnSphere);
+	FireLoopAudio->bAutoActivate = false;
+	FireLoopAudio->bAllowSpatialization = true;
+	FireLoopAudio->bOverrideAttenuation = true;
 }
 
 void AFireZoneActor::InitZone(APawn* InInstigator, float InRadius, float InLifetime,
 	float InBurnDamage, float InBurnInterval, float InBurnDuration,
-	UNiagaraSystem* InGroundFX, UNiagaraSystem* InBodyBurnFX)
+	UNiagaraSystem* InGroundFX, UNiagaraSystem* InBodyBurnFX,
+	USoundBase* InLoopSound)
 {
 	DamageInstigator = InInstigator;
 	BurnDamage = InBurnDamage;
@@ -34,6 +44,7 @@ void AFireZoneActor::InitZone(APawn* InInstigator, float InRadius, float InLifet
 	BurnDuration = InBurnDuration;
 	BodyBurnFX = InBodyBurnFX;
 	ZoneLifetime = InLifetime;
+	GroundFireLoopSound = InLoopSound;
 
 	if (BurnSphere)
 	{
@@ -102,6 +113,7 @@ void AFireZoneActor::BeginPlay()
 		GroundFireNiagara->Activate(true);
 	}
 
+	StartFireLoopSound();
 	SetLifeSpan(ZoneLifetime);
 
 	if (!HasAuthority())
@@ -119,8 +131,33 @@ void AFireZoneActor::BeginPlay()
 		true);
 }
 
+void AFireZoneActor::StartFireLoopSound()
+{
+	if (!FireLoopAudio || !GroundFireLoopSound)
+	{
+		return;
+	}
+
+	FireLoopAudio->SetSound(GroundFireLoopSound);
+	if (FireSoundAttenuation)
+	{
+		FireLoopAudio->AttenuationSettings = FireSoundAttenuation;
+	}
+	FireLoopAudio->Play();
+}
+
+void AFireZoneActor::StopFireLoopSound()
+{
+	if (FireLoopAudio && FireLoopAudio->IsPlaying())
+	{
+		FireLoopAudio->Stop();
+	}
+}
+
 void AFireZoneActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	StopFireLoopSound();
+
 	if (HasAuthority())
 	{
 		for (const TWeakObjectPtr<APawn>& Pawn : PawnsInZoneLastTick)

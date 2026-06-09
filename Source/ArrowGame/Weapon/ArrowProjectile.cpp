@@ -18,6 +18,7 @@
 #include "../Core/ArrowPlayerState.h"
 #include "../Core/ArrowGamePlayerController.h"
 #include "Arrow/FireZoneActor.h"
+#include "Sound/SoundBase.h"
 
 void AArrowProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -204,9 +205,15 @@ void AArrowProjectile::OnHit(
 
 	if (OtherActor->IsA(APawn::StaticClass()))
 	{
-		MulticastPlayHitSound(Hit.ImpactPoint);
 		if (HasAuthority())
 		{
+			TArray<APawn*> HitPawns;
+			if (APawn* HitPawn = Cast<APawn>(OtherActor))
+			{
+				HitPawns.Add(HitPawn);
+			}
+			PlayImpactSoundForParticipants(HitSound, HitPawns);
+
 			CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			SetActorHiddenInGame(true);
 
@@ -254,7 +261,7 @@ void AArrowProjectile::OnHit(
 		}
 		return;
 	}
-	
+
 	HitPhysicsObject(OtherComp, Hit, GetOwner());
 }
 
@@ -376,11 +383,39 @@ void AArrowProjectile::PlayLaunchEffects()
 {
 }
 
-void AArrowProjectile::MulticastPlayHitSound_Implementation(FVector Location)
+void AArrowProjectile::PlayImpactSoundForParticipants(USoundBase* Sound, const TArray<APawn*>& HitPawns) const
 {
-	if (HitSound)
+	if (!HasAuthority() || !Sound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), HitSound, Location);
+		return;
+	}
+
+	TSet<APlayerController*> Recipients;
+
+	auto TryAddRecipient = [&Recipients](const APawn* Pawn)
+	{
+		if (!Pawn)
+		{
+			return;
+		}
+		if (APlayerController* PC = Cast<APlayerController>(Pawn->GetController()))
+		{
+			Recipients.Add(PC);
+		}
+	};
+
+	TryAddRecipient(GetInstigator());
+	for (const APawn* HitPawn : HitPawns)
+	{
+		TryAddRecipient(HitPawn);
+	}
+
+	for (APlayerController* PC : Recipients)
+	{
+		if (AArrowGamePlayerController* ArrowPC = Cast<AArrowGamePlayerController>(PC))
+		{
+			ArrowPC->Client_PlayImpactSound(Sound);
+		}
 	}
 }
 

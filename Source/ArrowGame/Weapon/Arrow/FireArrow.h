@@ -21,9 +21,6 @@ protected:
 	void SpawnFireZone(const FHitResult& Hit);
 	void ApplyBurnToPawn(AActor* Target);
 
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayFireImpactSound(FVector Location);
-
 	UPROPERTY(EditDefaultsOnly, Category = "Fire | Zone")
 	TSubclassOf<AFireZoneActor> FireZoneClass;
 
@@ -53,5 +50,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Sound")
 	class USoundBase* LaunchSound;
+
+	/** 바닥 화염 존 루프음 — FireZoneActor에 3D로 재생 (가까울 때만 들림) */
+	UPROPERTY(EditAnywhere, Category = "Fire | Sound")
+	class USoundBase* GroundFireLoopSound;
 
 };

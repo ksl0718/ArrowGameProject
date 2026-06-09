@@ -80,6 +80,8 @@ void UHealthComponent::DamageTaken(
 
 	if (ACharacterBase* CharBase = Cast<ACharacterBase>(GetOwner()))
 	{
+		CharBase->Client_PlayLocalHitSound();
+
 		if (!bIsBurnDamage)
 		{
 			FVector HitLocation = GetOwner()->GetActorLocation();

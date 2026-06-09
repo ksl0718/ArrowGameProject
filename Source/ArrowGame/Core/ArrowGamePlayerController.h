@@ -19,6 +19,7 @@ class USkillCooldownHUDWidget;
 class UHealthBarWidget;
 class UHealthComponent;
 class UTexture2D;
+class USoundBase;
 class AArcherCharacterBase;
 
 UCLASS()
@@ -64,6 +65,10 @@ public:
 
 	UFUNCTION(Client, Reliable)
 	void Client_ShowHitMarker();
+
+	/** 화살/폭발 충돌음 — 해당 PC 클라이언트에서만 재생 (제3자 미재생) */
+	UFUNCTION(Client, Reliable)
+	void Client_PlayImpactSound(USoundBase* Sound);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")
 	void ShowHitMarker();

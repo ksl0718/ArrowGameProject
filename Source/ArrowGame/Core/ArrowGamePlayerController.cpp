@@ -19,6 +19,8 @@
 #include "../Component/HealthComponent.h"
 #include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "TimerManager.h"
 
 void AArrowGamePlayerController::BeginPlay()
@@ -392,4 +394,12 @@ void AArrowGamePlayerController::Client_ShowRoundResult_Implementation( bool bIs
 void AArrowGamePlayerController::Client_ShowHitMarker_Implementation()
 {
 	ShowHitMarker();
+}
+
+void AArrowGamePlayerController::Client_PlayImpactSound_Implementation(USoundBase* Sound)
+{
+	if (Sound)
+	{
+		UGameplayStatics::PlaySound2D(this, Sound);
+	}
 }

@@ -29,15 +29,20 @@ void AFireArrow::NotifyImpact(const FHitResult& Hit)
 	AActor* HitActor = Hit.GetActor();
 	const bool bHitPawn = HitActor && HitActor->IsA(APawn::StaticClass());
 
+	TArray<APawn*> HitPawns;
+	if (APawn* HitPawn = Cast<APawn>(HitActor))
+	{
+		HitPawns.Add(HitPawn);
+	}
+
 	if (bHitPawn)
 	{
 		ApplyBurnToPawn(HitActor);
-		MulticastPlayFireImpactSound(Hit.ImpactPoint);
+		PlayImpactSoundForParticipants(FireImpactSound, HitPawns);
 	}
 	else
 	{
 		SpawnFireZone(Hit);
-		MulticastPlayFireImpactSound(Hit.ImpactPoint);
 	}
 }
 
@@ -74,14 +79,8 @@ void AFireArrow::SpawnFireZone(const FHitResult& Hit)
 		BurnInterval,
 		BurnDuration,
 		GroundFireFX,
-		BodyBurnFX
+		BodyBurnFX,
+		GroundFireLoopSound
 	);
 }
 
-void AFireArrow::MulticastPlayFireImpactSound_Implementation(FVector Location)
-{
-	if (FireImpactSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), FireImpactSound, Location);
-	}
-}
