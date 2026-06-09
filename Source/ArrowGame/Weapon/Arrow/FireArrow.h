@@ -37,16 +37,20 @@ protected:
 	class UNiagaraSystem* BodyBurnFX;
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
-	float BurnDamage = 10.f;
+	float BurnDamage = 6.f;
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
-	float BurnInterval = 0.5f;
+	float BurnInterval = 1.f;
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Settings")
-	float BurnDuration = 5.f;
+	float BurnDuration = 10.f;
 
+	/** 캐릭터 직격 시 명중 지점 3D 사운드 — Sound Cue Attenuation (전 클라이언트) */
 	UPROPERTY(EditAnywhere, Category = "Fire | FX")
 	class USoundBase* FireImpactSound;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayFireImpactSound(FVector Location);
 
 	UPROPERTY(EditAnywhere, Category = "Fire | Sound")
 	class USoundBase* LaunchSound;

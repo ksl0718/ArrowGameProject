@@ -57,11 +57,9 @@ protected:
 	float BurnDuration = 5.f;
 
 	FTimerHandle BurnTickHandle;
-	TSet<TWeakObjectPtr<APawn>> PawnsInZoneLastTick;
 
 	void GatherPawnsInBurnRadius(TArray<APawn*>& OutPawns) const;
 	void ApplyBurnToActor(APawn* Target);
-	void StopBurnOnActor(APawn* Target);
 	void TickBurnZone();
 	void StartFireLoopSound();
 	void StopFireLoopSound();

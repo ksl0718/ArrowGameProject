@@ -27,7 +27,6 @@ void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)
 
 	GetWorld()->SweepMultiByChannel(OutHits, Origin, Origin, FQuat::Identity, ECC_Pawn, Sphere);
 
-	TArray<APawn*> HitPawns;
 	for (const FHitResult& HitResult : OutHits)
 	{
 		AActor* HitActor = HitResult.GetActor();
@@ -36,15 +35,8 @@ void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)
 			continue;
 		}
 
-		if (APawn* HitPawn = Cast<APawn>(HitActor))
-		{
-			HitPawns.AddUnique(HitPawn);
-		}
-
 		UGameplayStatics::ApplyDamage(HitActor, ExplosionDamage, GetInstigatorController(), this, UDamageType::StaticClass());
 	}
-
-	PlayImpactSoundForParticipants(ExplosionSound, HitPawns);
 
 	if (CollisionBox) CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SetActorHiddenInGame(true);
@@ -56,5 +48,10 @@ void AExplosiveArrow::MulticastSpawnExplosionFX_Implementation(FVector Location)
 	if (ExplosionFX)
 	{
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), ExplosionFX, Location);
+	}
+
+	if (ExplosionSound)
+	{
+		UGameplayStatics::SpawnSoundAtLocation(GetWorld(), ExplosionSound, Location);
 	}
 }

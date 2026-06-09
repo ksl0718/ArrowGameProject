@@ -158,21 +158,9 @@ void AFireZoneActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	StopFireLoopSound();
 
-	if (HasAuthority())
+	if (HasAuthority() && GetWorld())
 	{
-		for (const TWeakObjectPtr<APawn>& Pawn : PawnsInZoneLastTick)
-		{
-			if (Pawn.IsValid())
-			{
-				StopBurnOnActor(Pawn.Get());
-			}
-		}
-		PawnsInZoneLastTick.Empty();
-
-		if (GetWorld())
-		{
-			GetWorld()->GetTimerManager().ClearTimer(BurnTickHandle);
-		}
+		GetWorld()->GetTimerManager().ClearTimer(BurnTickHandle);
 	}
 
 	Super::EndPlay(EndPlayReason);
@@ -188,27 +176,10 @@ void AFireZoneActor::TickBurnZone()
 	TArray<APawn*> PawnsInRadius;
 	GatherPawnsInBurnRadius(PawnsInRadius);
 
-	TSet<TWeakObjectPtr<APawn>> CurrentSet;
 	for (APawn* Pawn : PawnsInRadius)
 	{
-		if (!Pawn)
-		{
-			continue;
-		}
-
-		CurrentSet.Add(Pawn);
 		ApplyBurnToActor(Pawn);
 	}
-
-	for (const TWeakObjectPtr<APawn>& Previous : PawnsInZoneLastTick)
-	{
-		if (Previous.IsValid() && !CurrentSet.Contains(Previous))
-		{
-			StopBurnOnActor(Previous.Get());
-		}
-	}
-
-	PawnsInZoneLastTick = MoveTemp(CurrentSet);
 }
 
 void AFireZoneActor::ApplyBurnToActor(APawn* Target)
@@ -228,18 +199,6 @@ void AFireZoneActor::ApplyBurnToActor(APawn* Target)
 		? DamageInstigator->GetController()
 		: nullptr;
 
-	HC->ApplyZoneBurnTick(BurnDamage, InstigatorController, BodyBurnFX);
-}
-
-void AFireZoneActor::StopBurnOnActor(APawn* Target)
-{
-	if (!Target)
-	{
-		return;
-	}
-
-	if (UHealthComponent* HC = Target->FindComponentByClass<UHealthComponent>())
-	{
-		HC->StopZoneBurnEffects();
-	}
+	// 불판 안에 있는 동안 BurnInterval마다 StartBurn → Duration(도트 틱 수) 갱신, 몸 불 FX 유지
+	HC->StartBurn(BurnDuration, BurnInterval, BurnDamage, InstigatorController, BodyBurnFX);
 }

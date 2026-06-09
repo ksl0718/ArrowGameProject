@@ -206,25 +206,12 @@ void AArrowGamePlayerController::UpdateSkillCooldownHUD()
 
 void AArrowGamePlayerController::ConfigureSkillHUDForCurrentPawn()
 {
-    if (!SkillCooldownHUDWidget) return;
-    
-    const ISkillCooldownProvider* Provider = Cast<ISkillCooldownProvider>(GetPawn());
-    if (!Provider) return;
-    
-    const int32 SlotCount = FMath::Max(0,Provider->GetSkillSlotCount());
-    SkillCooldownHUDWidget->RebuildSlots(SlotCount);
-    
-    for (int32 i = 0; i < SlotCount; i++)
+    if (!SkillCooldownHUDWidget)
     {
-        UTexture2D* Icon = nullptr;
-        FText KeyText = FText::GetEmpty();
-        
-        if (Provider->GetSkillHudMetaByIndex(i, Icon, KeyText))
-        {
-            SkillCooldownHUDWidget->SetSlotIconByIndex(i, Icon);
-            SkillCooldownHUDWidget->SetSlotKeyByIndex(i, KeyText);
-        }
+        UE_LOG(LogTemp, Warning, TEXT("SkillHUD: SkillCooldownHUDWidget 없음 — PlayerController BP의 Skill Cooldown HUD Class 확인"));
+        return;
     }
+    SkillCooldownHUDWidget->RefreshFromPawn(GetPawn());
 }
 
 void AArrowGamePlayerController::ConfigureArrowIconForCurrentPawn()

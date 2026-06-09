@@ -3,6 +3,8 @@
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
+#include "Engine/Texture2D.h"
+#include "Styling/SlateBrush.h"
 
 void USkillCooldownSlotWidget::UpdateCooldown(float RemainingTime, float CooldownDuration)
 {
@@ -33,10 +35,27 @@ void USkillCooldownSlotWidget::UpdateCooldown(float RemainingTime, float Cooldow
 
 void USkillCooldownSlotWidget::SetSkillIcon(UTexture2D* InIconTexture)
 {
-	if (Img_Icon)
+	if (!Img_Icon)
 	{
-		Img_Icon->SetBrushFromTexture(InIconTexture);
+		UE_LOG(LogTemp, Warning, TEXT("SkillCooldownSlotWidget: Img_Icon 바인딩 없음 — WBP 슬롯 Image 이름을 'Img_Icon'으로 맞추세요."));
+		return;
 	}
+
+	if (!InIconTexture)
+	{
+		Img_Icon->SetVisibility(ESlateVisibility::Hidden);
+		return;
+	}
+
+	FSlateBrush IconBrush;
+	IconBrush.SetResourceObject(InIconTexture);
+	const float IconSize = 48.f;
+	IconBrush.ImageSize = FVector2D(IconSize, IconSize);
+	IconBrush.DrawAs = ESlateBrushDrawType::Image;
+	Img_Icon->SetBrush(IconBrush);
+	Img_Icon->SetColorAndOpacity(FLinearColor::White);
+	Img_Icon->SetRenderOpacity(1.f);
+	Img_Icon->SetVisibility(ESlateVisibility::HitTestInvisible);
 }
 
 void USkillCooldownSlotWidget::SetSkillKeyText(const FText& InKeyText)
