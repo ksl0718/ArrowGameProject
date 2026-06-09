@@ -16,9 +16,11 @@ class UUserWidget;
 class UScoreboardWidget;
 class URoundTimerWidget;
 class USkillCooldownHUDWidget;
+class UPauseMenuWidget;
 class UHealthBarWidget;
 class UHealthComponent;
 class UTexture2D;
+class USoundBase;
 class AArcherCharacterBase;
 
 UCLASS()
@@ -39,6 +41,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* ScoreboardAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* PauseAction;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UScoreboardWidget> ScoreboardClass;
@@ -65,6 +70,10 @@ public:
 	UFUNCTION(Client, Reliable)
 	void Client_ShowHitMarker();
 
+	/** 화살/폭발 충돌음 — 해당 PC 클라이언트에서만 재생 (제3자 미재생) */
+	UFUNCTION(Client, Reliable)
+	void Client_PlayImpactSound(USoundBase* Sound);
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")
 	void ShowHitMarker();
 	
@@ -87,6 +96,13 @@ public:
 	// ===== Archer Arrow Icon UI =====
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Arrow")
 	TSubclassOf<UUserWidget> ArrowIconWidgetClass;
+
+	// ===== Pause Menu (ESC) =====
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Pause")
+	TSubclassOf<UPauseMenuWidget> PauseMenuClass;
+
+	UFUNCTION(BlueprintCallable, Category = "UI|Pause")
+	void ClosePauseMenu();
 	
 protected:
 	virtual void BeginPlay() override;
@@ -107,6 +123,10 @@ private:
 	
 	void ConfigureSkillHUDForCurrentPawn();
 	void ConfigureArrowIconForCurrentPawn();
+
+	void TogglePauseMenu();
+	void OpenPauseMenu();
+	bool CanOpenPauseMenu() const;
 	
 	bool TryGetCurrentSkillHudMeta(int32 SlotIndex, UTexture2D*& OutIcon, FText& OutKeyText) const;
 	bool TryGetCurrentSkillCooldown(int32 SlotIndex, float& OutRemaining, float& OutDuration) const;
@@ -124,6 +144,11 @@ private:
 
 	UPROPERTY()
 	UUserWidget* ArrowIconWidget = nullptr;
+
+	UPROPERTY()
+	UPauseMenuWidget* PauseMenuWidget = nullptr;
+
+	bool bPauseMenuOpen = false;
 	
 	FTimerHandle SkillCooldownUpdateTimerHandle;
 

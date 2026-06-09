@@ -27,10 +27,13 @@ void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)
 
 	GetWorld()->SweepMultiByChannel(OutHits, Origin, Origin, FQuat::Identity, ECC_Pawn, Sphere);
 
-	for (auto& HitResult : OutHits)
+	for (const FHitResult& HitResult : OutHits)
 	{
 		AActor* HitActor = HitResult.GetActor();
-		if (!HitActor) continue;
+		if (!HitActor)
+		{
+			continue;
+		}
 
 		UGameplayStatics::ApplyDamage(HitActor, ExplosionDamage, GetInstigatorController(), this, UDamageType::StaticClass());
 	}
@@ -43,7 +46,12 @@ void AExplosiveArrow::NotifyImpact(const FHitResult& Hit)
 void AExplosiveArrow::MulticastSpawnExplosionFX_Implementation(FVector Location)
 {
 	if (ExplosionFX)
+	{
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), ExplosionFX, Location);
+	}
+
 	if (ExplosionSound)
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), ExplosionSound, Location);
+	{
+		UGameplayStatics::SpawnSoundAtLocation(GetWorld(), ExplosionSound, Location);
+	}
 }

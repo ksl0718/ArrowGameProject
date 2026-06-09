@@ -812,11 +812,6 @@ bool ADokkaebiCharacter::IsSpiritSightActive_ServerTime() const
 
 void ADokkaebiCharacter::Input_SpiritSight(const FInputActionValue& Value)
 {
-	if (IsLocallyControlled() && bCurseOrbReady)
-	{
-		RequestCancelCurseOrbPrepare();
-	}
-
 	// Listen 호스트는 RPC 없이 권한 함수만 태움 (미끼와 동일)
 	if (HasAuthority())
 	{

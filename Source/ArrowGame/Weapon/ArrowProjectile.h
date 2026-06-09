@@ -47,9 +47,6 @@ public:
 	/** 궤적 + 화살촉 (발사 시) */
 	void ActivateArrowEffects();
 
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayHitSound(FVector Location);
-
 	UFUNCTION(BlueprintCallable, Category = "Arrow Data")
 	EArrowType GetArrowType() const { return ArrowType; }
 	
@@ -91,8 +88,12 @@ protected:
 
 	virtual void PlayLaunchEffects();
 
+	/** 화살 충돌 효과음 (박히는 소리). 캐릭터 피격 신음음(CharacterBase::HitSounds)과 별개. */
 	UPROPERTY(EditAnywhere, Category = "Sound")
 	USoundBase* HitSound;
+
+	/** 서버 전용: 쏜 사람 + 맞은 플레이어 PC에게만 충돌음 전달 (제3자 제외) */
+	void PlayImpactSoundForParticipants(USoundBase* Sound, const TArray<APawn*>& HitPawns) const;
 
 public:
 	static bool IsEnemy(APawn* Instigator, AActor* Target);

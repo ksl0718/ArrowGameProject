@@ -267,13 +267,31 @@ void AArrowGameGameMode::SpawnPlayerForMatchStart(APlayerController* PC)
 		return;
 	}
 
-	if (PC->GetPawn())
+	// CatchUp/HandleStartingNewPlayer 재진입 방지 (지연 스폰 중에도 동일 PC 중복 RestartPlayer 금지)
+	ControllersSpawnedAtMatchStart.Add(PC);
+
+	APawn* ExistingPawn = PC->GetPawn();
+	if (ExistingPawn)
 	{
-		PC->GetPawn()->Destroy();
+		// 심리스 트래블 직후 로비 DefaultPawn을 같은 프레임에 Destroy+Restart 하면
+		// 파괴된 컴포넌트가 EndOfFrame 업데이트 큐에 남아 LevelTick assertion이 날 수 있음.
+		PC->UnPossess();
+		ExistingPawn->Destroy();
+		PC->StartSpot = nullptr;
+
+		TWeakObjectPtr<APlayerController> WeakPC(PC);
+		GetWorld()->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this, WeakPC]()
+		{
+			if (APlayerController* P = WeakPC.Get())
+			{
+				RestartPlayer(P);
+			}
+		}));
+		return;
 	}
+
 	PC->StartSpot = nullptr;
 	RestartPlayer(PC);
-	ControllersSpawnedAtMatchStart.Add(PC);
 }
 
 void AArrowGameGameMode::AssignDokkaebiAndStart()

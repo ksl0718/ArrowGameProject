@@ -27,6 +27,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Explosion | FX")
 	class UNiagaraSystem* ExplosionFX;
 
+	/** 폭발 지점 3D 사운드 — Sound Cue Attenuation으로 거리 감쇠 (전 클라이언트) */
 	UPROPERTY(EditAnywhere, Category = "Explosion | FX")
 	class USoundBase* ExplosionSound;
 };

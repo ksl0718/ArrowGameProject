@@ -80,6 +80,8 @@ void UHealthComponent::DamageTaken(
 
 	if (ACharacterBase* CharBase = Cast<ACharacterBase>(GetOwner()))
 	{
+		CharBase->Client_PlayLocalHitSound();
+
 		if (!bIsBurnDamage)
 		{
 			FVector HitLocation = GetOwner()->GetActorLocation();
@@ -155,42 +157,6 @@ void UHealthComponent::StopBurnEffects()
 		CharBase->MulticastStopBurnFX();
 	}
 	bBurnFXActive = false;
-}
-
-void UHealthComponent::ApplyZoneBurnTick(float Damage, AController* DamageInstigator, UNiagaraSystem* BurnFXOverride)
-{
-	if (!GetOwner()->HasAuthority() || bIsDead || Damage <= 0.f)
-	{
-		return;
-	}
-
-	if (!bBurnFXActive)
-	{
-		if (ACharacterBase* CharBase = Cast<ACharacterBase>(GetOwner()))
-		{
-			CharBase->MulticastPlayBurnFX(BurnFXOverride);
-			bBurnFXActive = true;
-		}
-	}
-
-	UGameplayStatics::ApplyDamage(
-		GetOwner(),
-		Damage,
-		DamageInstigator,
-		nullptr,
-		UBurnDamageType::StaticClass());
-}
-
-void UHealthComponent::StopZoneBurnEffects()
-{
-	if (!GetOwner()->HasAuthority())
-	{
-		return;
-	}
-
-	GetWorld()->GetTimerManager().ClearTimer(BurnTimerHandle);
-	BurnTicksRemaining = 0;
-	StopBurnEffects();
 }
 
 void UHealthComponent::ApplyBurnTick()

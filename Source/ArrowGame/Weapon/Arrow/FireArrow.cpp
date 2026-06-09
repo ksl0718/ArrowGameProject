@@ -37,7 +37,6 @@ void AFireArrow::NotifyImpact(const FHitResult& Hit)
 	else
 	{
 		SpawnFireZone(Hit);
-		MulticastPlayFireImpactSound(Hit.ImpactPoint);
 	}
 }
 
@@ -74,7 +73,8 @@ void AFireArrow::SpawnFireZone(const FHitResult& Hit)
 		BurnInterval,
 		BurnDuration,
 		GroundFireFX,
-		BodyBurnFX
+		BodyBurnFX,
+		GroundFireLoopSound
 	);
 }
 
@@ -82,6 +82,7 @@ void AFireArrow::MulticastPlayFireImpactSound_Implementation(FVector Location)
 {
 	if (FireImpactSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), FireImpactSound, Location);
+		UGameplayStatics::SpawnSoundAtLocation(GetWorld(), FireImpactSound, Location);
 	}
 }
+

@@ -8,6 +8,7 @@
 class UHealthComponent;
 class UUserWidget;
 class UNiagaraSystem;
+class USoundBase;
 
 UCLASS()
 class ARROWGAME_API ACharacterBase : public ACharacter
@@ -64,6 +65,24 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Hit FX")
 	TSubclassOf<UCameraShakeBase> HitCameraShakeClass;
+
+	/** 맞은 본인에게만 재생되는 신음/피격 보이스. 화살 충돌음(ArrowProjectile::HitSound)과 별개. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Hit FX")
+	TArray<TObjectPtr<USoundBase>> HitSounds;
+
+	UFUNCTION(Client, Reliable)
+	void Client_PlayLocalHitSound();
+
+	void PlayLocalHitSound();
+
+	/** 사망 시 본인에게만 재생. 캐릭터 BP마다 다른 큐 배열 지정 가능. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Death FX")
+	TArray<TObjectPtr<USoundBase>> DeathSounds;
+
+	UFUNCTION(Client, Reliable)
+	void Client_PlayLocalDeathSound();
+
+	void PlayLocalDeathSound();
 
 protected:
 

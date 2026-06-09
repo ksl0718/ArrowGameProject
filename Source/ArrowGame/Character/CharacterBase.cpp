@@ -9,6 +9,8 @@
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
 #include "Camera/CameraShakeBase.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 ACharacterBase::ACharacterBase()
 {
@@ -39,6 +41,7 @@ void ACharacterBase::OnDeathProcessed()
 	// 서버에서만 사망 로직 시작
 	if (HasAuthority())
 	{
+		Client_PlayLocalDeathSound();
 		Multicast_Die();
 
 		// 약간 지연 후에 컨트롤러를 떼어내어 튕김 현상을 완화
@@ -74,6 +77,44 @@ void ACharacterBase::ApplyHitFlinch(float Strength)
 void ACharacterBase::Multicast_TriggerHitFlinch_Implementation(float Strength)
 {
 	ApplyHitFlinch(Strength);
+}
+
+void ACharacterBase::Client_PlayLocalHitSound_Implementation()
+{
+	PlayLocalHitSound();
+}
+
+void ACharacterBase::PlayLocalHitSound()
+{
+	if (HitSounds.Num() == 0)
+	{
+		return;
+	}
+
+	const int32 Index = FMath::RandRange(0, HitSounds.Num() - 1);
+	if (USoundBase* Sound = HitSounds[Index])
+	{
+		UGameplayStatics::PlaySound2D(this, Sound);
+	}
+}
+
+void ACharacterBase::Client_PlayLocalDeathSound_Implementation()
+{
+	PlayLocalDeathSound();
+}
+
+void ACharacterBase::PlayLocalDeathSound()
+{
+	if (DeathSounds.Num() == 0)
+	{
+		return;
+	}
+
+	const int32 Index = FMath::RandRange(0, DeathSounds.Num() - 1);
+	if (USoundBase* Sound = DeathSounds[Index])
+	{
+		UGameplayStatics::PlaySound2D(this, Sound);
+	}
 }
 
 void ACharacterBase::MulticastHitFX_Implementation(FVector HitLocation, FVector AttackerLocation)

@@ -29,14 +29,9 @@ public:
 	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	/** 몸 화상 도트 시작. 불판 안에 있는 동안 반복 호출 시 Duration(틱 수) 갱신. */
 	void StartBurn(float Duration, float Interval, float Damage,
 		class AController* DamageInstigator = nullptr, class UNiagaraSystem* BurnFXOverride = nullptr);
-
-	/** 화염 존 틱용 — StartBurn 타이머를 리셋하지 않고 1틱 데미지 + FX 유지 */
-	void ApplyZoneBurnTick(float Damage, class AController* DamageInstigator = nullptr,
-		class UNiagaraSystem* BurnFXOverride = nullptr);
-
-	void StopZoneBurnEffects();
 
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnDeadDelegate OnDead;
