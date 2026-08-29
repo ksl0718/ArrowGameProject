@@ -1,124 +1,168 @@
-# ArrowGame — 비대칭 멀티플레이어 태그 게임
+# 행궁 (ArrowGame)
 
-> 도깨비 vs 궁수 — Unreal Engine 5 기반 C++ 멀티플레이어 대전 게임
+> 조선 화성 행궁을 배경으로 한 1 vs N 비대칭 멀티플레이 활 전투 게임
 
-## 개요
+**Unreal Engine 5 · C++ · Steam Multiplayer · Server Authority Combat**
 
-**ArrowGame**은 **1명의 도깨비**와 **다수의 궁수**가 대결하는 비대칭 멀티플레이어 게임입니다.
+`Unreal Engine 5.4` `C++` `Replication` `Server RPC` `Multicast RPC` `OnlineSubsystemSteam` `UMG` `Niagara`
 
-- **궁수(Archer)**: 활을 들고 도깨비를 사냥합니다. 일반/화염/폭발 화살을 전환하며 전투합니다.
-- **도깨비(Dokkaebi)**: 분신(디코이), 저주, 영시(壁透視) 등 고유 능력으로 궁수들을 교란합니다.
+## 프로젝트 요약
 
-매 라운드 시작 시 한 명의 플레이어가 랜덤으로 도깨비로 지정되며, 나머지는 궁수가 됩니다. 제한 시간 내에 도깨비를 처치하면 궁수 팀 승리, 시간이 만료되면 도깨비 승리입니다.
+**행궁**은 한 명의 도깨비와 다수의 궁수가 대결하는 비대칭 멀티플레이 게임입니다. 궁수는 활과 특수 화살로 도깨비를 추적하고, 도깨비는 분신, 은신, 저주, 투시 능력으로 궁수를 교란하며 제한 시간 동안 생존합니다.
 
----
+| 항목 | 내용 |
+| --- | --- |
+| 개발 기간 | 2025.09 ~ 2026.06 |
+| 개발 형태 | 캡스톤 프로젝트 / 1인 개발 |
+| 엔진 | Unreal Engine 5.4 |
+| 언어 | C++ |
+| 플랫폼 | Windows |
+| 네트워크 | Unreal Replication, RPC, OnlineSubsystemSteam |
+| 담당 | 기획, 게임플레이, 멀티플레이, UI, 맵 구성, 최적화 |
+
+## 한 줄 어필
+
+Unreal Engine 5와 C++로 비대칭 멀티플레이 전투 시스템을 1인 개발하며, 서버 권위 기반 전투 판정과 역할별 스킬 동기화를 직접 구현했습니다.
+
+## 플레이 구조
+
+```text
+메인 메뉴
+→ Steam 세션 생성/검색/참가
+→ 로비 Ready
+→ 전투 맵 이동
+→ 도깨비 1명 랜덤 배정
+→ 카운트다운
+→ 전투
+→ 라운드 결과
+→ 로비 복귀
+```
 
 ## 주요 기능
 
-### 비대칭 캐릭터 시스템
+| 역할 | 기능 |
+| --- | --- |
+| 궁수 | 활 조준, 차징, 발사, 구르기, 일반/화염/폭발 화살 전환 |
+| 도깨비 | 분신, 은신, 저주 투사체, 투시 |
+| 공통 | 체력, 피격, 사망, 스킬 쿨다운 HUD, 라운드 결과 |
+| 멀티플레이 | Steam 세션, 로비 Ready, 역할 배정, ServerTravel, 서버 권위 판정 |
 
-두 진영은 완전히 다른 게임플레이를 가집니다.
+## 기술 하이라이트
 
-| | 궁수 (Archer) | 도깨비 (Dokkaebi) |
-|---|---|---|
-| **전투** | 활 차징 → 발사, 3종 화살 전환 | 저주 투사체 발사 |
-| **이동기** | 구르기 회피 (쿨다운) | 분신 소환 + 은신 |
-| **특수** | 아이템 줍기, 웅크리기 | 영시(월핵) 능력 |
-| **HUD** | 조준선 + 스킬 쿨다운 | 적 마커 + 스킬 쿨다운 |
+### 1. 비대칭 멀티플레이 라운드 플로우
 
-### 활 & 투사체 시스템
+- `OnlineSubsystemSteam` 기반 세션 생성, 검색, 참가 구현
+- 로비 Ready 이후 전투 맵으로 이동
+- Seamless Travel 이후 모든 플레이어의 `PlayerState` 준비를 기다린 뒤 매치 시작
+- 서버에서 도깨비 1명을 랜덤 배정하고 역할별 Pawn 스폰
+- 카운트다운 중 입력 잠금, 라운드 시작 시 입력 활성화
+- 도깨비 사망 또는 제한 시간 종료에 따른 승패 처리
 
-- **차징 메커니즘**: 차징 시간에 비례해 화살 속도 결정 (2,000 ~ 6,000)
-- **피로 시스템**: 과충전 시 카메라 흔들림 → 자동 발사
-- **화살 종류**:
-  - **일반 화살** — 무제한, 기본 데미지
-  - **화염 화살** — 착탄 시 범위 DoT(지속 피해) 생성
-  - **폭발 화살** — 착탄 시 범위 폭발 데미지
-- **물리 상호작용**: 화살이 벽에 박히거나, 물리 오브젝트에 충격량 적용
+관련 코드:
 
-### 도깨비 능력
+- `Source/ArrowGame/ArrowGameInstance.cpp`
+- `Source/ArrowGame/Core/GameModes/ArrowGameGameMode.cpp`
+- `Source/ArrowGame/Core/ArrowPlayerState.cpp`
 
-- **분신 + 은신**: 디코이 액터를 소환하고 일정 시간 투명화. 다른 플레이어에게는 메시 완전 숨김, 본인에게는 반투명으로 표시
-- **저주 투사체**: 맞은 궁수의 조작권을 빼앗아 강제로 도깨비 반대 방향으로 도주시킴
-- **영시 (Spirit Sight)** *(개발 중)*: 벽 뒤의 적 위치를 화면에 마커로 표시하는 월핵 능력. 기본 구조 구현 완료, 세부 연출 작업 중
+### 2. 서버 권위 기반 활/화살 전투
 
-### 멀티플레이어 네트워킹
+- 활 상태를 조준, 장전, 차징, 재장전으로 분리
+- 클라이언트에서는 조작 반응을 즉시 보여주고, 실제 발사와 데미지는 서버에서 확정
+- 차징 비율에 따라 화살 속도 보간
+- 발사체 Replication과 `ReplicateMovement` 적용
+- 발사 직후 한 틱 뒤 충돌을 활성화해 자기 캐릭터와의 즉시 충돌 방지
+- 일반/화염/폭발 화살을 상속 기반으로 확장
 
-- **서버 권위 모델**: 모든 게임플레이 액션은 Server RPC → 서버에서 처리 → Multicast/OnRep으로 동기화
-- **세션 시스템**: `OnlineSubsystemSteam` 기반 세션 생성/검색/참가
-- **게임 플로우**: 메인 메뉴 → 로비 (레디/시작) → 카운트다운 → 전투 → 라운드 결과 → 로비 복귀
+관련 코드:
 
----
+- `Source/ArrowGame/Weapon/Bow.cpp`
+- `Source/ArrowGame/Weapon/ArrowProjectile.cpp`
+- `Source/ArrowGame/Weapon/Arrow/FireArrow.cpp`
+- `Source/ArrowGame/Weapon/Arrow/ExplosiveArrow.cpp`
+- `Source/ArrowGame/Component/HealthComponent.cpp`
 
-## 기술 스택
+### 3. 도깨비 스킬 시스템
 
-| 분류 | 기술 |
-|------|------|
-| **엔진** | Unreal Engine 5, C++ |
-| **입력** | Enhanced Input System |
-| **네트워킹** | UE Replication, Server/Client/Multicast RPC |
-| **세션** | OnlineSubsystem, OnlineSubsystemSteam |
-| **VFX** | Niagara (화살 궤적, 화염/폭발 이펙트) |
-| **UI** | UMG (14개 위젯 클래스) |
-| **AI** | AICharacter (타겟 탐색 → 공격 루프) |
+- `FSkillSpec`으로 스킬 ID, 쿨다운, 입력 잠금, 아이콘, 키 텍스트를 데이터화
+- `FSkillRuntimeState`로 서버 시간 기준 쿨다운 관리
+- 스킬 상태와 투시 종료 시간은 OwnerOnly 복제로 동기화 범위 축소
+- 은신은 본인에게 반투명, 타인에게 메시 숨김으로 다르게 표현
+- 저주 투사체 피격 시 궁수의 이동/공격 행동을 강제 제어
+- 투시는 소유 클라이언트에서만 마커와 오버레이 갱신
 
----
+관련 코드:
 
-## 아키텍처
+- `Source/ArrowGame/Character/DokkaebiCharacter.cpp`
+- `Source/ArrowGame/Character/DokkaebiCurseProjectile.cpp`
+- `Source/ArrowGame/Character/UserArcherCharacter.cpp`
 
-### 클래스 상속 구조
+### 4. UI 추상화와 위젯 풀링
 
+- 궁수와 도깨비가 서로 다른 스킬 구성을 가져도 하나의 HUD를 재사용하도록 `ISkillCooldownProvider` 인터페이스 적용
+- 현재 Pawn이 제공하는 스킬 개수, 아이콘, 키 텍스트, 쿨다운 값을 기반으로 HUD 슬롯 동적 생성
+- 투시 마커는 매 프레임 생성하지 않고 필요한 수만큼 위젯을 풀링한 뒤 위치/스케일만 갱신
+
+관련 코드:
+
+- `Source/ArrowGame/Character/SkillCooldownProvider.h`
+- `Source/ArrowGame/UI/SkillCooldownHUDWidget.cpp`
+- `Source/ArrowGame/UI/SpiritSightMarkerWidget.cpp`
+
+## AI 활용
+
+1인 개발 과정에서 도깨비 캐릭터 리소스 제작 병목을 줄이기 위해 생성형 AI를 제작 파이프라인에 활용했습니다.
+
+```text
+레퍼런스 수집
+→ Gemini Nano Banana로 도깨비 디자인 방향 추출
+→ 정면/측면 이미지 생성
+→ Meshy AI로 3D 메시 초안 생성
+→ MetaHuman 기반 캐릭터화
+→ Unreal Engine 5.6 환경으로 이주
+→ 호환되지 않는 머티리얼 제거 후 게임 적용
 ```
-ACharacter (Engine)
-├── ACharacterBase                      // 체력, 사망 파이프라인
-│   ├── AArcherCharacterBase            // 무기 장착, 조준, 탄약, 애니메이션
-│   │   ├── AUserArcherCharacter        // 플레이어 입력, 카메라, 구르기, 저주 피해
-│   │   └── AAICharacter                // AI 자동 전투
-│   │
-│   └── ADokkaebiCharacter              // 도깨비 능력 (분신/저주/영시)
-│
-└── ADokkaebiDecoy                      // 분신 액터 (독립)
-```
 
-### 설계 패턴
+AI 결과물을 그대로 사용하기보다, 게임 톤, 3D화 가능성, 엔진 호환성, 실제 플레이 적용 가능성을 기준으로 단계별 검증을 거쳤습니다.
 
-- **컴포넌트 기반 설계**: `UHealthComponent`를 분리하여 체력/사망/DoT를 캐릭터 로직과 디커플링
-- **인터페이스 다형성**: `ISkillCooldownProvider`를 궁수/도깨비 모두 구현 → 단일 HUD 위젯으로 스킬 쿨다운 표시
-- **데이터 드리븐 스킬**: `FSkillSpec` 구조체로 스킬 정의 (쿨다운, 아이콘, 키 힌트), `FSkillRuntimeState`로 런타임 상태 관리
-- **오브젝트 풀링**: `USpiritSightMarkerWidget`에서 마커 위젯 인스턴스를 풀링하여 매 프레임 생성 방지
-- **서버 권위 + 클라이언트 예측**: 조준은 로컬 즉시 적용 → 서버 RPC 확인. 소유자 전용 복제로 대역폭 최적화
+## 성능/완성도 개선
 
----
+- 행궁 맵 정적 환경에 Nanite 적용
+- 캐릭터에는 LOD 적용
+- 투시 마커 위젯 풀링
+- 로컬 플레이어에게만 필요한 UI/Tick 처리 분리
+- 호환되지 않는 머티리얼 제거로 실행 안정성 우선
 
 ## 프로젝트 구조
 
-```
+```text
 Source/ArrowGame/
-├── Actor/              # 인게임 아이템 (화살, 활 픽업)
+├── Actor/              # 활/화살 픽업 등 인게임 아이템
 ├── AI/                 # AI 캐릭터
-├── Character/          # 캐릭터 클래스, 애님 인스턴스, 투사체
-├── Component/          # 체력 컴포넌트
-├── Core/               # 게임모드, 게임스테이트, 플레이어컨트롤러
-├── UI/                 # 14개 UMG 위젯
-└── Weapon/             # 활, 화살 투사체, 특수 화살
+├── Character/          # 궁수, 도깨비, 애니메이션, 스킬
+├── Component/          # 체력/피격/DoT 컴포넌트
+├── Core/               # GameMode, GameState, PlayerState, Controller
+├── UI/                 # UMG 위젯
+└── Weapon/             # 활, 투사체, 특수 화살
 ```
 
----
+## 추가 문서
+
+- [넥토리얼 포트폴리오 초안](docs/NEXON_Portfolio_Draft.md)
+- [Notion 포트폴리오 원문](docs/HAENGGUNG_Portfolio_Notion.md)
 
 ## 실행 환경
 
-- Unreal Engine 5
+- Unreal Engine 5.4
 - Visual Studio 2022 또는 Rider
 - Windows 10/11
+- Steam 실행 필요
 
-### 빌드
+## 실행 방법
 
-1. `.uproject` 파일을 UE5 에디터에서 열기
-2. 에디터에서 빌드 또는 IDE에서 Development Editor 빌드
-3. 멀티플레이어 테스트: PIE(Play In Editor)에서 플레이어 수 2 이상으로 설정
-
----
+1. `ArrowGame.uproject`를 Unreal Editor에서 엽니다.
+2. Development Editor 빌드로 컴파일합니다.
+3. 멀티플레이 테스트는 PIE에서 플레이어 수를 2명 이상으로 설정하거나 Steam 세션으로 실행합니다.
 
 ## 라이선스
 
-이 프로젝트는 개인 포트폴리오 / 학습 목적으로 제작되었습니다.
+개인 포트폴리오 및 학습 목적으로 제작된 프로젝트입니다.

@@ -373,6 +373,7 @@ Intermediate/
 Saved/
 Build/
 .utest/
+docs/
 
 # 프로젝트 파일 (팀원이 각자 슬롯이나 프로젝트 파일 생성 가능)
 *.sln
