@@ -35,10 +35,37 @@ USkeletalMeshComponent* UCharacterCustomizeComponent::FindComponent(ECustomizeSl
 	{
 		if (Binding.Slot == Slot && Binding.ComponentType == ComponentType)
 		{
-			return Binding.Component;
+			return ResolveComponent(Binding);
 		}
 	}
 	
+	return nullptr;
+}
+
+USkeletalMeshComponent* UCharacterCustomizeComponent::ResolveComponent(const FCustomizeComponentBinding& Binding) const
+{
+	if (Binding.ComponentName.IsNone())
+	{
+		return nullptr;
+	}
+
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return nullptr;
+	}
+
+	TArray<USkeletalMeshComponent*> SkeletalMeshComponents;
+	Owner->GetComponents(SkeletalMeshComponents);
+
+	for (USkeletalMeshComponent* Component : SkeletalMeshComponents)
+	{
+		if (Component && Component->GetFName() == Binding.ComponentName)
+		{
+			return Component;
+		}
+	}
+
 	return nullptr;
 }
 
@@ -46,10 +73,15 @@ void UCharacterCustomizeComponent::ClearSlot(ECustomizeSlot Slot)
 {
 	for (const FCustomizeComponentBinding& Binding : ComponentBindings)
 	{
-		if (Binding.Slot == Slot && Binding.Component)
+		if (Binding.Slot != Slot)
 		{
-			Binding.Component->SetSkeletalMesh(nullptr);
-			Binding.Component->SetVisibility(false, true);
+			continue;
+		}
+
+		if (USkeletalMeshComponent* Component = ResolveComponent(Binding))
+		{
+			Component->SetSkeletalMesh(nullptr);
+			Component->SetVisibility(false, true);
 		}
 	}
 }

@@ -20,7 +20,7 @@ struct FCustomizeComponentBinding
 	ECustomizeComponentType ComponentType = ECustomizeComponentType::RootAligned;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Customization")
-	TObjectPtr<USkeletalMeshComponent> Component = nullptr;
+	FName ComponentName = NAME_None;
 };
 
 
@@ -40,6 +40,8 @@ protected:
 	TArray<FCustomizeComponentBinding> ComponentBindings;
 
 private:
+	USkeletalMeshComponent* ResolveComponent(const FCustomizeComponentBinding& Binding) const;
+
 	USkeletalMeshComponent* FindComponent(ECustomizeSlot Slot, ECustomizeComponentType ComponentType) const;
 
 	void ClearSlot(ECustomizeSlot Slot);
