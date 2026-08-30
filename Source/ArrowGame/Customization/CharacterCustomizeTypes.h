@@ -16,10 +16,10 @@ enum class ECustomizeSlot : uint8
 };
 
 UENUM(BlueprintType)
-enum class EPartAttachMode : uint8
+enum class ECustomizeComponentType : uint8
 {
-	RootLeaderPose UMETA(DisplayName = "RootLeaderPose"),
-	SocketAttach UMETA(DisplayName = "SocketAttach")
+	RootAligned UMETA(DisplayName = "Root Aligned"),
+	PrePositioned UMETA(DisplayName = "Pre-Positioned")
 };
 
 USTRUCT(BlueprintType)
@@ -30,17 +30,17 @@ struct FCharacterCustomizePreset
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Customization")
 	TMap<ECustomizeSlot, FPrimaryAssetId> SelectedParts;
 	
-	bool TryGetSelectedPart(ECustomizeSlot slot, FPrimaryAssetId& outPartId) const
+	bool TryGetSelectedPart(ECustomizeSlot Slot, FPrimaryAssetId& OutPartId) const
 	{
-		if (const FPrimaryAssetId* FoundPartId = SelectedParts.Find(slot))
+		if (const FPrimaryAssetId* FoundPartId = SelectedParts.Find(Slot))
 		{
-			outPartId = *FoundPartId;
+			OutPartId = *FoundPartId;
 			return true;
 		}	
 		return false;
-	};
+	}
 	
-	void SetSelectedPart(ECustomizeSlot Slot, FPrimaryAssetId& PartId)
+	void SetSelectedPart(ECustomizeSlot Slot, const FPrimaryAssetId& PartId)
 	{
 		SelectedParts.FindOrAdd(Slot) = PartId;
 	}

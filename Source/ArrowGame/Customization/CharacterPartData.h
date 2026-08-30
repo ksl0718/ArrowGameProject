@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "CharacterPartData.h"
+#include "CharacterCustomizeTypes.h"
 #include "CharacterPartData.generated.h"
 
 class USkeletalMesh;
@@ -21,12 +21,11 @@ public:
 	ECustomizeSlot Slot = ECustomizeSlot::Hair;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Customization")
-	EPartAttachMode AttachMode = EPartAttachMode::RootLeaderPose;
+	ECustomizeComponentType ComponentType = ECustomizeComponentType::RootAligned;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Customization")
 	TSoftObjectPtr<USkeletalMesh> Mesh;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Customization|UI")
 	TSoftObjectPtr<UTexture2D> Icon;
-	
 };
