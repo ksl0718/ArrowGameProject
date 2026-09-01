@@ -5,12 +5,20 @@ void UCharacterPartCatalog::GetPartsBySlot(ECustomizeSlot Slot, TArray<UCharacte
 {
 	OutParts.Reset();
 	
-	for (const TSoftObjectPtr<UCharacterPartData> PartRef : Parts)
+	for (const FCharacterPartCatalogEntry& Entry : Entries)
 	{
-		UCharacterPartData* Part = PartRef.LoadSynchronous();
-		if (Part && Part->Slot == Slot)
+		if (Entry.Slot != Slot)
 		{
-			OutParts.Add(Part);
+			continue;
+		}
+
+		for (const TSoftObjectPtr<UCharacterPartData>& PartRef : Entry.Parts)
+		{
+			UCharacterPartData* Part = PartRef.LoadSynchronous();
+			if (Part && Part->Slot == Slot)
+			{
+				OutParts.Add(Part);
+			}
 		}
 	}
 }
