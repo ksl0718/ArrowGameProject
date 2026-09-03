@@ -270,19 +270,12 @@ void ULobbyCustomizationPanelWidget::SetupSelector(UCustomizePartSelectorWidget*
 {
 	if (!Selector || !PartCatalog)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("LobbyCustomizationPanel: Selector 초기화 생략 Slot=%d Selector=%s Catalog=%s"),
-			static_cast<int32>(InSlot),
-			Selector ? TEXT("Valid") : TEXT("None"),
-			PartCatalog ? TEXT("Valid") : TEXT("None"));
 		return;
 	}
 
 	// 패널은 카탈로그에서 데이터를 가져오고, Selector는 인덱스 이동만 담당한다.
 	TArray<UCharacterPartData*> SlotParts;
 	PartCatalog->GetPartsBySlot(InSlot, SlotParts);
-	UE_LOG(LogTemp, Log, TEXT("LobbyCustomizationPanel: Selector 초기화 Slot=%d Parts=%d"),
-		static_cast<int32>(InSlot),
-		SlotParts.Num());
 
 	Selector->OnPartChanged.AddDynamic(this, &ULobbyCustomizationPanelWidget::HandlePartChanged);
 	Selector->InitializeSelector(InSlot, SlotParts);
