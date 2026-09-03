@@ -22,6 +22,9 @@ void UCharacterCustomizeComponent::ApplyPart(UCharacterPartData* PartData)
 	{
 		// 메시가 없는 선택지도 "현재 선택값"으로 저장해야 Ready/Start 이후에도 그대로 복원된다.
 		CurrentPreset.SetSelectedPart(PartData->Slot, FSoftObjectPath(PartData));
+		UE_LOG(LogTemp, Log, TEXT("ApplyPart: 슬롯 비움 적용 - %s Slot=%d"),
+			*PartData->GetName(),
+			static_cast<int32>(PartData->Slot));
 		return;
 	}
 
@@ -38,6 +41,11 @@ void UCharacterCustomizeComponent::ApplyPart(UCharacterPartData* PartData)
 		TargetComponent->SetVisibility(true, true);
 
 		CurrentPreset.SetSelectedPart(PartData->Slot, FSoftObjectPath(PartData));
+		UE_LOG(LogTemp, Log, TEXT("ApplyPart: 메시 적용 - %s -> %s Slot=%d Type=%d"),
+			*PartData->GetName(),
+			*TargetComponent->GetName(),
+			static_cast<int32>(PartData->Slot),
+			static_cast<int32>(PartData->ComponentType));
 	}
 	else
 	{

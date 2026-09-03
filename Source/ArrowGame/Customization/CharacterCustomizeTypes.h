@@ -7,14 +7,14 @@
 UENUM(BlueprintType)
 enum class ECustomizeSlot : uint8
 {
-	Hair UMETA(DisplayName = "Hair"),
-	Top UMETA(DisplayName = "Top"),
-	Vest UMETA(DisplayName = "Vest"),
-	Pants UMETA(DisplayName = "Pants"),
-	Socks UMETA(DisplayName = "Socks"),
-	Shoes UMETA(DisplayName = "Shoes"),
-	Skirt UMETA(DisplayName = "Skirt"),
-	Accessory UMETA(DisplayName = "Accessory")
+	Hair = 0 UMETA(DisplayName = "Hair"),
+	Top = 1 UMETA(DisplayName = "Top"),
+	Vest = 2 UMETA(DisplayName = "Vest"),
+	Pants = 3 UMETA(DisplayName = "Pants"),
+	Skirt = 4 UMETA(DisplayName = "Skirt"),
+	Accessory = 5 UMETA(DisplayName = "Accessory"),
+	Socks = 6 UMETA(DisplayName = "Socks"),
+	Shoes = 7 UMETA(DisplayName = "Shoes")
 };
 
 UENUM(BlueprintType)
