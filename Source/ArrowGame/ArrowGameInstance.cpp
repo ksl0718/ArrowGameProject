@@ -173,7 +173,7 @@ void UArrowGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
         return;
     }
 
-    World->ServerTravel(TEXT("/Game/ArrowGame/Maps/LobbyMap?listen"));
+    World->ServerTravel(TEXT("/Game/ArrowGame/Maps/LobbyMap?listen?game=/Script/ArrowGame.LobbyGameMode"));
 }
 
 void UArrowGameInstance::FindServer()

@@ -48,6 +48,16 @@ void UMainMenuWidget::OnHostClicked()
 {
 	if (UWorld* World = GetWorld())
 	{
+		if (World->GetNetMode() == NM_Client)
+		{
+			if (Txt_Status)
+			{
+				Txt_Status->SetText(FText::FromString(TEXT("클라이언트 상태에서는 방을 만들 수 없습니다.")));
+				Txt_Status->SetColorAndOpacity(FLinearColor::Red);
+			}
+			return;
+		}
+
 		if (Txt_Status)
 		{
 			Txt_Status->SetText(FText::FromString(TEXT("로비로 이동 중...")));
