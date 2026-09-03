@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ArrowGame/Customization/CharacterCustomizeTypes.h"
 #include "Engine/GameInstance.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
@@ -40,6 +41,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Match")
 	int32 GetMatchStartPlayerCount() const { return MatchStartPlayerCount; }
 
+	// 심리스 트래블 중 PlayerState 복사가 실패하거나 새 PlayerState가 만들어지는 경우를 대비한 임시 캐시다.
+	// 최종 권위 데이터는 여전히 PlayerState이고, GameInstance는 맵 이동 사이에서만 값을 보관한다.
+	void CacheCustomizePresetForPlayer(const APlayerState* PlayerState, const FCharacterCustomizePreset& Preset);
+
+	// 전투맵 도착 후 PlayerState의 커마 값이 비어 있으면 여기서 백업 값을 꺼내 복원한다.
+	bool TryGetCachedCustomizePresetForPlayer(const APlayerState* PlayerState, FCharacterCustomizePreset& OutPreset) const;
+
 protected:
 	// 세션 인터페이스 포인터
 	IOnlineSessionPtr SessionInterface;
@@ -62,6 +70,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Match")
 	int32 MatchStartPlayerCount = 0;
 
+	UPROPERTY()
+	TMap<FString, FCharacterCustomizePreset> CachedCustomizePresets;
+
 	// DestroySession 완료 후 수행할 후속 작업 상태
 	bool bCreateSessionAfterDestroy = false;
 	bool bJoinInviteAfterDestroy = false;
@@ -74,4 +85,6 @@ private:
 	FDelegateHandle FindSessionsCompleteDelegateHandle;
 	FDelegateHandle JoinSessionCompleteDelegateHandle;
 	FDelegateHandle DestroySessionCompleteDelegateHandle;
+
+	FString MakeCustomizePresetCacheKey(const APlayerState* PlayerState) const;
 };

@@ -5,6 +5,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "LobbyRowWidget.h"
+#include "LobbyCustomizationPanelWidget.h"
 #include "../ArrowGameInstance.h"
 #include "../Core/ArrowGameState.h"
 #include "../Core/ArrowPlayerState.h"
@@ -166,6 +167,8 @@ void ULobbyBoardWidget::RefreshPlayerList()
 void ULobbyBoardWidget::OnReadyClicked()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Ready Button Clicked!"));
+	CommitLocalCustomizePreset();
+
 	// 내 PlayerState 찾아서 서버에 레디 신호 보내기
 	if (APlayerController* PC = GetOwningPlayer())
 	{
@@ -181,6 +184,8 @@ void ULobbyBoardWidget::OnReadyClicked()
 
 void ULobbyBoardWidget::OnStartClicked()
 {
+	CommitLocalCustomizePreset();
+
 	AGameStateBase* GS = GetWorld()->GetGameState();
 	if (!GS) return;
 
@@ -230,6 +235,7 @@ void ULobbyBoardWidget::OnStartClicked()
 			{
 				UE_LOG(LogTemp, Error, TEXT("ArrowGameInstance 캐스트 실패 — MatchStartPlayerCount 설정 안 됨"));
 			}
+
 			// 전투 GameMode를 URL에 명시 (심리스 2회차 트래블 시 World Settings만으로는 GM이 안 바뀌는 경우 방지)
 			const FString TravelURL = TEXT(
 				"/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024"
@@ -255,4 +261,20 @@ void ULobbyBoardWidget::OnBackClicked()
 	}
 
 	RemoveFromParent();
+}
+
+bool ULobbyBoardWidget::CommitLocalCustomizePreset()
+{
+	if (!CustomizationPanel)
+	{
+		// 커마 패널이 없는 로비 화면도 있을 수 있으므로 실패가 곧 오류는 아니다.
+		UE_LOG(LogTemp, Warning, TEXT("LobbyBoard: CustomizationPanel 바인딩 없음 - 커마 프리셋 저장 생략"));
+		return false;
+	}
+
+	// 확정 타이밍은 로비 보드가 가진다.
+	// 클라는 Ready를 누를 때, 방장은 Start를 누를 때 현재 프리뷰 선택값을 PlayerState에 저장한다.
+	const bool bCommitted = CustomizationPanel->CommitCurrentPresetToPlayerState();
+	UE_LOG(LogTemp, Log, TEXT("LobbyBoard: 커마 프리셋 저장 요청 결과 - %s"), bCommitted ? TEXT("성공") : TEXT("실패"));
+	return bCommitted;
 }

@@ -12,6 +12,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "TextureResource.h"
+#include "ArrowGame/Core/ArrowPlayerState.h"
 
 void ULobbyCustomizationPanelWidget::NativeConstruct()
 {
@@ -46,6 +47,51 @@ void ULobbyCustomizationPanelWidget::SetPreviewActor(AActor* InPreviewActor)
 {
 	PreviewActor = InPreviewActor;
 	bSpawnedPreviewActor = false;
+}
+
+bool ULobbyCustomizationPanelWidget::GetCurrentPreviewPreset(FCharacterCustomizePreset& OutPreset) const
+{
+	if (!PreviewActor)
+	{
+		return false;
+	}
+
+	const UCharacterCustomizeComponent* CustomizeComponent = PreviewActor->FindComponentByClass<UCharacterCustomizeComponent>();
+	if (!CustomizeComponent)
+	{
+		return false;
+	}
+
+	// 프리뷰 액터가 들고 있는 선택 결과만 반환한다.
+	// PlayerState에 저장할지, 그냥 미리보기로 둘지는 호출한 쪽에서 결정한다.
+	OutPreset = CustomizeComponent->GetCurrentPreset();
+	return true;
+}
+
+bool ULobbyCustomizationPanelWidget::CommitCurrentPresetToPlayerState() const
+{
+	FCharacterCustomizePreset CurrentPreset;
+	if (!GetCurrentPreviewPreset(CurrentPreset))
+	{
+		return false;
+	}
+
+	APlayerController* OwningPlayer = GetOwningPlayer();
+	if (!OwningPlayer)
+	{
+		return false;
+	}
+
+	AArrowPlayerState* ArrowPlayerState = OwningPlayer->GetPlayerState<AArrowPlayerState>();
+	if (!ArrowPlayerState)
+	{
+		return false;
+	}
+
+	// PlayerState는 서버가 최종 상태를 소유한다.
+	// 로컬 UI는 현재 선택값을 서버 RPC로 제출하고, 이후 복제된 값을 실제 캐릭터가 읽어간다.
+	ArrowPlayerState->ServerSetCustomizePreset(CurrentPreset);
+	return true;
 }
 
 void ULobbyCustomizationPanelWidget::SetupLocalPreview()

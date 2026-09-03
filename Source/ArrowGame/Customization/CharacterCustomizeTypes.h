@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/PrimaryAssetId.h"
+#include "UObject/SoftObjectPath.h"
 #include "CharacterCustomizeTypes.generated.h"
 
 UENUM(BlueprintType)
@@ -23,31 +23,62 @@ enum class ECustomizeComponentType : uint8
 };
 
 USTRUCT(BlueprintType)
+struct FCharacterCustomizePartSelection
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Customization")
+	ECustomizeSlot Slot = ECustomizeSlot::Hair;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Customization")
+	FSoftObjectPath PartPath;
+};
+
+USTRUCT(BlueprintType)
 struct FCharacterCustomizePreset
 {
 	GENERATED_BODY()
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Customization")
-	TMap<ECustomizeSlot, FPrimaryAssetId> SelectedParts;
+	TArray<FCharacterCustomizePartSelection> SelectedParts;
 	
-	bool TryGetSelectedPart(ECustomizeSlot Slot, FPrimaryAssetId& OutPartId) const
+	bool TryGetSelectedPart(ECustomizeSlot Slot, FSoftObjectPath& OutPartPath) const
 	{
-		if (const FPrimaryAssetId* FoundPartId = SelectedParts.Find(Slot))
+		for (const FCharacterCustomizePartSelection& SelectedPart : SelectedParts)
 		{
-			OutPartId = *FoundPartId;
-			return true;
-		}	
+			if (SelectedPart.Slot == Slot)
+			{
+				OutPartPath = SelectedPart.PartPath;
+				return true;
+			}
+		}
+
 		return false;
 	}
 	
-	void SetSelectedPart(ECustomizeSlot Slot, const FPrimaryAssetId& PartId)
+	void SetSelectedPart(ECustomizeSlot Slot, const FSoftObjectPath& PartPath)
 	{
-		SelectedParts.FindOrAdd(Slot) = PartId;
+		for (FCharacterCustomizePartSelection& SelectedPart : SelectedParts)
+		{
+			if (SelectedPart.Slot == Slot)
+			{
+				SelectedPart.PartPath = PartPath;
+				return;
+			}
+		}
+
+		FCharacterCustomizePartSelection NewSelection;
+		NewSelection.Slot = Slot;
+		NewSelection.PartPath = PartPath;
+		SelectedParts.Add(NewSelection);
 	}
 	
 	void ClearSelectedPart(ECustomizeSlot Slot)
 	{
-		SelectedParts.Remove(Slot);
+		SelectedParts.RemoveAll([Slot](const FCharacterCustomizePartSelection& SelectedPart)
+		{
+			return SelectedPart.Slot == Slot;
+		});
 	}
 	
 	void Reset()

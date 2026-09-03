@@ -53,6 +53,7 @@ protected:
 private:
 	void RegisterPendingPlayer(APlayerController* NewPlayer);
 	void SyncPendingPlayersFromGameState();
+	void RestoreCustomizePresetIfNeeded(class AArrowPlayerState* PlayerState) const;
 	int32 GetRequiredPlayersToStart() const;
 	bool AreAllPendingPlayersReadyForAssign() const;
 	bool IsBlockedByTravel() const;

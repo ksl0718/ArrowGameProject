@@ -1,6 +1,7 @@
 #include "ArrowGameInstance.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h"
+#include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
 
 #ifndef SEARCH_PRESENCE
@@ -199,10 +200,20 @@ void UArrowGameInstance::FindServer()
 
 void UArrowGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 {
+    if (!SessionSearch.IsValid())
+    {
+        UE_LOG(LogTemp, Error, TEXT("세션 검색 결과 처리 실패: SessionSearch가 유효하지 않습니다."));
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("세션 검색 실패: 검색 객체가 유효하지 않습니다."));
+        }
+        return;
+    }
+
     if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, 
         FString::Printf(TEXT("검색 성공 여부: %s, 찾은 총 개수: %d"), bWasSuccessful ? TEXT("True") : TEXT("False"), SessionSearch->SearchResults.Num()));
 
-    if (bWasSuccessful && SessionSearch.IsValid())
+    if (bWasSuccessful)
     {
         UE_LOG(LogTemp, Log, TEXT("스팀에서 총 %d개의 방을 가져왔습니다."), SessionSearch->SearchResults.Num());
 
@@ -294,6 +305,57 @@ void UArrowGameInstance::SetMatchStartPlayerCount(int32 Count)
 {
 	MatchStartPlayerCount = Count;
 	UE_LOG(LogTemp, Log, TEXT("MatchStartPlayerCount = %d"), MatchStartPlayerCount);
+}
+
+void UArrowGameInstance::CacheCustomizePresetForPlayer(const APlayerState* PlayerState, const FCharacterCustomizePreset& Preset)
+{
+    const FString CacheKey = MakeCustomizePresetCacheKey(PlayerState);
+    if (CacheKey.IsEmpty())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CustomizePresetCache: 플레이어 키 생성 실패 - 캐시 생략"));
+        return;
+    }
+
+    CachedCustomizePresets.FindOrAdd(CacheKey) = Preset;
+    UE_LOG(LogTemp, Log, TEXT("CustomizePresetCache: 저장 Key=%s Parts=%d"), *CacheKey, Preset.SelectedParts.Num());
+}
+
+bool UArrowGameInstance::TryGetCachedCustomizePresetForPlayer(const APlayerState* PlayerState, FCharacterCustomizePreset& OutPreset) const
+{
+    const FString CacheKey = MakeCustomizePresetCacheKey(PlayerState);
+    if (CacheKey.IsEmpty())
+    {
+        return false;
+    }
+
+    const FCharacterCustomizePreset* CachedPreset = CachedCustomizePresets.Find(CacheKey);
+    if (!CachedPreset)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CustomizePresetCache: 복원 실패 Key=%s"), *CacheKey);
+        return false;
+    }
+
+    OutPreset = *CachedPreset;
+    UE_LOG(LogTemp, Log, TEXT("CustomizePresetCache: 복원 Key=%s Parts=%d"), *CacheKey, OutPreset.SelectedParts.Num());
+    return true;
+}
+
+FString UArrowGameInstance::MakeCustomizePresetCacheKey(const APlayerState* PlayerState) const
+{
+    if (!PlayerState)
+    {
+        return FString();
+    }
+
+    // 패키징/스팀 환경에서는 UniqueId가 가장 안정적이다.
+    // 에디터 멀티플레이에서는 비어 있을 수 있어서 PlayerName을 테스트용 fallback으로 사용한다.
+    const FUniqueNetIdRepl& UniqueId = PlayerState->GetUniqueId();
+    if (UniqueId.IsValid())
+    {
+        return UniqueId->ToString();
+    }
+
+    return PlayerState->GetPlayerName();
 }
 
 void UArrowGameInstance::ReturnToMainMenu()

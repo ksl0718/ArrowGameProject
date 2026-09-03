@@ -1,6 +1,5 @@
 ﻿#include "CharacterCustomizeComponent.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Engine/AssetManager.h"
 #include "ArrowGame/Customization/CharacterPartData.h"
 
 UCharacterCustomizeComponent::UCharacterCustomizeComponent()
@@ -28,25 +27,27 @@ void UCharacterCustomizeComponent::ApplyPart(UCharacterPartData* PartData)
 		TargetComponent->SetSkeletalMesh(LoadedMesh);
 		TargetComponent->SetVisibility(true, true);
 
-		CurrentPreset.SetSelectedPart(PartData->Slot, PartData->GetPrimaryAssetId());
+		CurrentPreset.SetSelectedPart(PartData->Slot, FSoftObjectPath(PartData));
 	}
 }
 
 void UCharacterCustomizeComponent::ApplyPreset(const FCharacterCustomizePreset& Preset)
 {
-	for (const TPair<ECustomizeSlot, FPrimaryAssetId>& SelectedPart : Preset.SelectedParts)
+	UE_LOG(LogTemp, Log, TEXT("ApplyPreset: %d개 파츠 적용 시도"), Preset.SelectedParts.Num());
+
+	for (const FCharacterCustomizePartSelection& SelectedPart : Preset.SelectedParts)
 	{
-		if (!SelectedPart.Value.IsValid())
+		if (!SelectedPart.PartPath.IsValid())
 		{
 			continue;
 		}
 
-		// 프리셋에는 실제 오브젝트 포인터 대신 PrimaryAssetId만 저장한다.
-		// 맵 이동 후에는 AssetManager로 다시 찾아와 적용한다.
-		const FSoftObjectPath PartPath = UAssetManager::Get().GetPrimaryAssetPath(SelectedPart.Value);
-		UCharacterPartData* PartData = Cast<UCharacterPartData>(PartPath.TryLoad());
+		// 프리셋에는 실제 오브젝트 포인터 대신 에셋 경로만 저장한다.
+		// 맵 이동 후 새 캐릭터가 스폰되면 이 경로로 DataAsset을 다시 로드해 적용한다.
+		UCharacterPartData* PartData = Cast<UCharacterPartData>(SelectedPart.PartPath.TryLoad());
 		if (!PartData)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("ApplyPreset: 파츠 DataAsset 로드 실패 - %s"), *SelectedPart.PartPath.ToString());
 			continue;
 		}
 

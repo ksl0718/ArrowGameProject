@@ -28,6 +28,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Customization")
 	void SetPreviewActor(AActor* InPreviewActor);
 
+	// 로비 프리뷰 캐릭터에 현재 적용된 커마 프리셋을 가져온다.
+	// 저장 위치를 직접 바꾸지 않고, 시작/준비 버튼을 가진 로비 보드가 필요한 시점에 가져가게 하기 위한 함수다.
+	UFUNCTION(BlueprintCallable, Category = "Customization")
+	bool GetCurrentPreviewPreset(FCharacterCustomizePreset& OutPreset) const;
+
+	// 현재 프리뷰 프리셋을 내 PlayerState에 확정 저장한다.
+	// 클라이언트가 호출하면 내부에서 PlayerState의 Server RPC로 서버에 전달된다.
+	UFUNCTION(BlueprintCallable, Category = "Customization")
+	bool CommitCurrentPresetToPlayerState() const;
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
