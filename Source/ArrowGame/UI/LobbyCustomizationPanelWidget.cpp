@@ -25,6 +25,8 @@ void ULobbyCustomizationPanelWidget::NativeConstruct()
 
 void ULobbyCustomizationPanelWidget::NativeDestruct()
 {
+	StopPreviewCaptureTimer();
+
 	if (bSpawnedPreviewCaptureActor && PreviewCaptureActor)
 	{
 		PreviewCaptureActor->Destroy();
@@ -100,6 +102,7 @@ void ULobbyCustomizationPanelWidget::SetupLocalPreview()
 	SpawnLocalPreviewActor();
 	SpawnLocalPreviewCaptureActor();
 	SetupPreviewImage();
+	StartPreviewCaptureTimer();
 	CapturePreview();
 }
 
@@ -194,7 +197,8 @@ void ULobbyCustomizationPanelWidget::SpawnLocalPreviewCaptureActor()
 
 	PreviewCaptureComponent->TextureTarget = PreviewRenderTarget;
 	PreviewCaptureComponent->CaptureSource = SCS_SceneColorHDR;
-	PreviewCaptureComponent->bCaptureEveryFrame = true;
+	// 엔진 기본 매 프레임 캡처는 끄고, 아래 타이머에서 필요한 주기로만 갱신한다.
+	PreviewCaptureComponent->bCaptureEveryFrame = false;
 	PreviewCaptureComponent->bCaptureOnMovement = false;
 
 	if (PreviewActor)
@@ -221,6 +225,39 @@ void ULobbyCustomizationPanelWidget::SetupPreviewImage()
 
 	PreviewMaterialInstance->SetTextureParameterValue(PreviewTextureParameterName, PreviewRenderTarget);
 	Image_Preview->SetBrushFromMaterial(PreviewMaterialInstance);
+}
+
+void ULobbyCustomizationPanelWidget::StartPreviewCaptureTimer()
+{
+	if (!PreviewCaptureComponent)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	const float CaptureRate = FMath::Clamp(PreviewCaptureFrameRate, 1.0f, 60.0f);
+	const float CaptureInterval = 1.0f / CaptureRate;
+
+	// 프리뷰 캐릭터의 Idle 애니메이션은 보여주되, 매 프레임 SceneCapture 비용은 피한다.
+	World->GetTimerManager().SetTimer(
+		PreviewCaptureTimerHandle,
+		this,
+		&ULobbyCustomizationPanelWidget::CapturePreview,
+		CaptureInterval,
+		true);
+}
+
+void ULobbyCustomizationPanelWidget::StopPreviewCaptureTimer()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(PreviewCaptureTimerHandle);
+	}
 }
 
 void ULobbyCustomizationPanelWidget::CapturePreview()

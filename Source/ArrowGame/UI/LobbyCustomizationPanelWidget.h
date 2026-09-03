@@ -74,6 +74,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Customization|Preview Render")
 	int32 PreviewRenderTargetSize = 512;
 
+	// 프리뷰 애니메이션이 너무 끊겨 보이지 않도록 낮은 주기로만 SceneCapture를 갱신한다.
+	// 15fps면 Idle 모션은 자연스럽게 보이면서 매 프레임 캡처보다 비용을 줄일 수 있다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Customization|Preview Render", meta = (ClampMin = "1.0", ClampMax = "60.0"))
+	float PreviewCaptureFrameRate = 15.0f;
+
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UImage> Image_Preview;
 
@@ -118,6 +123,8 @@ private:
 	UPROPERTY()
 	TObjectPtr<UMaterialInstanceDynamic> PreviewMaterialInstance;
 
+	FTimerHandle PreviewCaptureTimerHandle;
+
 	bool bSpawnedPreviewActor = false;
 	bool bSpawnedPreviewCaptureActor = false;
 
@@ -126,6 +133,8 @@ private:
 	void SpawnLocalPreviewActor();
 	void SpawnLocalPreviewCaptureActor();
 	void SetupPreviewImage();
+	void StartPreviewCaptureTimer();
+	void StopPreviewCaptureTimer();
 	void CapturePreview();
 	void FindPreviewActor();
 	void InitializeSelectors();
