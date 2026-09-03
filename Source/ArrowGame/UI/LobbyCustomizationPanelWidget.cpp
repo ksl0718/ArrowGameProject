@@ -259,6 +259,8 @@ void ULobbyCustomizationPanelWidget::InitializeSelectors()
 	SetupSelector(Selector_Hair, ECustomizeSlot::Hair);
 	SetupSelector(Selector_Top, ECustomizeSlot::Top);
 	SetupSelector(Selector_Pants, ECustomizeSlot::Pants);
+	SetupSelector(Selector_Socks, ECustomizeSlot::Socks);
+	SetupSelector(Selector_Shoes, ECustomizeSlot::Shoes);
 	SetupSelector(Selector_Vest, ECustomizeSlot::Vest);
 	SetupSelector(Selector_Skirt, ECustomizeSlot::Skirt);
 	SetupSelector(Selector_Accessory, ECustomizeSlot::Accessory);

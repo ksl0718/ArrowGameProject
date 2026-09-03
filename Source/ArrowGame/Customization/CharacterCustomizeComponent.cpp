@@ -13,21 +13,37 @@ void UCharacterCustomizeComponent::ApplyPart(UCharacterPartData* PartData)
 	{
 		return;
 	}
-	
+
+	// 먼저 같은 슬롯에 붙어 있던 컴포넌트들을 모두 비운다.
+	// 헤어처럼 한 슬롯 안에서 여러 컴포넌트 후보를 쓰는 경우, 이전 파츠가 남지 않게 하기 위함이다.
+	ClearSlot(PartData->Slot);
+
+	if (PartData->bClearSlot)
+	{
+		// 메시가 없는 선택지도 "현재 선택값"으로 저장해야 Ready/Start 이후에도 그대로 복원된다.
+		CurrentPreset.SetSelectedPart(PartData->Slot, FSoftObjectPath(PartData));
+		return;
+	}
+
 	USkeletalMesh* LoadedMesh = PartData->Mesh.LoadSynchronous();
 	if (!LoadedMesh)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("ApplyPart: Mesh가 비어 있습니다. None 파츠라면 bClearSlot을 켜세요. - %s"), *PartData->GetName());
 		return;
 	}
-	
-	ClearSlot(PartData->Slot);
-	
+
 	if (USkeletalMeshComponent* TargetComponent = FindComponent(PartData->Slot, PartData->ComponentType))
 	{
 		TargetComponent->SetSkeletalMesh(LoadedMesh);
 		TargetComponent->SetVisibility(true, true);
 
 		CurrentPreset.SetSelectedPart(PartData->Slot, FSoftObjectPath(PartData));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ApplyPart: 슬롯에 맞는 컴포넌트 바인딩을 찾지 못했습니다. Slot=%d Type=%d"),
+			static_cast<int32>(PartData->Slot),
+			static_cast<int32>(PartData->ComponentType));
 	}
 }
 

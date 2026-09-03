@@ -11,6 +11,8 @@ enum class ECustomizeSlot : uint8
 	Top UMETA(DisplayName = "Top"),
 	Vest UMETA(DisplayName = "Vest"),
 	Pants UMETA(DisplayName = "Pants"),
+	Socks UMETA(DisplayName = "Socks"),
+	Shoes UMETA(DisplayName = "Shoes"),
 	Skirt UMETA(DisplayName = "Skirt"),
 	Accessory UMETA(DisplayName = "Accessory")
 };

@@ -87,6 +87,12 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UCustomizePartSelectorWidget> Selector_Pants;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UCustomizePartSelectorWidget> Selector_Socks;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UCustomizePartSelectorWidget> Selector_Shoes;
+
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UCustomizePartSelectorWidget> Selector_Vest;
 

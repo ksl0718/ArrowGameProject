@@ -124,6 +124,10 @@ FText UCustomizePartSelectorWidget::GetSlotDisplayText() const
 		return FText::FromString(TEXT("Vest"));
 	case ECustomizeSlot::Pants:
 		return FText::FromString(TEXT("Pants"));
+	case ECustomizeSlot::Socks:
+		return FText::FromString(TEXT("Socks"));
+	case ECustomizeSlot::Shoes:
+		return FText::FromString(TEXT("Shoes"));
 	case ECustomizeSlot::Skirt:
 		return FText::FromString(TEXT("Skirt"));
 	case ECustomizeSlot::Accessory:
