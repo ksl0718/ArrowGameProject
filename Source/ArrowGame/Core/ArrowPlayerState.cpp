@@ -1,5 +1,6 @@
 ﻿#include "ArrowPlayerState.h"
 #include "Net/UnrealNetwork.h"
+#include "ArrowGame/ArrowGameInstance.h"
 #include "ArrowGameState.h"
 
 AArrowPlayerState::AArrowPlayerState()

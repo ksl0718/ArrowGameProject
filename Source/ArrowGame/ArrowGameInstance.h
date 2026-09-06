@@ -7,6 +7,8 @@
 #include "OnlineSessionSettings.h"
 #include "ArrowGameInstance.generated.h"
 
+class APlayerState;
+
 UCLASS()
 class UArrowGameInstance : public UGameInstance
 {
