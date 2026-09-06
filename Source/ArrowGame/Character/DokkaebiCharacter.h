@@ -4,7 +4,6 @@
 #include "CharacterBase.h"
 #include "SkillCooldownProvider.h"
 #include "InputActionValue.h"
-#include "ArrowGame/UI/SpiritSightMarkerWidget.h"
 #include "DokkaebiCharacter.generated.h"
 
 #pragma region ForwardDeclarations
@@ -22,6 +21,8 @@ class USceneComponent;
 class UMeshComponent;
 class UStaticMeshComponent;
 class UAnimMontage;
+class USpiritSightComponent;
+class USpiritSightMarkerWidget;
 
 #pragma endregion
 
@@ -310,12 +311,6 @@ protected:
 	
 	void Input_SpiritSight(const FInputActionValue& Value);
 	
-	/** 적 스크린 좌표 수집 → 위젯에 전달 */
-	void UpdateSpiritSightMarkers(float DeltaTime);
-
-	/** 빙의 후 PC 준비될 때 마커 위젯 1회 생성 */
-	void EnsureSpiritSightMarkerWidget();
-
 	/** 로컬 빙의 시 크로스헤어 1회 생성 (BP BeginPlay AddToViewport 대신) */
 	void EnsureCrosshairWidget();
 	
@@ -343,8 +338,8 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Dokkaebi|Skill|SpiritSight")
 	TSubclassOf<UUserWidget> SpiritSightMarkerEntryClass;
 
-	UPROPERTY()
-	TObjectPtr<USpiritSightMarkerWidget> SpiritSightMarkerWidget;
+	UPROPERTY(VisibleAnywhere, Category = "Dokkaebi|Skill|SpiritSight")
+	TObjectPtr<USpiritSightComponent> SpiritSightComponent;
 	
 #pragma endregion
 

@@ -8,13 +8,12 @@
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 #include "ArrowGame/Core/ArrowPlayerState.h"
+#include "ArrowGame/Component/SpiritSightComponent.h"
 #include "InputActionValue.h"
 #include "../Character/DokkaebiDecoy.h"
 #include "Net/UnrealNetwork.h"
 #include "../Character/DokkaebiCurseProjectile.h"
-#include "../UI/SpiritSightMarkerWidget.h"
-#include "Blueprint/WidgetLayoutLibrary.h"
-#include "Camera/PlayerCameraManager.h"
+#include "Blueprint/UserWidget.h"
 #include "Components/PostProcessComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/MeshComponent.h"
@@ -62,6 +61,8 @@ ADokkaebiCharacter::ADokkaebiCharacter()
 	SpiritSightPPComp->bEnabled = true;
 	SpiritSightPPComp->BlendWeight = 0.f;  // 기본은 꺼짐
 	SpiritSightPPComp->bUnbound = true;
+
+	SpiritSightComponent = CreateDefaultSubobject<USpiritSightComponent>(TEXT("SpiritSightComponent"));
 	
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
@@ -134,10 +135,21 @@ void ADokkaebiCharacter::BeginPlay()
 		SpiritSightPPComp->Settings.WeightedBlendables.Array.Add(
 			FWeightedBlendable(1.f, SpiritSightPPMaterial));
 	}
+
+	if (SpiritSightComponent)
+	{
+		SpiritSightComponent->Configure(
+			SpiritSightOverlayMaterial,
+			SpiritSightMarkerWidgetClass,
+			SpiritSightMarkerEntryClass,
+			SpiritSightScaleNearCm,
+			SpiritSightScaleFarCm,
+			SpiritSightScaleAtNear,
+			SpiritSightScaleAtFar);
+	}
 	
 	SkillStates.SetNum(SkillSpecs.Num());
 
-	EnsureSpiritSightMarkerWidget();
 	EnsureCrosshairWidget();
 }
 
@@ -152,15 +164,21 @@ void ADokkaebiCharacter::Tick(float DeltaTime)
 	}
 
 	if (!IsLocallyControlled()) return;
-	UpdateSpiritSightMarkers(DeltaTime); // 다른 클라는 마커 불필요
+	if (SpiritSightPPComp)
+	{
+		SpiritSightPPComp->BlendWeight = IsSpiritSightActive_ServerTime() ? 1.f : 0.f;
+	}
+	if (SpiritSightComponent)
+	{
+		SpiritSightComponent->UpdateSight(IsSpiritSightActive_ServerTime(), ESpiritSightTargetMode::EnemyTeam);
+	}
 }
 
 void ADokkaebiCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (SpiritSightMarkerWidget)
+	if (SpiritSightComponent)
 	{
-		SpiritSightMarkerWidget->RemoveFromParent();
-		SpiritSightMarkerWidget = nullptr;
+		SpiritSightComponent->ClearSight();
 	}
 
 	if (CrosshairWidget)
@@ -249,7 +267,6 @@ void ADokkaebiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		}
 	}
 
-	EnsureSpiritSightMarkerWidget(); // BeginPlay엔 Controller 없을 수 있어 Setup에서도 재시도
 	EnsureCrosshairWidget();
 }
 
@@ -266,33 +283,6 @@ void ADokkaebiCharacter::EnsureCrosshairWidget()
 		if (CrosshairWidget && !CrosshairWidget->IsInViewport())
 		{
 			CrosshairWidget->AddToViewport();
-		}
-	}
-}
-
-// 로컬 플레이어만: PC 생긴 뒤 뷰포트에 마커 레이어 올림
-void ADokkaebiCharacter::EnsureSpiritSightMarkerWidget()
-{
-	if (!IsLocallyControlled() || !SpiritSightMarkerWidgetClass || SpiritSightMarkerWidget)
-	{
-		return;
-	}
-
-	if (APlayerController* PC = Cast<APlayerController>(GetController()))
-	{
-		SpiritSightMarkerWidget = CreateWidget<USpiritSightMarkerWidget>(PC, SpiritSightMarkerWidgetClass);
-		if (SpiritSightMarkerWidget)
-		{
-			if (SpiritSightMarkerEntryClass)
-			{
-				SpiritSightMarkerWidget->MarkerEntryWidgetClass = SpiritSightMarkerEntryClass;
-			}
-			SpiritSightMarkerWidget->AddToViewport(10);
-			// 뷰포트 전체를 안 쓰면 캔버스가 접혀서 마커가 왼쪽 위에만 보임
-			SpiritSightMarkerWidget->SetAnchorsInViewport(FAnchors(0.f, 0.f, 1.f, 1.f));
-			SpiritSightMarkerWidget->SetAlignmentInViewport(FVector2D(0.f, 0.f));
-			// SetOffsetsInViewport 는 엔진 버전에 없을 수 있음 — 앵커 풀스크린만으로 보통 충분
-			SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
 }
@@ -799,7 +789,6 @@ void ADokkaebiCharacter::UnlockSkillInput(int32 SkillIndex)
 
 void ADokkaebiCharacter::OnRep_SpiritSightEnd()
 {
-	EnsureSpiritSightMarkerWidget(); // 복제 직후 위젯 없으면 생성
 }
 
 bool ADokkaebiCharacter::IsSpiritSightActive_ServerTime() const
@@ -839,137 +828,6 @@ void ADokkaebiCharacter::ExecuteSpiritSightOnAuthority()
 	const AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
 	const float NowServer = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
 	SpiritSightEndServerTime = NowServer + FMath::Max(0.1f, SpiritSightDuration);
-}
-
-void ADokkaebiCharacter::UpdateSpiritSightMarkers(float DeltaTime)
-{
-	if (!SpiritSightMarkerWidget)
-	{
-		return;
-	}
-
-	if (SpiritSightPPComp)
-	{
-		SpiritSightPPComp->BlendWeight = IsSpiritSightActive_ServerTime() ? 1.f : 0.f;
-	}
-	
-	if (!IsSpiritSightActive_ServerTime())
-	{
-		SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::Hidden);
-		SpiritSightMarkerWidget->SetSpiritMarkerDrawInfos(TArray<FSpiritSightMarkerDrawInfo>());
-		
-		// 투시 종료: 적 오버레이 머티리얼 해제
-		if (AGameStateBase* OffGS = GetWorld()->GetGameState())
-		{
-			AArrowPlayerState* OffMyPS = GetPlayerState<AArrowPlayerState>();
-			for (APlayerState* PS : OffGS->PlayerArray)
-			{
-				AArrowPlayerState* APS = Cast<AArrowPlayerState>(PS);
-				if (!APS || !OffMyPS || APS == OffMyPS) continue;
-				if (OffMyPS->IsDokkaebi() == APS->IsDokkaebi()) continue;
-				if (APawn* P = APS->GetPawn())
-				{
-					if (ACharacter* C = Cast<ACharacter>(P))
-					{
-						if (USkeletalMeshComponent* M = C->GetMesh())
-						{
-							M->SetOverlayMaterial(nullptr);
-						}
-					}
-				}
-			}
-		}
-		
-		return;
-	}
-	// 아래: IsDokkaebi 다름 = 적, 화면에 보이면 스크린 좌표만 넘김 (벽 가림은 UI가 무시)
-
-	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (!PC)
-	{
-		return;
-	}
-
-	AArrowPlayerState* MyPS = GetPlayerState<AArrowPlayerState>();
-	if (!MyPS)
-	{
-		return;
-	}
-
-	AGameStateBase* GS = GetWorld()->GetGameState();
-	if (!GS)
-	{
-		return;
-	}
-
-	FVector RefLoc = GetActorLocation();
-	if (APlayerCameraManager* PCM = PC->PlayerCameraManager)
-	{
-		RefLoc = PCM->GetCameraLocation();
-	}
-
-	const float DNear = FMath::Min(SpiritSightScaleNearCm, SpiritSightScaleFarCm);
-	const float DFar = FMath::Max(SpiritSightScaleNearCm, SpiritSightScaleFarCm);
-
-	TArray<FSpiritSightMarkerDrawInfo> MarkerInfos;
-	for (APlayerState* PS : GS->PlayerArray)
-	{
-		
-		AArrowPlayerState* APS = Cast<AArrowPlayerState>(PS);
-		if (!APS || APS == MyPS)
-		{
-			continue;
-		}
-		if (MyPS->IsDokkaebi() == APS->IsDokkaebi())
-		{
-			continue;
-		}
-
-		APawn* OtherPawn = APS->GetPawn();
-		if (!OtherPawn || OtherPawn->IsActorBeingDestroyed())
-		{
-			continue;
-		}
-
-		// 투시 중: 적 메시에 실루엣 오버레이 (Disable Depth Test라 벽 뒤에서도 보임)
-		if (SpiritSightOverlayMaterial)
-		{
-			if (ACharacter* OtherChar = Cast<ACharacter>(OtherPawn))
-			{
-				if (USkeletalMeshComponent* EnemyMesh = OtherChar->GetMesh())
-				{
-					if (EnemyMesh->GetOverlayMaterial() != SpiritSightOverlayMaterial)
-					{
-						EnemyMesh->SetOverlayMaterial(SpiritSightOverlayMaterial);
-					}
-				}
-			}
-		}
-		
-		if (ACharacterBase* OtherChar = Cast<ACharacterBase>(OtherPawn))
-		{
-			if (OtherChar->bIsDead)
-			{
-				continue;
-			}
-		}
-
-		const FVector WorldLoc = OtherPawn->GetActorLocation() + FVector(0, 0, 80.f);
-		FVector2D WidgetSpace;
-		if (UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(PC, WorldLoc, WidgetSpace, true))
-		{
-			const float DistCm = FVector::Dist(RefLoc, WorldLoc);
-			const float Scale = FMath::GetMappedRangeValueClamped(FVector2D(DNear, DFar), FVector2D(SpiritSightScaleAtNear, SpiritSightScaleAtFar), DistCm);
-
-			FSpiritSightMarkerDrawInfo Info;
-			Info.ScreenPosition = WidgetSpace;
-			Info.UniformScale = Scale;
-			MarkerInfos.Add(Info);
-		}
-	}
-
-	SpiritSightMarkerWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
-	SpiritSightMarkerWidget->SetSpiritMarkerDrawInfos(MarkerInfos);
 }
 
 void ADokkaebiCharacter::UpdateCurseOrbPreviewVisuals_Implementation(bool bReady, bool bInstantHide)
