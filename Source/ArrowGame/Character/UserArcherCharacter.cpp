@@ -11,7 +11,9 @@
 #include "../Weapon/Bow.h"
 #include "../Actor/ArrowItem.h"
 #include "ArrowGame/Actor/BowItem.h"
+#include "ArrowGame/Component/SpiritSightComponent.h"
 #include "ArrowGame/UI/BowReticleWidget.h"
+#include "ArrowGame/UI/SpiritSightMarkerWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -26,6 +28,8 @@
 #include "CollisionQueryParams.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Materials/MaterialInterface.h"
 
 void AUserArcherCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -39,6 +43,27 @@ void AUserArcherCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 AUserArcherCharacter::AUserArcherCharacter()
 {
     PrimaryActorTick.bCanEverTick = true;
+
+    DokkaebiVisionComponent = CreateDefaultSubobject<USpiritSightComponent>(TEXT("DokkaebiVisionComponent"));
+
+    static ConstructorHelpers::FClassFinder<USpiritSightMarkerWidget> DefaultDokkaebiVisionWidgetClass(
+        TEXT("/Game/ArrowGame/Blueprint/UI/WBP_SpiritSightMarker"));
+    static ConstructorHelpers::FClassFinder<UUserWidget> DefaultDokkaebiVisionMarkerEntryClass(
+        TEXT("/Game/ArrowGame/Blueprint/UI/WBP_MarkerEntry"));
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> DefaultDokkaebiVisionOverlayMaterial(
+        TEXT("/Game/ArrowGame/Material/M_SpiritSightOverlay"));
+
+    if (DokkaebiVisionComponent)
+    {
+        DokkaebiVisionComponent->Configure(
+            DefaultDokkaebiVisionOverlayMaterial.Succeeded() ? DefaultDokkaebiVisionOverlayMaterial.Object : nullptr,
+            DefaultDokkaebiVisionWidgetClass.Succeeded() ? DefaultDokkaebiVisionWidgetClass.Class : nullptr,
+            DefaultDokkaebiVisionMarkerEntryClass.Succeeded() ? DefaultDokkaebiVisionMarkerEntryClass.Class : nullptr,
+            600.f,
+            5000.f,
+            1.05f,
+            0.28f);
+    }
     
     GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
     
@@ -106,11 +131,16 @@ void AUserArcherCharacter::BeginPlay()
     // 이벤트 바인딩
     InteractionSphere->OnComponentBeginOverlap.AddDynamic(this, &AUserArcherCharacter::OnInteractionOverlapBegin);
     InteractionSphere->OnComponentEndOverlap.AddDynamic(this, &AUserArcherCharacter::OnInteractionOverlapEnd);
-    
+
 }
 
 void AUserArcherCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+    if (DokkaebiVisionComponent)
+    {
+        DokkaebiVisionComponent->ClearSight();
+    }
+
     if (DefaultMappingContext)
     {
         if (APlayerController* PC = Cast<APlayerController>(Controller))
@@ -396,8 +426,11 @@ void AUserArcherCharacter::Tick(float DeltaTime)
         if (GS->bLastThirtySeconds != bArcherVisionActive)
         {
             bArcherVisionActive = GS->bLastThirtySeconds;
-            ApplyDokkaebiVision(bArcherVisionActive);
         }
+    }
+    if (DokkaebiVisionComponent)
+    {
+        DokkaebiVisionComponent->UpdateSight(bArcherVisionActive, ESpiritSightTargetMode::DokkaebiOnly);
     }
 
     //--화살 줍기 관련 로직---//
@@ -1378,27 +1411,6 @@ void AUserArcherCharacter::CursedBrainTick()
                     M ? M->MaxWalkSpeed : -1.f,
                     MoveScale);
             });
-        }
-    }
-}
-
-void AUserArcherCharacter::ApplyDokkaebiVision(bool bEnable)
-{
-    AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
-    if (!GS) return;
-
-    for (APlayerState* PS : GS->PlayerArray)
-    {
-        AArrowPlayerState* ArrowPS = Cast<AArrowPlayerState>(PS);
-        if (!ArrowPS || !ArrowPS->IsDokkaebi()) continue;
-
-        ADokkaebiCharacter* Dokkaebi = Cast<ADokkaebiCharacter>(ArrowPS->GetPawn());
-        if (!Dokkaebi) continue;
-
-        UMaterialInterface* Mat = bEnable ? Dokkaebi->GetSpiritSightOverlayMaterial() : nullptr;
-        if (USkeletalMeshComponent* DokkaebiMesh = Dokkaebi->GetMesh())
-        {
-            DokkaebiMesh->SetOverlayMaterial(Mat);
         }
     }
 }

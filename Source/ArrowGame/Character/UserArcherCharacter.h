@@ -12,6 +12,7 @@
 class UTexture2D;
 class UBowReticleWidget;
 class UCameraShakeBase;
+class USpiritSightComponent;
 class ADokkaebiCharacter;
 class ACharacter;
 
@@ -355,7 +356,9 @@ protected:
 #pragma region Interaction
 
 	bool bArcherVisionActive = false;
-	void ApplyDokkaebiVision(bool bEnable);
+
+	UPROPERTY(VisibleAnywhere, Category = "User|LastThirtySecondsVision")
+	TObjectPtr<USpiritSightComponent> DokkaebiVisionComponent;
 
 	FTimerHandle RollSafetyTimerHandle;
 	void OnRollSafetyTimeout();
