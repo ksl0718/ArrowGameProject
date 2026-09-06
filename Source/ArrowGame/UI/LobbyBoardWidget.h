@@ -41,6 +41,11 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<class UButton> Btn_Back;
 
+	// 로비 보드 안에 들어있는 커스터마이징 패널이다.
+	// WBP의 자식 위젯 이름을 CustomizationPanel로 맞추면 시작/준비 시점에 프리셋을 가져와 PlayerState에 저장한다.
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<class ULobbyCustomizationPanelWidget> CustomizationPanel;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Lobby")
 	TSubclassOf<class ULobbyRowWidget> RowWidgetClass;
 
@@ -53,4 +58,6 @@ protected:
 
 	UFUNCTION()
 	void OnBackClicked();
+
+	bool CommitLocalCustomizePreset();
 };
