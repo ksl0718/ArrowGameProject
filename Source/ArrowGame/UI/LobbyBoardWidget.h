@@ -24,6 +24,9 @@ protected:
 	UFUNCTION()
 	void OnLobbyPlayerListChanged();
 
+	UFUNCTION()
+	void HandleLocalReadyStateChanged(bool bNewReady);
+
 	static constexpr float LobbyListRefreshDelaySeconds = 0.75f;
 
 	FTimerHandle DelayedRefreshTimerHandle;
@@ -60,4 +63,5 @@ protected:
 	void OnBackClicked();
 
 	bool CommitLocalCustomizePreset();
+	void UpdateCustomizationPanelEnabled();
 };

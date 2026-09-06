@@ -17,10 +17,11 @@ void ULobbyBoardWidget::NativeConstruct()
 	
 	Super::NativeConstruct();
 
+	UWorld* World = GetWorld();
 	APlayerController* PC = GetOwningPlayer();
-	if (!PC)
+	if (!PC && World)
 	{
-		PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+		PC = UGameplayStatics::GetPlayerController(World, 0);
 	}
 
 	if (PC)
@@ -36,19 +37,16 @@ void ULobbyBoardWidget::NativeConstruct()
 	}
 
 	// 1. 방장 여부 확인 (보통 서버 권한이 있거나 첫 번째 플레이어인 경우)
-	bool bIsHost = GetWorld()->GetNetMode() < NM_Client; // 리슨 서버 호스트 확인
+	const bool bIsHost = World && World->GetNetMode() < NM_Client; // 리슨 서버 호스트 확인
 
-	if (bIsHost)
+	if (Btn_Start)
 	{
-		// 방장일 때
-		Btn_Start->SetVisibility(ESlateVisibility::Visible);
-		Btn_Ready->SetVisibility(ESlateVisibility::Collapsed); // 공간까지 아예 없앰
+		Btn_Start->SetVisibility(bIsHost ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	}
-	else
+
+	if (Btn_Ready)
 	{
-		// 일반 유저일 때
-		Btn_Start->SetVisibility(ESlateVisibility::Collapsed);
-		Btn_Ready->SetVisibility(ESlateVisibility::Visible);
+		Btn_Ready->SetVisibility(bIsHost ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
 	}
 
 	// 2. 각각 다른 함수 연결
@@ -56,13 +54,23 @@ void ULobbyBoardWidget::NativeConstruct()
 	if (Btn_Ready) Btn_Ready->OnClicked.AddDynamic(this, &ULobbyBoardWidget::OnReadyClicked);
 	if (Btn_Back) Btn_Back->OnClicked.AddDynamic(this, &ULobbyBoardWidget::OnBackClicked);
 	
-	if (AArrowGameState* GS = GetWorld()->GetGameState<AArrowGameState>())
+	if (AArrowGameState* GS = World ? World->GetGameState<AArrowGameState>() : nullptr)
 	{
 		GS->OnPlayerListChanged.AddDynamic(this, &ULobbyBoardWidget::OnLobbyPlayerListChanged);
 	}
 
+	if (APlayerController* OwningPC = GetOwningPlayer())
+	{
+		if (AArrowPlayerState* ArrowPS = OwningPC->GetPlayerState<AArrowPlayerState>())
+		{
+			ArrowPS->OnReadyStateChanged.RemoveDynamic(this, &ULobbyBoardWidget::HandleLocalReadyStateChanged);
+			ArrowPS->OnReadyStateChanged.AddDynamic(this, &ULobbyBoardWidget::HandleLocalReadyStateChanged);
+		}
+	}
+
 	RefreshPlayerList();
 	ScheduleDelayedPlayerListRefresh();
+	UpdateCustomizationPanelEnabled();
 }
 
 void ULobbyBoardWidget::NativeDestruct()
@@ -77,12 +85,26 @@ void ULobbyBoardWidget::NativeDestruct()
 		GS->OnPlayerListChanged.RemoveDynamic(this, &ULobbyBoardWidget::OnLobbyPlayerListChanged);
 	}
 
+	if (APlayerController* OwningPC = GetOwningPlayer())
+	{
+		if (AArrowPlayerState* ArrowPS = OwningPC->GetPlayerState<AArrowPlayerState>())
+		{
+			ArrowPS->OnReadyStateChanged.RemoveDynamic(this, &ULobbyBoardWidget::HandleLocalReadyStateChanged);
+		}
+	}
+
 	Super::NativeDestruct();
 }
 
 void ULobbyBoardWidget::OnLobbyPlayerListChanged()
 {
 	ScheduleDelayedPlayerListRefresh();
+	UpdateCustomizationPanelEnabled();
+}
+
+void ULobbyBoardWidget::HandleLocalReadyStateChanged(bool bNewReady)
+{
+	UpdateCustomizationPanelEnabled();
 }
 
 void ULobbyBoardWidget::ScheduleDelayedPlayerListRefresh()
@@ -117,32 +139,35 @@ void ULobbyBoardWidget::RefreshPlayerList()
 	// 1. 기존 리스트 싹 비우기
 	SB_PlayerList->ClearChildren();
 
-	// 2. GameState에서 플레이어 목록 가져오기
-	if (UWorld* World = GetWorld())
+	UWorld* World = GetWorld();
+	if (!World)
 	{
-		if (AGameStateBase* GS = World->GetGameState())
+		return;
+	}
+
+	// 2. GameState에서 플레이어 목록 가져오기
+	if (AGameStateBase* GS = World->GetGameState())
+	{
+		for (APlayerState* PS : GS->PlayerArray)
 		{
-			for (APlayerState* PS : GS->PlayerArray)
+			if (AArrowPlayerState* ArrowPS = Cast<AArrowPlayerState>(PS))
 			{
-				if (AArrowPlayerState* ArrowPS = Cast<AArrowPlayerState>(PS))
+				// 3. Row 위젯 생성 및 데이터 설정
+				ULobbyRowWidget* NewRow = CreateWidget<ULobbyRowWidget>(this, RowWidgetClass);
+				if (NewRow)
 				{
-					// 3. Row 위젯 생성 및 데이터 설정
-					ULobbyRowWidget* NewRow = CreateWidget<ULobbyRowWidget>(this, RowWidgetClass);
-					if (NewRow)
-					{
-						NewRow->Setup(ArrowPS);
-						SB_PlayerList->AddChild(NewRow);
-					}
+					NewRow->Setup(ArrowPS);
+					SB_PlayerList->AddChild(NewRow);
 				}
 			}
 		}
 	}
-	if (Btn_Start && GetWorld()->GetNetMode() < NM_Client)
+	if (Btn_Start && World->GetNetMode() < NM_Client)
 	{
 		bool bAllReady = true;
 		int32 PlayerCount = 0;
 
-		if (AGameStateBase* GS = GetWorld()->GetGameState())
+		if (AGameStateBase* GS = World->GetGameState())
 		{
 			PlayerCount = GS->PlayerArray.Num();
 			for (APlayerState* PS : GS->PlayerArray)
@@ -175,7 +200,14 @@ void ULobbyBoardWidget::OnReadyClicked()
 		if (AArrowPlayerState* PS = PC->GetPlayerState<AArrowPlayerState>())
 		{
 			// 토글 방식: 누를 때마다 상태 반전
-			PS->ServerSetReady(!PS->IsReady());
+			const bool bNextReady = !PS->IsReady();
+			PS->ServerSetReady(bNextReady);
+
+			// 서버 복제 콜백을 기다리기 전, 클릭한 화면에서는 즉시 잠금 상태를 보여준다.
+			if (CustomizationPanel)
+			{
+				CustomizationPanel->SetIsEnabled(!bNextReady);
+			}
 		}
 	}
 	
@@ -186,7 +218,13 @@ void ULobbyBoardWidget::OnStartClicked()
 {
 	CommitLocalCustomizePreset();
 
-	AGameStateBase* GS = GetWorld()->GetGameState();
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	AGameStateBase* GS = World->GetGameState();
 	if (!GS) return;
 
 	if (GS->PlayerArray.Num() < 2)
@@ -220,28 +258,26 @@ void ULobbyBoardWidget::OnStartClicked()
 	if (bAllReady)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("모든 플레이어 준비 완료! 출정 가능!"));
-		if (AGameModeBase* CurrentGM = GetWorld()->GetAuthGameMode())
+		if (AGameModeBase* CurrentGM = World->GetAuthGameMode())
 		{
 			UE_LOG(LogTemp, Warning, TEXT("심리스 트래블 상태: %s"), CurrentGM->bUseSeamlessTravel ? TEXT("True") : TEXT("False"));
 		}
-		if (UWorld* World = GetWorld())
-		{
-			const int32 PlayersLeaving = GS->PlayerArray.Num();
-			if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(World->GetGameInstance()))
-			{
-				ArrowGI->SetMatchStartPlayerCount(PlayersLeaving);
-			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("ArrowGameInstance 캐스트 실패 — MatchStartPlayerCount 설정 안 됨"));
-			}
 
-			// 전투 GameMode를 URL에 명시 (심리스 2회차 트래블 시 World Settings만으로는 GM이 안 바뀌는 경우 방지)
-			const FString TravelURL = TEXT(
-				"/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024"
-				"?game=/Game/ArrowGame/Blueprint/GameMode/BP_ArrowGameGameMode.BP_ArrowGameGameMode_C");
-			World->ServerTravel(TravelURL);
+		const int32 PlayersLeaving = GS->PlayerArray.Num();
+		if (UArrowGameInstance* ArrowGI = Cast<UArrowGameInstance>(World->GetGameInstance()))
+		{
+			ArrowGI->SetMatchStartPlayerCount(PlayersLeaving);
 		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("ArrowGameInstance 캐스트 실패 — MatchStartPlayerCount 설정 안 됨"));
+		}
+
+		// 전투 GameMode를 URL에 명시 (심리스 2회차 트래블 시 World Settings만으로는 GM이 안 바뀌는 경우 방지)
+		const FString TravelURL = TEXT(
+			"/Game/HwaseongHaenggung/Maps/HwaseongHaenggung2_2024"
+			"?game=/Game/ArrowGame/Blueprint/GameMode/BP_ArrowGameGameMode.BP_ArrowGameGameMode_C");
+		World->ServerTravel(TravelURL);
 	}
 	else
 	{
@@ -277,4 +313,23 @@ bool ULobbyBoardWidget::CommitLocalCustomizePreset()
 	const bool bCommitted = CustomizationPanel->CommitCurrentPresetToPlayerState();
 	UE_LOG(LogTemp, Log, TEXT("LobbyBoard: 커마 프리셋 저장 요청 결과 - %s"), bCommitted ? TEXT("성공") : TEXT("실패"));
 	return bCommitted;
+}
+
+void ULobbyBoardWidget::UpdateCustomizationPanelEnabled()
+{
+	if (!CustomizationPanel)
+	{
+		return;
+	}
+
+	APlayerController* OwningPC = GetOwningPlayer();
+	AArrowPlayerState* ArrowPS = OwningPC ? OwningPC->GetPlayerState<AArrowPlayerState>() : nullptr;
+	if (!ArrowPS)
+	{
+		return;
+	}
+
+	// 준비 완료 상태에서는 커마를 잠근다.
+	// 이미 서버에 제출한 프리셋과 로컬 프리뷰가 달라지는 것을 막기 위한 UI 레벨의 가드다.
+	CustomizationPanel->SetIsEnabled(!ArrowPS->IsReady());
 }

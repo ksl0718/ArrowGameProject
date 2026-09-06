@@ -156,6 +156,8 @@ void AUserArcherCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
     if (DokkaebiVisionComponent)
     {
         DokkaebiVisionComponent->ClearSight();
+    }
+
     if (AArrowPlayerState* ArrowPS = GetPlayerState<AArrowPlayerState>())
     {
         ArrowPS->OnCustomizePresetChanged.RemoveDynamic(this, &AUserArcherCharacter::HandleCustomizePresetChanged);
