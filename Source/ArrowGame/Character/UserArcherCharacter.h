@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "ArcherCharacterBase.h"
+#include "ArrowGame/Customization/CharacterCustomizeTypes.h"
 #include "SkillCooldownProvider.h"
 #include "InputActionValue.h"
 #include "../Weapon/Bow.h"
@@ -95,6 +96,8 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void OnRep_PlayerState() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 #pragma endregion
 
@@ -325,6 +328,16 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	void OnRollEnd(UAnimMontage* Montage, bool bInterrupted);
+#pragma endregion
+
+#pragma region Customization
+	// PlayerState에 저장된 프리셋을 현재 캐릭터 메시 컴포넌트들에 적용한다.
+	// SeamlessTravel 이후 실제 Pawn이 새로 스폰되면 기본 BP 메시 상태이므로 이 함수를 다시 호출해야 한다.
+	void ApplyCustomizePresetFromPlayerState();
+
+	// PlayerState의 커마 프리셋이 나중에 복제될 때 캐릭터 외형을 다시 갱신하기 위한 콜백이다.
+	UFUNCTION()
+	void HandleCustomizePresetChanged(const FCharacterCustomizePreset& NewPreset);
 #pragma endregion
 
 #pragma region RollSkill_Data

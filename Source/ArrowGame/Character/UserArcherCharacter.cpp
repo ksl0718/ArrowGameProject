@@ -14,6 +14,7 @@
 #include "ArrowGame/Component/SpiritSightComponent.h"
 #include "ArrowGame/UI/BowReticleWidget.h"
 #include "ArrowGame/UI/SpiritSightMarkerWidget.h"
+#include "ArrowGame/Customization/CharacterCustomizeComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -132,6 +133,22 @@ void AUserArcherCharacter::BeginPlay()
     InteractionSphere->OnComponentBeginOverlap.AddDynamic(this, &AUserArcherCharacter::OnInteractionOverlapBegin);
     InteractionSphere->OnComponentEndOverlap.AddDynamic(this, &AUserArcherCharacter::OnInteractionOverlapEnd);
 
+    ApplyCustomizePresetFromPlayerState();
+    
+}
+
+void AUserArcherCharacter::PossessedBy(AController* NewController)
+{
+    Super::PossessedBy(NewController);
+
+    ApplyCustomizePresetFromPlayerState();
+}
+
+void AUserArcherCharacter::OnRep_PlayerState()
+{
+    Super::OnRep_PlayerState();
+
+    ApplyCustomizePresetFromPlayerState();
 }
 
 void AUserArcherCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -139,6 +156,9 @@ void AUserArcherCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
     if (DokkaebiVisionComponent)
     {
         DokkaebiVisionComponent->ClearSight();
+    if (AArrowPlayerState* ArrowPS = GetPlayerState<AArrowPlayerState>())
+    {
+        ArrowPS->OnCustomizePresetChanged.RemoveDynamic(this, &AUserArcherCharacter::HandleCustomizePresetChanged);
     }
 
     if (DefaultMappingContext)
@@ -160,6 +180,42 @@ void AUserArcherCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
     }
 
     Super::EndPlay(EndPlayReason);
+}
+
+void AUserArcherCharacter::ApplyCustomizePresetFromPlayerState()
+{
+    AArrowPlayerState* ArrowPS = GetPlayerState<AArrowPlayerState>();
+    if (!ArrowPS)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("UserArcherCharacter: ArrowPlayerState 없음 - 커마 적용 대기"));
+        return;
+    }
+
+    // PlayerState가 먼저 생기고 커마 프리셋 복제가 늦게 도착할 수 있다.
+    // 그래서 최초 적용도 시도하고, 이후 변경 알림도 받아서 다시 적용한다.
+    ArrowPS->OnCustomizePresetChanged.RemoveDynamic(this, &AUserArcherCharacter::HandleCustomizePresetChanged);
+    ArrowPS->OnCustomizePresetChanged.AddDynamic(this, &AUserArcherCharacter::HandleCustomizePresetChanged);
+
+    UE_LOG(LogTemp, Log, TEXT("UserArcherCharacter: PlayerState 프리셋 %d개 읽음"), ArrowPS->GetCustomizePreset().SelectedParts.Num());
+
+    if (UCharacterCustomizeComponent* CustomizeComponent = FindComponentByClass<UCharacterCustomizeComponent>())
+    {
+        CustomizeComponent->ApplyPreset(ArrowPS->GetCustomizePreset());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("UserArcherCharacter: CharacterCustomizeComponent 없음 - 커마 적용 실패"));
+    }
+}
+
+void AUserArcherCharacter::HandleCustomizePresetChanged(const FCharacterCustomizePreset& NewPreset)
+{
+    UE_LOG(LogTemp, Log, TEXT("UserArcherCharacter: 복제된 커마 프리셋 %d개 수신"), NewPreset.SelectedParts.Num());
+
+    if (UCharacterCustomizeComponent* CustomizeComponent = FindComponentByClass<UCharacterCustomizeComponent>())
+    {
+        CustomizeComponent->ApplyPreset(NewPreset);
+    }
 }
 
 void AUserArcherCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

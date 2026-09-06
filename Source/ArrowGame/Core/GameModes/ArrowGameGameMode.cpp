@@ -12,6 +12,8 @@
 AArrowGameGameMode::AArrowGameGameMode()
 {
 	bUseSeamlessTravel = true;
+	PlayerStateClass = AArrowPlayerState::StaticClass();
+
 	// 트래블·역할 배정 전까지 폰 없음 → RestartPlayer 한 번에 빙의·입력·BeginPlay 순서 보장
 	bStartPlayersAsSpectators = true;
 }
@@ -83,6 +85,7 @@ void AArrowGameGameMode::RegisterPendingPlayer(APlayerController* NewPlayer)
 		return;
 	}
 
+	RestoreCustomizePresetIfNeeded(NewPlayer->GetPlayerState<AArrowPlayerState>());
 	PendingPlayers.AddUnique(NewPlayer);
 }
 
@@ -99,6 +102,8 @@ void AArrowGameGameMode::SyncPendingPlayersFromGameState()
 	{
 		if (AArrowPlayerState* ArrowPS = Cast<AArrowPlayerState>(PS))
 		{
+			RestoreCustomizePresetIfNeeded(ArrowPS);
+
 			if (APlayerController* PC = ArrowPS->GetPlayerController())
 			{
 				if (IsValid(PC))
@@ -118,6 +123,37 @@ void AArrowGameGameMode::SyncPendingPlayersFromGameState()
 	{
 		return !IsValid(PC);
 	});
+}
+
+void AArrowGameGameMode::RestoreCustomizePresetIfNeeded(AArrowPlayerState* PlayerState) const
+{
+	if (!HasAuthority() || !PlayerState)
+	{
+		return;
+	}
+
+	if (PlayerState->GetCustomizePreset().SelectedParts.Num() > 0)
+	{
+		return;
+	}
+
+	UArrowGameInstance* ArrowGI = GetWorld() ? Cast<UArrowGameInstance>(GetWorld()->GetGameInstance()) : nullptr;
+	if (!ArrowGI)
+	{
+		return;
+	}
+
+	FCharacterCustomizePreset CachedPreset;
+	if (!ArrowGI->TryGetCachedCustomizePresetForPlayer(PlayerState, CachedPreset))
+	{
+		return;
+	}
+
+	// 심리스 트래블 복사가 비었거나 새 PlayerState가 생긴 경우, 서버 PlayerState를 캐시 값으로 복원한다.
+	PlayerState->SetCustomizePresetOnServer(CachedPreset);
+	UE_LOG(LogTemp, Log, TEXT("ArrowGameGameMode: 커마 프리셋 캐시 복원 - %s / %d개"),
+		*PlayerState->GetPlayerName(),
+		CachedPreset.SelectedParts.Num());
 }
 
 int32 AArrowGameGameMode::GetRequiredPlayersToStart() const
